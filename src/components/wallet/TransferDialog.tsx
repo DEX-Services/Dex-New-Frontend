@@ -4,13 +4,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { wallet, useWallet, WALLETS, shortAddress, getTreasuryAddress } from "@/lib/useWallet";
+import { wallet, useWallet, WALLETS, shortAddress, getTreasuryAddress, getConnectedProvider } from "@/lib/useWallet";
+import { depositUsdc, isDexVaultConfigured } from "@/lib/contracts/dexVault";
 import { ArrowDownToLine, ArrowUpFromLine, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { Address } from "viem";
 
-const NETWORKS = ["Ethereum", "Arbitrum", "Base", "BNB Chain", "Solana"];
-const DEFAULT_DEPOSIT_CHAIN = "Ethereum";
+const NETWORKS = ["Avalanche Fuji", "Ethereum", "Arbitrum", "Base", "BNB Chain", "Solana"];
+const DEFAULT_DEPOSIT_CHAIN = "Avalanche Fuji";
+const SNOWTRACE_TX_URL = "https://testnet.snowtrace.io/tx/";
 
 function assetChainSymbol(asset: string) {
   return asset === "USDT" || asset === "USDC" ? "0x0" : "0x0";
@@ -27,7 +30,7 @@ export function TransferDialog({
 }) {
   const w = useWallet();
   const [mode, setMode] = useState<"deposit" | "withdraw">(defaultMode);
-  const [asset, setAsset] = useState("USDT");
+  const [asset, setAsset] = useState("USDC");
   const [network, setNetwork] = useState(DEFAULT_DEPOSIT_CHAIN);
   const [amount, setAmount] = useState("");
   const [destination, setDestination] = useState("");
@@ -59,6 +62,21 @@ export function TransferDialog({
         toast.success("Withdrawal confirmed in wallet", {
           description: `${amt} ${asset} sent to ${shortAddress(destination)} on ${network}`,
         });
+      } else if (asset === "USDC" && network === "Avalanche Fuji") {
+        if (!isDexVaultConfigured()) return toast.error("DexVault contract is not configured yet");
+        const provider = getConnectedProvider();
+        if (!provider) return toast.error("Connect a wallet first");
+
+        const txHash = await depositUsdc(provider, w.address as Address, amount);
+
+        wallet.deposit(asset, amt);
+        toast.success("Deposit confirmed on-chain", {
+          description: `${amt} USDC sent to treasury`,
+          action: {
+            label: "View on Snowtrace",
+            onClick: () => window.open(`${SNOWTRACE_TX_URL}${txHash}`, "_blank"),
+          },
+        });
       } else {
         if (!treasuryAddress) return toast.error("Treasury address is not configured");
 
@@ -86,7 +104,7 @@ export function TransferDialog({
     }
   };
 
-  const walletName = WALLETS.find((x) => x.id === w.walletId)?.name ?? "—";
+  const walletName = WALLETS.find((x) => x.id === w.walletId)?.name ?? "ï¿½";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -97,7 +115,7 @@ export function TransferDialog({
             Transfer
           </DialogTitle>
           <DialogDescription>
-            {w.connected ? `Connected via ${walletName} · ${shortAddress(w.address)}` : "Connect a wallet to deposit or withdraw."}
+            {w.connected ? `Connected via ${walletName} ï¿½ ${shortAddress(w.address)}` : "Connect a wallet to deposit or withdraw."}
           </DialogDescription>
         </DialogHeader>
 
@@ -115,12 +133,20 @@ export function TransferDialog({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[10px] text-muted-foreground">Asset</label>
-                <Select value={asset} onValueChange={setAsset}>
+                <Select
+                  value={asset}
+                  onValueChange={setAsset}
+                  disabled={mode === "deposit" && network === "Avalanche Fuji"}
+                >
                   <SelectTrigger className="h-9 bg-muted/30"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {w.balances.map((b) => (
-                      <SelectItem key={b.asset} value={b.asset}>{b.asset}</SelectItem>
-                    ))}
+                    {mode === "deposit" && network === "Avalanche Fuji" ? (
+                      <SelectItem value="USDC">USDC</SelectItem>
+                    ) : (
+                      w.balances.map((b) => (
+                        <SelectItem key={b.asset} value={b.asset}>{b.asset}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -157,11 +183,15 @@ export function TransferDialog({
 
             <TabsContent value="deposit" className="m-0 space-y-2">
               <div className="glass rounded-lg p-3 text-[11px] space-y-1">
-                <div className="text-muted-foreground">Deposit via wallet confirmation</div>
+                <div className="text-muted-foreground">
+                  {network === "Avalanche Fuji" ? "Deposit via DexVault contract" : "Deposit via wallet confirmation"}
+                </div>
                 <div className="font-mono text-xs break-all">Treasury address: {treasuryAddress}</div>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                Your connected wallet will ask for confirmation before sending {asset} to the treasury.
+                {network === "Avalanche Fuji"
+                  ? "Your wallet will ask to approve USDC, then confirm the deposit. Funds are forwarded to treasury on-chain."
+                  : `Your connected wallet will ask for confirmation before sending ${asset} to the treasury.`}
               </p>
             </TabsContent>
 

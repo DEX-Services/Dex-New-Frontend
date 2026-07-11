@@ -31,7 +31,7 @@ export type WalletState = {
   provider?: Eip1193Provider | null;
 };
 
-type Eip1193Provider = {
+export type Eip1193Provider = {
   request: (args: { method: string; params?: unknown[] | object }) => Promise<unknown>;
   on?: (event: string, handler: (...args: unknown[]) => void) => void;
   removeListener?: (event: string, handler: (...args: unknown[]) => void) => void;
@@ -208,7 +208,7 @@ function toWalletError(error: unknown) {
   return "Wallet request failed";
 }
 
-function getConnectedProvider() {
+export function getConnectedProvider() {
   return activeProvider ?? state.provider ?? null;
 }
 
