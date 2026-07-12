@@ -373,7 +373,7 @@ export function TradePanel({
         {orderType === "limit" && !isOptions && (
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Price (USDN)</span>
+              <span>Price (USDC)</span>
               <button onClick={() => setLimitPrice(price.toFixed(2))} className="text-primary hover:underline font-medium">Mid</button>
             </div>
             <Input value={limitPrice} onChange={e => setLimitPrice(e.target.value)}
@@ -514,9 +514,9 @@ export function TradePanel({
             />
             <div
               className="flex h-8 items-center rounded-md border border-border bg-muted/30 px-3 text-xs font-semibold text-foreground"
-              aria-label="Size unit USDN"
+              aria-label="Size unit USDC"
             >
-              USDN
+              USDC
             </div>
           </div>
           <Slider value={[sizePct]} min={1} max={100} step={1} onValueChange={v => setSizePercentValue(v[0])}
@@ -536,7 +536,7 @@ export function TradePanel({
               Custom
             </button>
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">Min. trade size 1 USDN</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">Min. trade size 1 USDC</div>
         </div>
 
         {!isOptions && orderType === "tpsl" && (

@@ -4,7 +4,7 @@
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
   "BTC-USDT": { symbol: "BTC-USDT", market: "SPOT" },
   "ETH-USDT": { symbol: "ETH-USDT", market: "SPOT" },
-  "BTC-PERP": { symbol: "BTC-USDT", market: "FUTURES" },
+  "BTC-PERP": { symbol: "BTC-USDC", market: "FUTURES" },
 };
 
 // Underlying spot symbol registered as an Options market in the engine, keyed
