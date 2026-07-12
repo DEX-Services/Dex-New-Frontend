@@ -429,7 +429,7 @@ export default function Token() {
             </div>
 
             {[
-              { title: "Product", links: ["Spot","Futures","Options","Copy Trading","Prediction"] },
+              { title: "Product", links: ["Spot","Futures","Options","Copy Trading"] },
               { title: "Company",  links: ["About","Careers","Blog","Press","Contact"] },
               { title: "Legal",    links: ["Terms","Privacy","Cookies","Disclosures","Risk"] },
             ].map(col => (

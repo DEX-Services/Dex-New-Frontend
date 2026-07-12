@@ -104,7 +104,7 @@ export function TransferDialog({
     }
   };
 
-  const walletName = WALLETS.find((x) => x.id === w.walletId)?.name ?? "�";
+  const walletName = WALLETS.find((x) => x.id === w.walletId)?.name ?? "ï¿½";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,7 +115,7 @@ export function TransferDialog({
             Transfer
           </DialogTitle>
           <DialogDescription>
-            {w.connected ? `Connected via ${walletName} � ${shortAddress(w.address)}` : "Connect a wallet to deposit or withdraw."}
+            {w.connected ? `Connected via ${walletName} ${shortAddress(w.address)}` : "Connect a wallet to deposit or withdraw."}
           </DialogDescription>
         </DialogHeader>
 
@@ -164,13 +164,15 @@ export function TransferDialog({
             <div>
               <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
                 <span>Amount</span>
-                <button
-                  type="button"
-                  className="text-primary hover:underline"
-                  onClick={() => setAmount(String(balance))}
-                >
-                  Max: {balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset}
-                </button>
+                {mode === "withdraw" && (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => setAmount(String(balance))}
+                  >
+                    Max: {balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} {asset}
+                  </button>
+                )}
               </div>
               <Input
                 value={amount}
@@ -182,12 +184,12 @@ export function TransferDialog({
             </div>
 
             <TabsContent value="deposit" className="m-0 space-y-2">
-              <div className="glass rounded-lg p-3 text-[11px] space-y-1">
+              {/* <div className="glass rounded-lg p-3 text-[11px] space-y-1">
                 <div className="text-muted-foreground">
                   {network === "Avalanche Fuji" ? "Deposit via DexVault contract" : "Deposit via wallet confirmation"}
                 </div>
                 <div className="font-mono text-xs break-all">Treasury address: {treasuryAddress}</div>
-              </div>
+              </div> */}
               <p className="text-[10px] text-muted-foreground">
                 {network === "Avalanche Fuji"
                   ? "Your wallet will ask to approve USDC, then confirm the deposit. Funds are forwarded to treasury on-chain."

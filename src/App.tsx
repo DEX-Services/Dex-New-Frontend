@@ -13,8 +13,6 @@ import CopyTrade from "./pages/CopyTrade.tsx";
 import Settings from "./pages/Settings.tsx";
 import Profile from "./pages/Profile.tsx";
 import PropFirm from "./pages/PropFirm.tsx";
-import Prediction from "./pages/Prediction.tsx";
-import PredictionOrders from "./pages/PredictionOrders.tsx";
 import TradingBots from "./pages/TradingBots.tsx";
 import AIAgent from "./pages/AIAgent.tsx";
 import P2P from "./pages/P2P.tsx";
@@ -61,8 +59,6 @@ const App = () => (
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/prop" element={<PropFirm />} />
-          <Route path="/prediction" element={<Prediction />} />
-          <Route path="/prediction/orders" element={<PredictionOrders />} />
           <Route path="/p2p" element={<P2P />} />
           <Route path="/p2p/orders" element={<P2POrders />} />
           <Route path="/p2p/advertiser" element={<P2PAdvertiser />} />

@@ -17,7 +17,6 @@ const navItems = [
   { to: "/markets", icon: LayoutDashboard, label: "Markets" },
   { to: "/copy", icon: Users, label: "Copy" },
   { to: "/prop", icon: Building2, label: "Prop Firm" },
-  { to: "/prediction", icon: Sparkles, label: "Predict" },
   { to: "/p2p", icon: Repeat, label: "P2P" },
   { to: "/token", icon: Coins, label: "Token" },
   { to: "/sip", icon: CalendarClock, label: "SIP/SWP" },
@@ -37,10 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setTransferOpen(true);
   };
 
-  const totalUsd = w.balances.reduce((s, b) => {
-    const px = b.asset === "BTC" ? 67000 : b.asset === "ETH" ? 3500 : b.asset === "SOL" ? 168 : 1;
-    return s + b.amount * px;
-  }, 0);
+  const totalUsd = w.balances.reduce((sum, balance) => sum + balance.amount, 0);
 
   return (
     <div className="min-h-screen w-full flex flex-col">
@@ -105,7 +101,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {w.balances.map(b => (
                   <div key={b.asset} className="flex justify-between text-xs glass rounded px-2 py-1.5">
                     <span className="font-medium">{b.asset}</span>
-                    <span className="font-mono">{b.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                    <span className="font-mono">{b.amount.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
                   </div>
                 ))}
               </div>
@@ -123,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <Button variant="outline" className={cn("glass px-2.5 sm:px-4", w.connected ? "border-buy/40 text-buy hover:bg-buy/10 hover:text-buy" : "border-primary/40 text-primary hover:bg-primary/10 hover:text-primary")} onClick={() => setWalletOpen(true)}>
           <span className={cn("mr-1 sm:mr-1.5 h-1.5 w-1.5 rounded-full animate-pulse", w.connected ? "bg-buy" : "bg-primary")} />
-          <span className="hidden sm:inline">{w.connected ? `${getWalletSourceLabel(w.walletId)} · ${shortAddress(w.address)}` : "Connect Wallet"}</span>
+          <span className="hidden sm:inline">{w.connected ? `${getWalletSourceLabel(w.walletId)} Â· ${shortAddress(w.address)}` : "Connect Wallet"}</span>
           <span className="sm:hidden">{w.connected ? shortAddress(w.address) : "Connect"}</span>
         </Button>
 

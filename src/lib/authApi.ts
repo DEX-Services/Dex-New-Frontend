@@ -37,3 +37,17 @@ export function logout() {
 export function me() {
   return authReq<{ user: AuthUser }>(`/auth/me`);
 }
+export type WalletBalanceResponse = {
+  balances: {
+    USDC: string;
+    USDT: string;
+    BUSD: string;
+    OUR_Token: string;
+  };
+  token: string;
+  amount: string;
+};
+
+export function getWalletBalances() {
+  return authReq<WalletBalanceResponse>(`/wallet/balance`);
+}

@@ -41,7 +41,6 @@ export default function Landing() {
           <Link to="/markets" className="hover:text-white transition-colors">Market</Link>
           <Link to="/copy" className="hover:text-white transition-colors">Copy</Link>
           <Link to="/prop" className="hover:text-white transition-colors">Prop Firm</Link>
-          <Link to="/prediction" className="hover:text-white transition-colors">Prediction</Link>
           <Link to="/p2p" className="hover:text-white transition-colors">P2P</Link>
           <Link to="/token" className="hover:text-white transition-colors">Token</Link>
           <Link to="/sip" className="hover:text-white transition-colors">SIP/SWP</Link>
@@ -69,7 +68,6 @@ export default function Landing() {
           <Link to="/markets" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Market</Link>
           <Link to="/copy" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Copy</Link>
           <Link to="/prop" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
-          <Link to="/prediction" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Prediction</Link>
           <Link to="/p2p" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
           <Link to="/token" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Token</Link>
           <Link to="/sip" className="text-slate-300 hover:text-white font-medium py-2" onClick={() => setMobileMenuOpen(false)}>SIP/SWP</Link>
@@ -539,7 +537,7 @@ export default function Landing() {
               <span className="font-bold text-xl tracking-tight text-white">DEX<span className="text-cyan-400">.ai</span></span>
             </Link>
             <p className="max-w-sm text-sm leading-6 text-slate-400">
-              Multi-asset trading, wallet connectivity, copy strategies, prediction markets, and AI tools in one exchange experience.
+              Multi-asset trading, wallet connectivity, copy strategies, and AI tools in one exchange experience.
             </p>
           </div>
 
@@ -556,7 +554,6 @@ export default function Landing() {
           <div>
             <h3 className="mb-4 text-sm font-bold text-white">Products</h3>
             <div className="space-y-3 text-sm text-slate-400">
-              <Link to="/prediction" className="block hover:text-cyan-300 transition-colors">Prediction</Link>
               <Link to="/p2p" className="block hover:text-cyan-300 transition-colors">P2P</Link>
               <Link to="/token" className="block hover:text-cyan-300 transition-colors">Token</Link>
               <Link to="/sip" className="block hover:text-cyan-300 transition-colors">DYP/SWAP</Link>

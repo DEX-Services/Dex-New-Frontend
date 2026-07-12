@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { getNonce, login as apiLogin, logout as apiLogout, me } from "@/lib/authApi";
+import { getNonce, getWalletBalances, login as apiLogin, logout as apiLogout, me } from "@/lib/authApi";
 
 export type WalletId = "metamask" | "coinbase" | "bitget";
 
@@ -51,13 +51,36 @@ type SendTransactionParams = {
   data?: string;
 };
 
-const DEFAULT_BALANCES: Balance[] = [
-  { asset: "USDT", amount: 25000 },
-  { asset: "USDC", amount: 5000 },
-  { asset: "BTC", amount: 0.42 },
-  { asset: "ETH", amount: 6.18 },
-  { asset: "SOL", amount: 120 },
-];
+const SUPPORTED_ASSETS = ["USDC", "USDT", "BUSD", "OUR_Token"] as const;
+type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
+
+const ASSET_DECIMALS: Record<SupportedAsset, number> = {
+  USDC: 6,
+  USDT: 6,
+  BUSD: 18,
+  OUR_Token: 18,
+};
+
+const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({ asset, amount: 0 }));
+
+function rawBalanceToNumber(raw: string, decimals: number) {
+  const normalized = raw.trim();
+  if (!/^\d+$/.test(normalized)) return 0;
+  const padded = normalized.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, -decimals) || "0";
+  const fraction = decimals === 0 ? "" : padded.slice(-decimals).replace(/0+$/, "");
+  return Number(fraction ? `${whole}.${fraction}` : whole);
+}
+
+async function syncBalancesWithBackend() {
+  const response = await getWalletBalances();
+  const balances = SUPPORTED_ASSETS.map((asset) => ({
+    asset,
+    amount: rawBalanceToNumber(response.balances[asset] ?? "0", ASSET_DECIMALS[asset]),
+  }));
+  setState({ balances });
+  return balances;
+}
 
 const STORAGE_KEY = "dexai.wallet.session.v1";
 const DISCONNECT_KEY = "dexai.wallet.disconnected.v1";
@@ -134,7 +157,10 @@ function attachProvider(provider: Eip1193Provider, source: WalletId) {
   const accountsChanged = (accounts: unknown) => {
     const next = Array.isArray(accounts) ? accounts[0] : undefined;
     if (typeof next === "string" && next) {
-      setState({ connected: true, walletId: source, address: next, provider });
+      setState({ connected: true, walletId: source, address: next, provider, balances: DEFAULT_BALANCES });
+      authenticateWithBackend(provider, source, next)
+        .then(syncBalancesWithBackend)
+        .catch((error) => setState({ error: toWalletError(error) }));
       persistSession(source, next);
       return;
     }
@@ -232,6 +258,7 @@ async function connect(source: WalletId) {
 
     try {
       await authenticateWithBackend(provider, source, address);
+      await syncBalancesWithBackend();
     } catch (authError) {
       // Wallet is connected on-chain even if backend session creation fails; surface but don't block.
       console.warn("Backend login failed", authError);
@@ -253,28 +280,27 @@ async function authenticateWithBackend(provider: Eip1193Provider, source: Wallet
 
 async function disconnect() {
   const provider = getConnectedProvider();
-  try {
-    if (provider) {
-      try {
-        await requestWithTimeout(provider, "wallet_revokePermissions", [{ eth_accounts: {} }]);
-      } catch {
-        // Not all providers support permission revocation.
-      }
-    }
+
+  // Clear local state immediately so network cleanup cannot erase a newer connection.
+  detachProvider(provider);
+  activeProvider = null;
+  clearPersistedSession();
+  state = { connected: false, walletId: undefined, address: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
+  emit();
+
+  if (provider) {
     try {
-      await apiLogout();
+      await requestWithTimeout(provider, "wallet_revokePermissions", [{ eth_accounts: {} }]);
     } catch {
-      // Backend session may already be gone; not fatal to local disconnect.
+      // Not all providers support permission revocation.
     }
-  } finally {
-    detachProvider(provider);
-    activeProvider = null;
-    clearPersistedSession();
-    state = { connected: false, walletId: undefined, address: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
-    emit();
+  }
+  try {
+    await apiLogout();
+  } catch {
+    // Backend session may already be gone; not fatal to local disconnect.
   }
 }
-
 async function restoreSession() {
   if (!canRestoreWallet()) return null;
   const stored = loadSession();
@@ -292,10 +318,11 @@ async function restoreSession() {
   try {
     await me();
   } catch {
-    // No active backend session (e.g. expired cookie) — re-authenticate silently.
-    authenticateWithBackend(provider, stored.walletId, address).catch(() => {});
+    // No active backend session (e.g. expired cookie) - re-authenticate silently.
+    await authenticateWithBackend(provider, stored.walletId, address);
   }
 
+  await syncBalancesWithBackend();
   return { walletId: stored.walletId, address };
 }
 
@@ -310,6 +337,7 @@ export const wallet = {
   disconnect,
   restoreSession,
   sendTransfer,
+  refreshBalances: syncBalancesWithBackend,
   clearError() {
     setState({ error: undefined });
   },

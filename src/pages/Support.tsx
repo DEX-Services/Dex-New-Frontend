@@ -35,7 +35,7 @@ const FAQS = [
   },
   {
     question: "Where can I review my open orders?",
-    answer: "Open orders appear in the lower trading panel. Prediction and P2P orders also have dedicated order pages.",
+    answer: "Open orders appear in the lower trading panel. P2P orders also have a dedicated order page.",
   },
   {
     question: "How do I secure my account?",
