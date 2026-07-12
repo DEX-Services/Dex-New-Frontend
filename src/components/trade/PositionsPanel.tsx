@@ -1,21 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
-
-const MOCK_POSITIONS = [
-  { symbol: "BTC-PERP", side: "long" as const, size: 0.142, entry: 66120, leverage: 10, margin: 940 },
-  { symbol: "ETH-PERP", side: "short" as const, size: 2.4, entry: 3580, leverage: 5, margin: 1718 },
-  { symbol: "SOL-PERP", side: "long" as const, size: 18.5, entry: 162.4, leverage: 20, margin: 150 },
-];
-
-const MOCK_ORDERS = [
-  { id: "ord_001", symbol: "BTC-PERP", side: "buy", type: "Limit", size: 0.05, price: 66800, time: "12:42:18" },
-  { id: "ord_002", symbol: "HYPE-PERP", side: "sell", type: "Stop", size: 50, price: 30.2, time: "12:18:04" },
-];
+import { getPositions, FuturesPositionDTO, OptionsPositionDTO } from "@/lib/apiClient";
+import { useOrders } from "@/lib/useOrders";
+import { toast } from "sonner";
 
 const MOCK_HISTORY = [
   { time: "11:42", symbol: "ETH-PERP", side: "buy", size: 1.2, price: 3512.3, status: "Filled", pnl: "+$84.20" },
@@ -30,18 +22,69 @@ const MOCK_AUTOMATED_ORDERS = [
   { id: "auto_004", source: "AI Agent", name: "Risk Rebalance", strategy: "Rebalancing", symbol: "HYPE-PERP", side: "sell", type: "Market", size: 20, price: 29.84, status: "Queued" },
 ] as const;
 
-export function PositionsPanel({ markets }: { markets: ReturnType<typeof useMarkets> }) {
+export function PositionsPanel({
+  markets,
+  account,
+  orders,
+}: {
+  markets: ReturnType<typeof useMarkets>;
+  account: string;
+  orders: ReturnType<typeof useOrders>;
+}) {
+  const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
+  const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
+
+  const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
+  const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
+
+  const handleCancel = async (symbol: string, market: string, orderId: string) => {
+    try {
+      await orders.cancel(symbol, market, orderId);
+      toast.success("Order cancelled");
+    } catch (err) {
+      toast.error("Cancel failed", { description: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchPositions = () => {
+      getPositions(account)
+        .then((res) => {
+          if (cancelled) return;
+          setFuturesPositions(res.futures ?? []);
+          setOptionsPositions(res.options ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setFuturesPositions([]);
+            setOptionsPositions([]);
+          }
+        });
+    };
+    fetchPositions();
+    const interval = setInterval(fetchPositions, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [account]);
+
   const positions = useMemo(() => {
-    return MOCK_POSITIONS.map(p => {
-      const m = markets.find(mk => mk.symbol === p.symbol);
-      const mark = m?.price ?? p.entry;
-      const direction = p.side === "long" ? 1 : -1;
-      const pnl = (mark - p.entry) * p.size * direction;
-      const pnlPct = ((mark - p.entry) / p.entry) * 100 * direction * p.leverage;
-      const liq = p.side === "long" ? p.entry * (1 - 0.95 / p.leverage) : p.entry * (1 + 0.95 / p.leverage);
-      return { ...p, mark, pnl, pnlPct, liq };
+    return futuresPositions.map(p => {
+      const size = parseFloat(p.size);
+      const entry = parseFloat(p.entryPrice);
+      const mark = markets.find(mk => mk.symbol === p.symbol)?.price ?? parseFloat(p.markPrice);
+      const side = p.side === "BUY" ? "long" as const : "short" as const;
+      const leverage = p.leverage || 1;
+      const margin = parseFloat(p.margin);
+      const pnl = parseFloat(p.unrealizedPnl);
+      const direction = side === "long" ? 1 : -1;
+      const pnlPct = margin !== 0 ? (pnl / margin) * 100 : 0;
+      const liq = side === "long" ? entry * (1 - 0.95 / leverage) : entry * (1 + 0.95 / leverage);
+      return { symbol: p.symbol, side, size, entry, leverage, margin, mark, pnl, pnlPct, liq, direction };
     });
-  }, [markets]);
+  }, [futuresPositions, markets]);
 
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
 
@@ -54,8 +97,11 @@ export function PositionsPanel({ markets }: { markets: ReturnType<typeof useMark
               <TabsTrigger value="positions" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Position <span className="ml-1.5 px-1.5 py-0.5 rounded bg-primary/20 text-[10px]">{positions.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="orders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
-                Open Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{MOCK_ORDERS.length}</span>
+              <TabsTrigger value="futuresOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
+                Futures Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{futuresOrders.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="optionsOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
+                Options Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{optionsOrders.length}</span>
               </TabsTrigger>
               <TabsTrigger value="automated" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Bot / AI Agent <span className="ml-1.5 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px]">{MOCK_AUTOMATED_ORDERS.length}</span>
@@ -108,37 +154,105 @@ export function PositionsPanel({ markets }: { markets: ReturnType<typeof useMark
               ))}
             </tbody>
           </table>
+
+          {optionsPositions.length > 0 && (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Symbol</th>
+                  <th className="text-left">Type</th>
+                  <th className="text-right">Strike</th>
+                  <th className="text-right">Expiry</th>
+                  <th className="text-right">Size</th>
+                  <th className="text-right pr-3">Premium</th>
+                </tr>
+              </thead>
+              <tbody>
+                {optionsPositions.map(p => (
+                  <tr key={`${p.symbol}-${p.strikePrice}-${p.expiry}-${p.optionType}`} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2 font-sans font-semibold">{p.symbol}</td>
+                    <td className={p.optionType === "CALL" ? "text-buy" : "text-sell"}>{p.optionType}</td>
+                    <td className="text-right">{formatPrice(parseFloat(p.strikePrice))}</td>
+                    <td className="text-right">{new Date(p.expiry).toLocaleDateString()}</td>
+                    <td className="text-right">{p.size}</td>
+                    <td className="text-right pr-3">${parseFloat(p.premium).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
 
-        <TabsContent value="orders" className="flex-1 overflow-auto m-0">
-          <table className="w-full text-[11px] font-mono">
-            <thead className="text-[10px] text-muted-foreground uppercase">
-              <tr className="border-b border-border/50">
-                <th className="text-left px-3 py-1.5">Time</th>
-                <th className="text-left">Symbol</th>
-                <th className="text-left">Type</th>
-                <th className="text-left">Side</th>
-                <th className="text-right">Size</th>
-                <th className="text-right">Price</th>
-                <th className="text-right pr-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_ORDERS.map(o => (
-                <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="px-3 py-2">{o.time}</td>
-                  <td className="font-sans font-semibold">{o.symbol}</td>
-                  <td>{o.type}</td>
-                  <td className={o.side === "buy" ? "text-buy" : "text-sell"}>{o.side.toUpperCase()}</td>
-                  <td className="text-right">{o.size}</td>
-                  <td className="text-right">{formatPrice(o.price)}</td>
-                  <td className="text-right pr-3">
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"><X className="h-3 w-3" /></Button>
-                  </td>
+        <TabsContent value="futuresOrders" className="flex-1 overflow-auto m-0">
+          {futuresOrders.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No open futures orders.</div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Symbol</th>
+                  <th className="text-left">Side</th>
+                  <th className="text-right">Qty</th>
+                  <th className="text-right">Price</th>
+                  <th className="text-right">Filled</th>
+                  <th className="text-right">Status</th>
+                  <th className="text-right pr-3">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {futuresOrders.map(o => (
+                  <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
+                    <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
+                    <td className="text-right">{o.qty}</td>
+                    <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                    <td className="text-right text-muted-foreground">{o.filled}</td>
+                    <td className="text-right text-muted-foreground">{o.status}</td>
+                    <td className="text-right pr-3">
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                        onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="optionsOrders" className="flex-1 overflow-auto m-0">
+          {optionsOrders.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No open options orders.</div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Symbol</th>
+                  <th className="text-left">Side</th>
+                  <th className="text-right">Qty</th>
+                  <th className="text-right">Price</th>
+                  <th className="text-right">Filled</th>
+                  <th className="text-right">Status</th>
+                  <th className="text-right pr-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {optionsOrders.map(o => (
+                  <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
+                    <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
+                    <td className="text-right">{o.qty}</td>
+                    <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                    <td className="text-right text-muted-foreground">{o.filled}</td>
+                    <td className="text-right text-muted-foreground">{o.status}</td>
+                    <td className="text-right pr-3">
+                      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                        onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
 
         <TabsContent value="automated" className="flex-1 overflow-auto m-0">

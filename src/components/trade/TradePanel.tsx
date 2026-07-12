@@ -9,8 +9,10 @@ import { formatPrice, OptionContract } from "@/lib/mockData";
 import { TrendingUp, TrendingDown, Info, Zap, Shield, Calculator, ChevronDown, Plus, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { backendMarketFor } from "@/lib/backendMarkets";
+import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
+import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
+import { useWallet } from "@/lib/useWallet";
 
 type Side = "buy" | "sell";
 type OrderType = "market" | "limit" | "tpsl";
@@ -27,8 +29,6 @@ type TpslTarget = {
   mode: TpslOrderMode;
 };
 
-const BALANCE = 25000;
-
 export function TradePanel({
   symbol,
   price,
@@ -43,6 +43,8 @@ export function TradePanel({
   orders: ReturnType<typeof useOrders>;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
+  const walletState = useWallet();
+  const BALANCE = walletState.balances.reduce((sum, b) => sum + b.amount, 0);
   const leverageInputRef = useRef<HTMLInputElement>(null);
   const sizeInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<MarketMode>("futures");
@@ -68,6 +70,7 @@ export function TradePanel({
   const [optType, setOptType] = useState<OptionType>("call");
   const [expiry, setExpiry] = useState("7D");
   const [strike, setStrike] = useState((Math.round(price / 100) * 100).toString());
+  const [chain, setChain] = useState<OptionChainEntry[]>([]);
 
   useEffect(() => {
     if (!selectedOption) return;
@@ -83,6 +86,17 @@ export function TradePanel({
     leverageInputRef.current?.focus();
     leverageInputRef.current?.select();
   }, [isCustomLeverageOpen]);
+
+  useEffect(() => {
+    if (mode !== "options") return;
+    const backendOptions = backendOptionsMarketFor(baseAsset);
+    if (!backendOptions) return;
+    let cancelled = false;
+    getOptionChain(backendOptions.symbol)
+      .then((res) => { if (!cancelled) setChain(res.chain); })
+      .catch(() => { if (!cancelled) setChain([]); });
+    return () => { cancelled = true; };
+  }, [mode, baseAsset]);
 
   const isSpot = mode === "spot";
   const isFutures = mode === "futures";
@@ -108,28 +122,55 @@ export function TradePanel({
   const intrinsic = optType === "call" ? Math.max(0, price - strikeNum) : Math.max(0, strikeNum - price);
   const timeValue = price * 0.02 * Math.sqrt(days / 30);
   const modeledPremium = intrinsic + timeValue;
+  const chainMatch = chain.find(
+    (c) => c.optionType === optType.toUpperCase() && Math.abs(parseFloat(c.strike) - strikeNum) < 0.000001
+  );
   const selectedOptionMatches =
     selectedOption &&
     selectedOption.type === optType &&
     selectedOption.expiry === expiry &&
     Math.abs(selectedOption.strike - strikeNum) < 0.000001;
   const activeOption = selectedOptionMatches ? selectedOption : null;
-  const optionPrice = activeOption
-    ? side === "buy" ? activeOption.ask : activeOption.bid
-    : modeledPremium;
-  const optionPriceType = activeOption ? (side === "buy" ? "Ask" : "Bid") : "Est.";
+  const optionPrice = chainMatch
+    ? side === "buy" ? parseFloat(chainMatch.ask) : parseFloat(chainMatch.bid)
+    : activeOption
+      ? side === "buy" ? activeOption.ask : activeOption.bid
+      : modeledPremium;
+  const optionPriceType = chainMatch || activeOption ? (side === "buy" ? "Ask" : "Bid") : "Est.";
   const contracts = sizePct / 10;
   const optionTotal = optionPrice * contracts;
 
   const handleSubmit = async () => {
     if (isOptions) {
-      toast.success(`${side.toUpperCase()} ${optType.toUpperCase()} ${strike} ${expiry}`, {
-        description: `${contracts.toFixed(2)} contracts at $${optionPrice.toFixed(2)} · $${optionTotal.toFixed(2)} total`,
-      });
+      const backendOptions = backendOptionsMarketFor(baseAsset);
+      if (!backendOptions || !chainMatch) {
+        toast.error("Option not available", {
+          description: "No live contract for this strike/expiry yet.",
+        });
+        return;
+      }
+      try {
+        const res = await orders.place({
+          symbol: backendOptions.symbol,
+          market: backendOptions.market,
+          side: side === "buy" ? "BUY" : "SELL",
+          type: orderType === "market" ? "MARKET" : "LIMIT",
+          price: orderType === "market" ? undefined : optionPrice.toFixed(2),
+          qty: contracts.toFixed(2),
+          optionType: optType.toUpperCase() as "CALL" | "PUT",
+          strike: strikeNum.toString(),
+          expiry: chainMatch.expiry,
+        });
+        toast.success(`${side.toUpperCase()} ${optType.toUpperCase()} placed`, {
+          description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
+        });
+      } catch (err) {
+        toast.error("Order failed", { description: err instanceof Error ? err.message : String(err) });
+      }
       return;
     }
 
-    const backendMarket = isSpot ? backendMarketFor(symbol) : null;
+    const backendMarket = backendMarketFor(symbol);
     if (!backendMarket) {
       toast.success(`${mode.toUpperCase()} ${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `${positionSize.toFixed(4)} ${symbol.split("-")[0]} @ ${orderType === "market" ? "market" : limitPrice}`,
@@ -145,6 +186,7 @@ export function TradePanel({
         type: orderType === "market" ? "MARKET" : "LIMIT",
         price: orderType === "market" ? undefined : limitPrice,
         qty: positionSize.toFixed(8),
+        ...(isFutures ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" } : {}),
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
@@ -177,11 +219,18 @@ export function TradePanel({
   const handleLeverageInputChange = (value: string) => {
     if (!isIsolatedMargin) return;
     const cleaned = value.replace(/x/gi, "");
-    setLeverageInput(cleaned);
-    const numericValue = parseFloat(cleaned);
-    if (Number.isFinite(numericValue)) {
-      setLeverage(Math.round(clamp(numericValue, 1, 100)));
+    if (cleaned === "") {
+      setLeverageInput(cleaned);
+      return;
     }
+    const numericValue = parseFloat(cleaned);
+    if (!Number.isFinite(numericValue)) {
+      setLeverageInput(cleaned);
+      return;
+    }
+    const clamped = Math.round(clamp(numericValue, 1, 100));
+    setLeverageInput(clamped === numericValue ? cleaned : String(clamped));
+    setLeverage(clamped);
   };
   const handleLeverageBlur = () => {
     const numericValue = parseFloat(leverageInput);
@@ -189,12 +238,18 @@ export function TradePanel({
     setIsCustomLeverageOpen(false);
   };
   const handleSizeInputChange = (value: string) => {
-    setSizeInput(value);
-    const numericValue = parseFloat(value);
-    if (Number.isFinite(numericValue)) {
-      const usdnValue = clamp(numericValue, 1, BALANCE);
-      setSizePct((usdnValue / BALANCE) * 100);
+    if (value === "") {
+      setSizeInput(value);
+      return;
     }
+    const numericValue = parseFloat(value);
+    if (!Number.isFinite(numericValue)) {
+      setSizeInput(value);
+      return;
+    }
+    const usdnValue = clamp(numericValue, 1, BALANCE);
+    setSizeInput(usdnValue === numericValue ? value : usdnValue.toFixed(2));
+    setSizePct((usdnValue / BALANCE) * 100);
   };
   const handleSizeBlur = () => {
     const numericValue = parseFloat(sizeInput);

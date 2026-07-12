@@ -56,6 +56,13 @@ export type SubmitOrderParams = {
   type?: "LIMIT" | "MARKET" | "IOC" | "FOK";
   price?: string;
   qty: string;
+  // Futures-only.
+  leverage?: number;
+  marginMode?: "ISOLATED" | "CROSS";
+  // Options-only.
+  optionType?: "CALL" | "PUT";
+  strike?: string;
+  expiry?: string; // RFC3339
 };
 
 export function submitOrder(p: SubmitOrderParams) {
@@ -68,10 +75,72 @@ export function submitOrder(p: SubmitOrderParams) {
     price: p.price ?? "0",
     qty: p.qty,
   });
+  if (p.leverage !== undefined) params.set("leverage", String(p.leverage));
+  if (p.marginMode) params.set("marginMode", p.marginMode);
+  if (p.optionType) params.set("optionType", p.optionType);
+  if (p.strike) params.set("strike", p.strike);
+  if (p.expiry) params.set("expiry", p.expiry);
   return req<OrderResponse>(`/order?${params}`, { method: "POST" });
 }
 
 export function cancelOrder(symbol: string, market: string, orderId: string) {
   const params = new URLSearchParams({ symbol, market, order_id: orderId });
   return req<OrderResponse>(`/cancel?${params}`, { method: "POST" });
+}
+
+export type FuturesPositionDTO = {
+  symbol: string;
+  side: "BUY" | "SELL";
+  size: string;
+  entryPrice: string;
+  markPrice: string;
+  margin: string;
+  leverage: number;
+  unrealizedPnl: string;
+};
+
+export type OptionsPositionDTO = {
+  symbol: string;
+  optionType: "CALL" | "PUT";
+  strikePrice: string;
+  expiry: string;
+  size: string;
+  premium: string;
+};
+
+export type PositionsResponse = {
+  futures: FuturesPositionDTO[];
+  options: OptionsPositionDTO[];
+};
+
+export function getPositions(account: string) {
+  const params = new URLSearchParams({ account });
+  return req<PositionsResponse>(`/positions?${params}`);
+}
+
+export type OptionChainEntry = {
+  symbol: string;
+  optionType: "CALL" | "PUT";
+  strike: string;
+  expiry: string;
+  bid: string;
+  ask: string;
+  mid: string;
+  iv: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  rho: number;
+};
+
+export type OptionChainResponse = {
+  underlying: string;
+  spot: string;
+  chain: OptionChainEntry[];
+};
+
+export function getOptionChain(underlying: string) {
+  const params = new URLSearchParams({ underlying });
+  return req<OptionChainResponse>(`/option-chain?${params}`);
 }

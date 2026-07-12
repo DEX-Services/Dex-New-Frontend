@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { generateOptionChain, generateOrderBook, generateTrade, formatCompact, formatPrice, OptionContract, Trade } from "@/lib/mockData";
 import { backendMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
-import { OpenOrders } from "@/components/trade/OpenOrders";
 import { useOrders } from "@/lib/useOrders";
 import { DEMO_ACCOUNT } from "@/lib/account";
 
@@ -594,7 +593,7 @@ interface RightColumnProps {
 
 function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders }: RightColumnProps) {
   const [obOpen, setObOpen] = useState(true);
-  const [tab, setTab] = useState<"book" | "trades" | "orders">("book");
+  const [tab, setTab] = useState<"book" | "trades">("book");
   const backendMarket = backendMarketFor(symbol);
 
   // Order book data — real depth/trades for backend-registered pairs, mock otherwise.
@@ -672,17 +671,6 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
           >
             Trades
           </button>
-          <button
-            onClick={() => setTab("orders")}
-            className={cn(
-              "flex-1 px-3 py-2.5 text-xs font-semibold transition-colors",
-              tab === "orders"
-                ? "text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Orders{orders.orders.length > 0 ? ` (${orders.orders.length})` : ""}
-          </button>
           {/* Collapse / expand toggle */}
           <button
             onClick={() => setObOpen(o => !o)}
@@ -751,7 +739,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
                 })}
               </div>
             </div>
-          ) : tab === "trades" ? (
+          ) : (
             <div className="flex-1 flex flex-col text-[11px] font-mono overflow-hidden min-h-0">
               <div className="grid grid-cols-3 gap-1 px-2 py-1 text-[9px] text-muted-foreground uppercase border-b border-border/50 shrink-0">
                 <span>Price</span>
@@ -770,8 +758,6 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
                 ))}
               </div>
             </div>
-          ) : (
-            <OpenOrders orders={orders} backendMarket={backendMarket} />
           )}
         </div>
       </div>
@@ -919,7 +905,7 @@ const Index = () => {
           <TradingChart symbol={symbol} price={price} />
         );
       case "positions":
-        return <PositionsPanel markets={markets} />;
+        return <PositionsPanel markets={markets} account={DEMO_ACCOUNT} orders={orders} />;
     }
   }
 
@@ -1049,7 +1035,7 @@ const Index = () => {
               )}
               {mobileTab === "positions" && (
                 <div className="h-full glass rounded-xl overflow-hidden">
-                  <PositionsPanel markets={markets} />
+                  <PositionsPanel markets={markets} account={DEMO_ACCOUNT} orders={orders} />
                 </div>
               )}
             </div>
