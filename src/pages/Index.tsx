@@ -15,7 +15,7 @@ import { generateOptionChain, generateOrderBook, generateTrade, formatCompact, f
 import { backendMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
 import { useOrders } from "@/lib/useOrders";
-import { DEMO_ACCOUNT } from "@/lib/account";
+import { useAccount } from "@/lib/account";
 
 // ─── Default sizes ────────────────────────────────────────────────────────────
 const DEFAULT_COL_SIZES = [14, 66, 20];
@@ -770,7 +770,8 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
 const Index = () => {
   const [symbol, setSymbol] = useState("BTC-PERP");
   const [collapsed, setCollapsed] = useState(false);
-  const orders = useOrders(DEMO_ACCOUNT);
+  const account = useAccount();
+  const orders = useOrders(account);
   const market = useMarket(symbol);
   const markets = useMarkets();
   const price = market?.price ?? 0;
@@ -905,7 +906,7 @@ const Index = () => {
           <TradingChart symbol={symbol} price={price} />
         );
       case "positions":
-        return <PositionsPanel markets={markets} account={DEMO_ACCOUNT} orders={orders} />;
+        return <PositionsPanel markets={markets} account={account} orders={orders} />;
     }
   }
 
@@ -1035,7 +1036,7 @@ const Index = () => {
               )}
               {mobileTab === "positions" && (
                 <div className="h-full glass rounded-xl overflow-hidden">
-                  <PositionsPanel markets={markets} account={DEMO_ACCOUNT} orders={orders} />
+                  <PositionsPanel markets={markets} account={account} orders={orders} />
                 </div>
               )}
             </div>

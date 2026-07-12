@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { submitOrder, cancelOrder, SubmitOrderParams } from "./apiClient";
 import { wsClient, WSEvent } from "./wsClient";
+import { wallet } from "./useWallet";
 
 export type OpenOrder = {
   id: string;
@@ -50,6 +51,7 @@ export function useOrders(account: string) {
           status: res.status,
         },
       ]);
+      wallet.refreshBalances().catch(() => {});
       return res;
     },
     [account]
@@ -58,6 +60,7 @@ export function useOrders(account: string) {
   const cancel = useCallback(async (symbol: string, market: string, orderId: string) => {
     const res = await cancelOrder(symbol, market, orderId);
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    wallet.refreshBalances().catch(() => {});
     return res;
   }, []);
 

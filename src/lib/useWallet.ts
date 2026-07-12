@@ -17,13 +17,14 @@ export const WALLETS: WalletInfo[] = [
   { id: "bitget", name: "Bitget Wallet", tag: "Easy", desc: "Connect via the Bitget Wallet extension", popular: true },
 ];
 
-export type Balance = { asset: string; amount: number };
+export type Balance = { asset: string; amount: number; locked: number; available: number };
 export type WalletSource = WalletId;
 
 export type WalletState = {
   connected: boolean;
   walletId?: WalletId;
   address?: string;
+  userId?: string;
   balances: Balance[];
   error?: string;
   pending?: WalletId | null;
@@ -61,7 +62,7 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
   OUR_Token: 18,
 };
 
-const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({ asset, amount: 0 }));
+const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({ asset, amount: 0, locked: 0, available: 0 }));
 
 function rawBalanceToNumber(raw: string, decimals: number) {
   const normalized = raw.trim();
@@ -74,10 +75,11 @@ function rawBalanceToNumber(raw: string, decimals: number) {
 
 async function syncBalancesWithBackend() {
   const response = await getWalletBalances();
-  const balances = SUPPORTED_ASSETS.map((asset) => ({
-    asset,
-    amount: rawBalanceToNumber(response.balances[asset] ?? "0", ASSET_DECIMALS[asset]),
-  }));
+  const balances = SUPPORTED_ASSETS.map((asset) => {
+    const amount = rawBalanceToNumber(response.balances[asset] ?? "0", ASSET_DECIMALS[asset]);
+    const locked = rawBalanceToNumber(response.locked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
+    return { asset, amount, locked, available: Math.max(0, amount - locked) };
+  });
   setState({ balances });
   return balances;
 }
@@ -275,7 +277,8 @@ async function connect(source: WalletId) {
 async function authenticateWithBackend(provider: Eip1193Provider, source: WalletId, address: string) {
   const { message } = await getNonce(address);
   const signature = (await requestWithTimeout(provider, "personal_sign", [message, address])) as string;
-  await apiLogin(address, signature, source);
+  const { user } = await apiLogin(address, signature, source);
+  setState({ userId: user.id });
 }
 
 async function disconnect() {
@@ -285,7 +288,7 @@ async function disconnect() {
   detachProvider(provider);
   activeProvider = null;
   clearPersistedSession();
-  state = { connected: false, walletId: undefined, address: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
+  state = { connected: false, walletId: undefined, address: undefined, userId: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
   emit();
 
   if (provider) {
@@ -316,7 +319,8 @@ async function restoreSession() {
   setState({ connected: true, walletId: stored.walletId, address, provider, restored: true, pending: null, error: undefined });
 
   try {
-    await me();
+    const { user } = await me();
+    setState({ userId: user.id });
   } catch {
     // No active backend session (e.g. expired cookie) - re-authenticate silently.
     await authenticateWithBackend(provider, stored.walletId, address);

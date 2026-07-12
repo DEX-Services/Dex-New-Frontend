@@ -36,7 +36,7 @@ export function TransferDialog({
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const balance = w.balances.find((b) => b.asset === asset)?.amount ?? 0;
+  const balance = w.balances.find((b) => b.asset === asset)?.available ?? 0;
   const fee = mode === "withdraw" ? 1.5 : 0;
   const treasuryAddress = getTreasuryAddress();
 

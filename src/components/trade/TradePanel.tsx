@@ -44,7 +44,7 @@ export function TradePanel({
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
   const walletState = useWallet();
-  const BALANCE = walletState.balances.reduce((sum, b) => sum + b.amount, 0);
+  const BALANCE = walletState.balances.reduce((sum, b) => sum + b.available, 0);
   const leverageInputRef = useRef<HTMLInputElement>(null);
   const sizeInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<MarketMode>("futures");

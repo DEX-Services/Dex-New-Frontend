@@ -64,7 +64,7 @@ const Portfolio = () => {
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
   const totalFrozen = FROZEN_AMOUNT.reduce((sum, item) => sum + item.value, 0);
   const dbBalances = useMemo(() => {
-    const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.amount ?? 0;
+    const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
     const usdc = amountFor("USDC");
     const usdt = amountFor("USDT");
     const busd = amountFor("BUSD");

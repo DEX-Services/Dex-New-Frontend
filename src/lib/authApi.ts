@@ -44,6 +44,12 @@ export type WalletBalanceResponse = {
     BUSD: string;
     OUR_Token: string;
   };
+  locked: {
+    USDC: string;
+    USDT: string;
+    BUSD: string;
+    OUR_Token: string;
+  };
   token: string;
   amount: string;
 };
