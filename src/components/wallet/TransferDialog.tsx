@@ -5,13 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { wallet, useWallet, WALLETS, shortAddress, getTreasuryAddress, getConnectedProvider } from "@/lib/useWallet";
+import { requestWithdrawal } from "@/lib/authApi";
 import { depositUsdc, isDexVaultConfigured } from "@/lib/contracts/dexVault";
 import { ArrowDownToLine, ArrowUpFromLine, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { Address } from "viem";
+import { parseUnits, type Address } from "viem";
 
 const NETWORKS = ["Avalanche Fuji", "Ethereum", "Arbitrum", "Base", "BNB Chain", "Solana"];
+const WITHDRAW_DECIMALS: Record<string, number> = { USDC: 6 };
 const DEFAULT_DEPOSIT_CHAIN = "Avalanche Fuji";
 const SNOWTRACE_TX_URL = "https://testnet.snowtrace.io/tx/";
 
@@ -37,7 +39,7 @@ export function TransferDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const balance = w.balances.find((b) => b.asset === asset)?.available ?? 0;
-  const fee = mode === "withdraw" ? 1.5 : 0;
+  const fee = 0;
   const treasuryAddress = getTreasuryAddress();
 
   const handleSubmit = async () => {
@@ -48,19 +50,14 @@ export function TransferDialog({
     setSubmitting(true);
     try {
       if (mode === "withdraw") {
+        if (asset !== "USDC" || network !== "Avalanche Fuji") return toast.error("Only USDC withdrawals on Avalanche Fuji are supported right now");
         if (amt > balance) return toast.error("Insufficient balance");
-        if (!destination) return toast.error("Enter destination address");
 
-        await wallet.sendTransfer({
-          from: w.address,
-          to: destination,
-          value: "0x0",
-          data: "0x",
-        });
-
-        wallet.withdraw(asset, amt);
-        toast.success("Withdrawal confirmed in wallet", {
-          description: `${amt} ${asset} sent to ${shortAddress(destination)} on ${network}`,
+        const amountRaw = parseUnits(amount, WITHDRAW_DECIMALS[asset]).toString();
+        const result = await requestWithdrawal(asset, amountRaw);
+        await wallet.refreshBalances();
+        toast.success(result.status === "confirmed" ? "Withdrawal completed" : "Withdrawal processing", {
+          description: result.txHash ? `Tx ${shortAddress(result.txHash)}` : `Request ${result.id.slice(0, 8)} is ${result.status}`,
         });
       } else if (asset === "USDC" && network === "Avalanche Fuji") {
         if (!isDexVaultConfigured()) return toast.error("DexVault contract is not configured yet");
@@ -201,9 +198,9 @@ export function TransferDialog({
               <div>
                 <label className="text-[10px] text-muted-foreground">Destination address</label>
                 <Input
-                  value={destination}
+                  value={w.address ?? destination}
                   onChange={(e) => setDestination(e.target.value)}
-                  placeholder="0x... or wallet address"
+                  placeholder={w.address ?? "Connect wallet"}
                   className="h-10 font-mono text-xs bg-muted/30"
                 />
               </div>
@@ -223,7 +220,7 @@ export function TransferDialog({
                   : "bg-gradient-primary text-primary-foreground"
               )}
             >
-              {submitting ? "Waiting for wallet..." : mode === "deposit" ? "Confirm deposit" : "Confirm withdrawal"}
+              {submitting ? (mode === "deposit" ? "Waiting for wallet..." : "Processing withdrawal...") : mode === "deposit" ? "Confirm deposit" : "Confirm withdrawal"}
             </Button>
           </div>
         </Tabs>
@@ -231,3 +228,6 @@ export function TransferDialog({
     </Dialog>
   );
 }
+
+
+

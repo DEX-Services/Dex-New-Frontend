@@ -50,6 +50,12 @@ export type WalletBalanceResponse = {
     BUSD: string;
     OUR_Token: string;
   };
+  withdrawalLocked?: {
+    USDC: string;
+    USDT: string;
+    BUSD: string;
+    OUR_Token: string;
+  };
   token: string;
   amount: string;
 };
@@ -57,3 +63,14 @@ export type WalletBalanceResponse = {
 export function getWalletBalances() {
   return authReq<WalletBalanceResponse>(`/wallet/balance`);
 }
+
+export function requestWithdrawal(asset: string, amount: string) {
+  return authReq<{ id: string; asset: string; status: string; txHash?: string }>(`/wallet/withdraw-request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ asset, amount }),
+  });
+}
+
+
+
