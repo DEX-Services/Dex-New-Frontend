@@ -20,3 +20,15 @@ export function backendOptionsMarketFor(baseAsset: string) {
 export function backendMarketFor(frontendSymbol: string) {
   return REGISTERED[frontendSymbol] ?? null;
 }
+
+// Reverse of backendMarketFor: given the raw engine symbol+market (as
+// returned in position/order DTOs), find the frontend display symbol used
+// as the key into useMarkets()'s live price feed.
+export function frontendSymbolFor(engineSymbol: string, engineMarket: string) {
+  for (const [frontendSymbol, entry] of Object.entries(REGISTERED)) {
+    if (entry.symbol === engineSymbol && entry.market === engineMarket) {
+      return frontendSymbol;
+    }
+  }
+  return engineSymbol;
+}

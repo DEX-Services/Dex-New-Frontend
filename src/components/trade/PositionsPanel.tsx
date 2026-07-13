@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
 import { getPositions, FuturesPositionDTO, OptionsPositionDTO } from "@/lib/apiClient";
+import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
 import { toast } from "sonner";
 
@@ -46,6 +47,21 @@ export function PositionsPanel({
     }
   };
 
+  const handleClose = async (p: { symbol: string; side: "long" | "short"; size: number }) => {
+    try {
+      await orders.place({
+        symbol: p.symbol,
+        market: "FUTURES",
+        side: p.side === "long" ? "SELL" : "BUY",
+        type: "MARKET",
+        qty: String(p.size),
+      });
+      toast.success("Position closed");
+    } catch (err) {
+      toast.error("Close failed", { description: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
   useEffect(() => {
     if (!account) {
       // Wallet is connected but the backend userId hasn't resolved yet
@@ -82,12 +98,13 @@ export function PositionsPanel({
     return futuresPositions.map(p => {
       const size = parseFloat(p.size);
       const entry = parseFloat(p.entryPrice);
-      const mark = markets.find(mk => mk.symbol === p.symbol)?.price ?? parseFloat(p.markPrice);
+      const displaySymbol = frontendSymbolFor(p.symbol, "FUTURES");
+      const mark = markets.find(mk => mk.symbol === displaySymbol)?.price ?? parseFloat(p.markPrice);
       const side = p.side === "BUY" ? "long" as const : "short" as const;
       const leverage = p.leverage || 1;
       const margin = parseFloat(p.margin);
-      const pnl = parseFloat(p.unrealizedPnl);
       const direction = side === "long" ? 1 : -1;
+      const pnl = (mark - entry) * size * direction;
       const pnlPct = margin !== 0 ? (pnl / margin) * 100 : 0;
       const liq = side === "long" ? entry * (1 - 0.95 / leverage) : entry * (1 + 0.95 / leverage);
       return { symbol: p.symbol, side, size, entry, leverage, margin, mark, pnl, pnlPct, liq, direction };
@@ -156,7 +173,8 @@ export function PositionsPanel({
                     <div className="text-[9px] opacity-70">{p.pnl >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%</div>
                   </td>
                   <td className="text-right pr-3">
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-sell hover:bg-sell/10">Close</Button>
+                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-sell hover:bg-sell/10"
+                      onClick={() => handleClose(p)}>Close</Button>
                   </td>
                 </tr>
               ))}
