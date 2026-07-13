@@ -75,8 +75,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="hidden xl:flex items-center gap-2 glass px-3 py-1.5 rounded-lg w-60">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="Search markets, traders..." className="h-6 border-0 bg-transparent p-0 text-sm focus-visible:ring-0" />
-          <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1">?K</kbd>
+          <Input placeholder="Search markets, traders..." className="h-6 border-0 bg-transparent p-0.5 text-sm focus-visible:ring-0" />
+          {/* <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1">?K</kbd> */}
         </div>
 
         <Button variant="ghost" size="icon" className="relative hidden sm:flex shrink-0">
