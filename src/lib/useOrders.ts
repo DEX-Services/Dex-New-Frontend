@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { submitOrder, cancelOrder, SubmitOrderParams } from "./apiClient";
+import { submitOrder, cancelOrder, getOrders, SubmitOrderParams } from "./apiClient";
 import { wsClient, WSEvent } from "./wsClient";
 import { wallet } from "./useWallet";
 
@@ -16,6 +16,26 @@ export type OpenOrder = {
 
 export function useOrders(account: string) {
   const [orders, setOrders] = useState<OpenOrder[]>([]);
+
+  useEffect(() => {
+    if (!account) return;
+    getOrders(account)
+      .then((res) =>
+        setOrders(
+          res.orders.map((o) => ({
+            id: o.id,
+            symbol: o.symbol,
+            market: o.market,
+            side: o.side,
+            price: o.price,
+            qty: o.qty,
+            filled: o.filled,
+            status: o.status,
+          }))
+        )
+      )
+      .catch(() => {});
+  }, [account]);
 
   useEffect(() => {
     const unsub = wsClient.subscribe((evt: WSEvent) => {

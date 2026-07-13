@@ -113,6 +113,23 @@ export type PositionsResponse = {
   options: OptionsPositionDTO[];
 };
 
+export type OpenOrderDTO = {
+  id: string;
+  symbol: string;
+  market: string;
+  side: "BUY" | "SELL";
+  price?: string;
+  qty: string;
+  filled: string;
+  status: string;
+};
+export type OrdersResponse = { orders: OpenOrderDTO[] };
+
+export function getOrders(account: string) {
+  const params = new URLSearchParams({ account });
+  return req<OrdersResponse>(`/orders?${params}`);
+}
+
 export function getPositions(account: string) {
   const params = new URLSearchParams({ account });
   return req<PositionsResponse>(`/positions?${params}`);

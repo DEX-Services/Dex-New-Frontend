@@ -47,6 +47,14 @@ export function PositionsPanel({
   };
 
   useEffect(() => {
+    if (!account) {
+      // Wallet is connected but the backend userId hasn't resolved yet
+      // (see useAccount) - wait rather than fetching/displaying stale or
+      // wrong-account positions.
+      setFuturesPositions([]);
+      setOptionsPositions([]);
+      return;
+    }
     let cancelled = false;
     const fetchPositions = () => {
       getPositions(account)

@@ -89,7 +89,14 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
 
     return () => {
       cancelled = true;
-      if (widgetRef.current?.remove) widgetRef.current.remove();
+      if (widgetRef.current?.remove && container.isConnected) {
+        try {
+          widgetRef.current.remove();
+        } catch {
+          // tv.js widget teardown can throw if its internal DOM node was
+          // already detached (e.g. rapid symbol switches); safe to ignore.
+        }
+      }
       widgetRef.current = null;
     };
   }, [tvSymbol, timeframe, widgetId]);
