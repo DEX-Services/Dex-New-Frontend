@@ -122,6 +122,21 @@ describe("wallet state", () => {
   it("exposes only supported wallets in the modal list", () => {
     expect(WALLETS.map((wallet) => wallet.id)).toEqual(["metamask", "coinbase", "bitget"]);
   });
+
+  it("subtracts pending withdrawal holds from available balance", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      balances: { USDC: "20669000", USDT: "0", BUSD: "0", OUR_Token: "0" },
+      locked: { USDC: "1000000", USDT: "0", BUSD: "0", OUR_Token: "0" },
+      withdrawalLocked: { USDC: "15000000", USDT: "0", BUSD: "0", OUR_Token: "0" },
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+
+    await wallet.refreshBalances();
+
+    const usdc = wallet.get().balances.find((balance) => balance.asset === "USDC");
+    expect(usdc?.amount).toBeCloseTo(20.669);
+    expect(usdc?.locked).toBeCloseTo(16);
+    expect(usdc?.available).toBeCloseTo(4.669);
+  });
 });
 
 
