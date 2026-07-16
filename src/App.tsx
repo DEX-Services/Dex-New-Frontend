@@ -24,6 +24,10 @@ import SIP from "./pages/SIP.tsx";
 import Affiliate from "./pages/Affiliate.tsx";
 import Support from "./pages/Support.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AdminLogin from "./pages/AdminLogin.tsx";
+import AdminDashboard from "./pages/AdminDashboard.tsx";
+import AdminProfile from "./pages/AdminProfile.tsx";
+import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +71,11 @@ const App = () => (
           <Route path="/affiliate" element={<Affiliate />} />
           <Route path="/support" element={<Support />} />
           <Route path="/sip" element={<SIP />} />
+          <Route path="/login" element={<AdminLogin />} />
+          <Route element={<AdminProtectedRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/profile" element={<AdminProfile />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
