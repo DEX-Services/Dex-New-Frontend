@@ -77,7 +77,9 @@ async function syncBalancesWithBackend() {
   const response = await getWalletBalances();
   const balances = SUPPORTED_ASSETS.map((asset) => {
     const amount = rawBalanceToNumber(response.balances[asset] ?? "0", ASSET_DECIMALS[asset]);
-    const locked = rawBalanceToNumber(response.locked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
+    const tradingLocked = rawBalanceToNumber(response.locked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
+    const withdrawalLocked = rawBalanceToNumber(response.withdrawalLocked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
+    const locked = tradingLocked + withdrawalLocked;
     return { asset, amount, locked, available: Math.max(0, amount - locked) };
   });
   setState({ balances });
