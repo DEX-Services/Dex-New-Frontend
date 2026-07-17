@@ -8,14 +8,21 @@ export type WSTrade = {
   makerSide: "BUY" | "SELL";
   executedAt: string;
 };
+export type WSFunding = {
+  accountId: string;
+  symbol: string;
+  rate: string;
+  payment: string;
+};
 
 export type WSEvent = {
-  type: string; // ORDER_OPEN | ORDER_PARTIALLY_FILLED | ORDER_FILLED | ORDER_CANCELLED | ORDER_REJECTED | TRADE | ...
+  type: string; // ORDER_OPEN | ORDER_PARTIALLY_FILLED | ORDER_FILLED | ORDER_CANCELLED | ORDER_REJECTED | TRADE | FUNDING | LIQUIDATION | ...
   symbol: string;
   market: string;
   sequenceNumber: number;
   order?: WSOrder;
   trade?: WSTrade;
+  funding?: WSFunding;
 };
 
 type Listener = (evt: WSEvent) => void;

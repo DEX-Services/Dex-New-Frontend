@@ -9,7 +9,7 @@ import { formatPrice, OptionContract } from "@/lib/mockData";
 import { TrendingUp, TrendingDown, Info, Zap, Shield, Calculator, ChevronDown, Plus, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
+import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
@@ -108,9 +108,15 @@ export function TradePanel({
   const orderValue = sizeUsd * effLeverage;
   const positionSize = orderValue / price;
   const margin = sizeUsd;
+  // Liquidation price matches the backend's MarginRatio < MMR trigger:
+  //   (margin + PnL) / notional < MMR
+  // Solving for the mark price at which margin + unrealized PnL = MMR * notional:
+  //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
+  //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
+  const mmr = 0.005; // 0.5% maintenance margin rate (matches BTC-USDC FUTURES config)
   const liqPrice = side === "buy"
-    ? price * (1 - 0.95 / effLeverage)
-    : price * (1 + 0.95 / effLeverage);
+    ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
+    : (price * (1 + 1 / effLeverage)) / (1 + mmr);
   const fee = orderValue * (isOptions ? 0.001 : 0.0005);
   const primaryTarget = tpslTargets[0];
   const tpPct = ((parseFloat(primaryTarget.tp) - price) / price) * 100 * (side === "buy" ? 1 : -1);
@@ -150,9 +156,15 @@ export function TradePanel({
         return;
       }
       try {
+        const instrumentSymbol = optionInstrumentSymbol(
+          baseAsset,
+          strikeNum,
+          chainMatch.expiry,
+          optType.toUpperCase() as "CALL" | "PUT"
+        );
         const res = await orders.place({
-          symbol: backendOptions.symbol,
-          market: backendOptions.market,
+          symbol: instrumentSymbol,
+          market: "OPTIONS",
           side: side === "buy" ? "BUY" : "SELL",
           type: orderType === "market" ? "MARKET" : "LIMIT",
           price: orderType === "market" ? undefined : optionPrice.toFixed(2),

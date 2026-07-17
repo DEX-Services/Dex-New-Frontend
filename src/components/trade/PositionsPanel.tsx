@@ -6,9 +6,17 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
 import { getPositions, FuturesPositionDTO, OptionsPositionDTO } from "@/lib/apiClient";
-import { frontendSymbolFor } from "@/lib/backendMarkets";
+import { frontendSymbolFor, maintenanceMarginRateFor } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
+import { wsClient, WSEvent } from "@/lib/wsClient";
 import { toast } from "sonner";
+
+type FundingEntry = {
+  time: string;
+  symbol: string;
+  rate: string;
+  payment: number;
+};
 
 const MOCK_HISTORY = [
   { time: "11:42", symbol: "ETH-PERP", side: "buy", size: 1.2, price: 3512.3, status: "Filled", pnl: "+$84.20" },
@@ -34,9 +42,24 @@ export function PositionsPanel({
 }) {
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
   const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
+  const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
   const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
+
+  useEffect(() => {
+    const unsub = wsClient.subscribe((evt: WSEvent) => {
+      if (evt.type !== "FUNDING" || !evt.funding) return;
+      const entry: FundingEntry = {
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        symbol: evt.funding.symbol,
+        rate: (parseFloat(evt.funding.rate) * 100).toFixed(4) + "%",
+        payment: parseFloat(evt.funding.payment),
+      };
+      setFundingHistory((prev) => [entry, ...prev].slice(0, 50));
+    });
+    return unsub;
+  }, []);
 
   const handleCancel = async (symbol: string, market: string, orderId: string) => {
     try {
@@ -106,7 +129,13 @@ export function PositionsPanel({
       const direction = side === "long" ? 1 : -1;
       const pnl = (mark - entry) * size * direction;
       const pnlPct = margin !== 0 ? (pnl / margin) * 100 : 0;
-      const liq = side === "long" ? entry * (1 - 0.95 / leverage) : entry * (1 + 0.95 / leverage);
+      // Liquidation price derived from the backend's MarginRatio < MMR rule:
+      //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
+      //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
+      const mmr = maintenanceMarginRateFor(p.symbol);
+      const liq = side === "long"
+        ? (entry * (1 - 1 / leverage)) / (1 - mmr)
+        : (entry * (1 + 1 / leverage)) / (1 + mmr);
       return { symbol: p.symbol, side, size, entry, leverage, margin, mark, pnl, pnlPct, liq, direction };
     });
   }, [futuresPositions, markets]);
@@ -369,8 +398,35 @@ export function PositionsPanel({
         <TabsContent value="trades" className="flex-1 m-0 p-6 text-center text-sm text-muted-foreground">
           No trades yet today. Open a position to start.
         </TabsContent>
-        <TabsContent value="funding" className="flex-1 m-0 p-6 text-center text-sm text-muted-foreground">
-          Funding payments will appear here every 8 hours.
+        <TabsContent value="funding" className="flex-1 overflow-auto m-0">
+          {fundingHistory.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">
+              No funding payments yet. Funding settles every 8 hours.
+            </div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Time</th>
+                  <th className="text-left">Symbol</th>
+                  <th className="text-right">Rate</th>
+                  <th className="text-right pr-3">Payment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fundingHistory.map((f, i) => (
+                  <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2">{f.time}</td>
+                    <td className="font-sans font-semibold">{f.symbol}</td>
+                    <td className={cn("text-right", parseFloat(f.rate) >= 0 ? "text-buy" : "text-sell")}>{f.rate}</td>
+                    <td className={cn("text-right pr-3 font-bold", f.payment >= 0 ? "text-buy" : "text-sell")}>
+                      {f.payment >= 0 ? "+" : ""}${f.payment.toFixed(4)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
       </Tabs>
     </div>
