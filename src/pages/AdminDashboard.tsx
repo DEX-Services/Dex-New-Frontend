@@ -3,7 +3,9 @@ import { Activity, BarChart3, Clock, Database, Landmark, Loader2, Users, Wallet 
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAdminDashboard, type AdminSummary } from "@/lib/adminApi";
+import { Input } from "@/components/ui/input";
+import { getAdminDashboard, getAdminP2PAppeals, getAdminP2PPrice, resolveAdminP2PAppeal, setAdminP2PPrice, type AdminSummary } from "@/lib/adminApi";
+import { formatINR,formatUSDC,type P2POrder } from "@/lib/p2pApi";
 import { cn } from "@/lib/utils";
 
 export default function AdminDashboard() {
@@ -47,6 +49,9 @@ export default function AdminDashboard() {
         </div>
 
         {error && <div className="rounded-lg border border-sell/30 bg-sell/10 px-3 py-2 text-sm text-sell">{error}</div>}
+
+        <P2PPriceCard />
+        <P2PAppealsCard />
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <Stat label="Total Users" value={formatNumber(data?.totalUsers)} icon={Users} />
@@ -168,6 +173,100 @@ export default function AdminDashboard() {
       </div>
     </AdminLayout>
   );
+}
+
+function P2PPriceCard() {
+  const [price,setPrice]=useState("");
+  const [priceDate,setPriceDate]=useState("");
+  const [message,setMessage]=useState("");
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{
+    getAdminP2PPrice().then(result=>{
+      setPrice(result.price.price);
+      setPriceDate(result.price.priceDate);
+    }).catch(()=>setMessage("No P2P price has been entered for today. Trading is disabled."));
+  },[]);
+
+  async function save(){
+    if(!/^\d+(\.\d{1,8})?$/.test(price)||Number(price)<=0){
+      setMessage("Enter a positive INR price with up to 8 decimal places.");
+      return;
+    }
+    try{
+      setSaving(true);
+      setMessage("");
+      const result=await setAdminP2PPrice(price);
+      setPrice(result.price.price);
+      setPriceDate(result.price.priceDate);
+      setMessage("Today's P2P price was saved.");
+    }catch(e){
+      setMessage(e instanceof Error?e.message:"Could not save P2P price.");
+    }finally{
+      setSaving(false);
+    }
+  }
+
+  return <section className="glass rounded-xl p-4">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h2 className="font-semibold flex items-center gap-2"><Landmark className="h-4 w-4 text-primary"/>P2P Daily Price</h2>
+        <p className="mt-1 text-xs text-muted-foreground">USDC / INR for {priceDate||"today"}. Posting and buying stay disabled until this is set.</p>
+      </div>
+      <div className="flex w-full gap-2 sm:w-auto">
+        <Input aria-label="P2P USDC INR price" type="number" min="0" step="0.00000001" value={price} onChange={event=>setPrice(event.target.value)} placeholder="INR per USDC" className="sm:w-56"/>
+        <Button onClick={()=>void save()} disabled={saving}>{saving?"Saving…":"Save price"}</Button>
+      </div>
+    </div>
+    {message&&<p className="mt-3 text-xs text-muted-foreground">{message}</p>}
+  </section>;
+}
+
+function P2PAppealsCard() {
+  const [orders,setOrders]=useState<P2POrder[]>([]);
+  const [message,setMessage]=useState("");
+  const [acting,setActing]=useState("");
+
+  const load=async()=>{
+    try{
+      setOrders((await getAdminP2PAppeals()).orders);
+    }catch(e){
+      setMessage(e instanceof Error?e.message:"Could not load P2P appeals.");
+    }
+  };
+
+  useEffect(()=>{void load()},[]);
+
+  async function resolve(order:P2POrder,action:"release"|"cancel"){
+    try{
+      setActing(order.id);
+      setMessage("");
+      await resolveAdminP2PAppeal(order.id,action);
+      await load();
+      setMessage(`Appeal ${order.id} was resolved: ${action}.`);
+    }catch(e){
+      setMessage(e instanceof Error?e.message:"Could not resolve appeal.");
+    }finally{
+      setActing("");
+    }
+  }
+
+  return <section className="glass rounded-xl overflow-hidden">
+    <SectionHeader icon={Clock} title="P2P Appeals" />
+    {message&&<p className="px-4 pt-3 text-xs text-muted-foreground">{message}</p>}
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[760px] text-sm">
+        <thead className="border-b border-border/50 text-xs uppercase text-muted-foreground"><tr><th className="px-4 py-2 text-left">Order</th><th className="text-left">Buyer / Seller</th><th className="text-right">USDC</th><th className="text-right">Buyer paid</th><th className="px-4 text-right">Resolution</th></tr></thead>
+        <tbody>{orders.map(order=><tr key={order.id} className="border-b border-border/30">
+          <td className="px-4 py-3 font-mono text-xs">{order.id}</td>
+          <td><p>{order.buyerId}</p><p className="text-xs text-muted-foreground">{order.sellerId}</p></td>
+          <td className="text-right">{formatUSDC(order.amountRaw)}</td>
+          <td className="text-right">{formatINR(order.buyerPayable)}</td>
+          <td className="px-4 text-right"><div className="flex justify-end gap-2"><Button size="sm" disabled={!!acting} onClick={()=>void resolve(order,"release")}>Release USDC</Button><Button size="sm" variant="outline" disabled={!!acting} onClick={()=>void resolve(order,"cancel")}>Cancel & refund</Button></div></td>
+        </tr>)}{orders.length===0&&<EmptyRow colSpan={5}/>}</tbody>
+      </table>
+    </div>
+  </section>;
 }
 
 function Stat({ label, value, icon: Icon, tone }: { label: string; value: string; icon: any; tone?: "buy" | "sell" }) {
