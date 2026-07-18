@@ -106,7 +106,13 @@ export function TradePanel({
 
   const sizeUsd = BALANCE * (sizePct / 100);
   const orderValue = sizeUsd * effLeverage;
-  const positionSize = orderValue / price;
+  // Round the position size to the engine's lot size (0.00001 = 5 decimals)
+  // so the submitted quantity is always a valid multiple and won't be rejected
+  // by the matching engine's lot-size validation. We floor to 5 decimals via
+  // string formatting to avoid floating-point drift from Math.floor math.
+  const LOT_DECIMALS = 5;
+  const rawPositionSize = orderValue / price;
+  const positionSize = Number(rawPositionSize.toFixed(LOT_DECIMALS));
   const margin = sizeUsd;
   // Liquidation price matches the backend's MarginRatio < MMR trigger:
   //   (margin + PnL) / notional < MMR
@@ -197,7 +203,7 @@ export function TradePanel({
         side: side === "buy" ? "BUY" : "SELL",
         type: orderType === "market" ? "MARKET" : "LIMIT",
         price: orderType === "market" ? undefined : limitPrice,
-        qty: positionSize.toFixed(8),
+        qty: positionSize.toFixed(LOT_DECIMALS),
         ...(isFutures ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" } : {}),
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {

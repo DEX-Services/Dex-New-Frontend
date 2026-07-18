@@ -1,5 +1,6 @@
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
+import { useBinancePrice } from "@/lib/useBinancePrice";
 import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,10 +17,15 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 }) {
   const navigate = useNavigate();
   const market = useMarket(symbol);
+  const binance = useBinancePrice(market?.asset === "crypto" ? market.base : undefined);
   const [aiActive, setAiActive] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
-  const positive = market.change24h >= 0;
+
+  const livePrice = binance?.lastPrice ?? market.price;
+  const liveChange = binance?.changePercent ?? market.change24h;
+  const liveVolume = binance?.quoteVolume ?? market.volume24h;
+  const positive = liveChange >= 0;
 
   return (
     <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-6 overflow-x-auto">
@@ -39,15 +45,15 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 
       <div className="min-w-fit">
         <div className={cn("text-xl font-bold font-mono", positive ? "text-buy" : "text-sell")}>
-          ${formatPrice(market.price)}
+          ${formatPrice(livePrice)}
         </div>
         <div className={cn("text-[11px] font-mono flex items-center gap-1", positive ? "text-buy" : "text-sell")}>
           {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {positive ? "+" : ""}{market.change24h.toFixed(2)}%
+          {positive ? "+" : ""}{liveChange.toFixed(2)}%
         </div>
       </div>
 
-      <Stat label="24h Volume" value={`$${formatCompact(market.volume24h)}`} />
+      <Stat label="24h Volume" value={`$${formatCompact(liveVolume)}`} />
       {market.openInterest && <Stat label="Open Interest" value={`$${formatCompact(market.openInterest)}`} />}
       {market.funding !== undefined && (
         <Stat
@@ -56,8 +62,10 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
           tone={market.funding >= 0 ? "buy" : "sell"}
         />
       )}
-      <Stat label="Mark Price" value={`$${formatPrice(market.price * 1.0001)}`} />
-      <Stat label="Index" value={`$${formatPrice(market.price * 0.9999)}`} />
+      {binance && <Stat label="24h High" value={`$${formatPrice(binance.high)}`} />}
+      {binance && <Stat label="24h Low" value={`$${formatPrice(binance.low)}`} />}
+      <Stat label="Mark Price" value={`$${formatPrice(livePrice * 1.0001)}`} />
+      <Stat label="Index" value={`$${formatPrice(livePrice * 0.9999)}`} />
 
       <div className="ml-auto flex items-center gap-2 min-w-fit">
         <Button

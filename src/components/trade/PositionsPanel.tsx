@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
@@ -43,9 +43,20 @@ export function PositionsPanel({
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
   const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
+  const [closing, setClosing] = useState<string | null>(null);
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
   const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
+
+  const refetchPositions = useCallback(() => {
+    if (!account) return;
+    getPositions(account)
+      .then((res) => {
+        setFuturesPositions(res.futures ?? []);
+        setOptionsPositions(res.options ?? []);
+      })
+      .catch(() => {});
+  }, [account]);
 
   useEffect(() => {
     const unsub = wsClient.subscribe((evt: WSEvent) => {
@@ -71,17 +82,36 @@ export function PositionsPanel({
   };
 
   const handleClose = async (p: { symbol: string; side: "long" | "short"; size: number }) => {
+    setClosing(p.symbol);
     try {
-      await orders.place({
+      // Close = opposing MARKET order that reduces the position. It only
+      // reduces if there is opposing liquidity in the book, so inspect the
+      // actual fill instead of assuming success.
+      const res = await orders.place({
         symbol: p.symbol,
         market: "FUTURES",
         side: p.side === "long" ? "SELL" : "BUY",
         type: "MARKET",
         qty: String(p.size),
       });
-      toast.success("Position closed");
+      const filled = parseFloat(res.filled || "0");
+      if (filled <= 0) {
+        toast.error("Position not closed", {
+          description: "No opposing liquidity in the order book to fill the close. Try again or place a limit order.",
+        });
+      } else if (filled < p.size) {
+        toast.warning("Position partially closed", {
+          description: `Filled ${filled} of ${p.size}. Remainder still open.`,
+        });
+      } else {
+        toast.success("Position closed");
+      }
+      // Reflect the new position state immediately regardless of outcome.
+      refetchPositions();
     } catch (err) {
       toast.error("Close failed", { description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setClosing(null);
     }
   };
 
@@ -202,8 +232,9 @@ export function PositionsPanel({
                     <div className="text-[9px] opacity-70">{p.pnl >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%</div>
                   </td>
                   <td className="text-right pr-3">
-                    <Button size="sm" variant="ghost" className="h-6 text-[10px] text-sell hover:bg-sell/10"
-                      onClick={() => handleClose(p)}>Close</Button>
+                    <Button size="sm" variant="ghost" disabled={closing === p.symbol}
+                      className="h-6 text-[10px] text-sell hover:bg-sell/10 disabled:opacity-50"
+                      onClick={() => handleClose(p)}>{closing === p.symbol ? "Closing…" : "Close"}</Button>
                   </td>
                 </tr>
               ))}

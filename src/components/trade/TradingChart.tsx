@@ -17,8 +17,9 @@ function toTradingViewSymbol(symbol: string): string {
     };
     return commodityMap[base] ?? `TVC:${base}`;
   }
-  // crypto (perp/spot/options) -> TradingView's own aggregated CRYPTO feed
-  return `CRYPTO:${base}USD`;
+  // crypto (perp/spot/options) -> Binance live price feed on TradingView,
+  // using the {BASE}USD pair (e.g. BINANCE:BTCUSD).
+  return `BINANCE:${base}USD`;
 }
 
 declare global {
