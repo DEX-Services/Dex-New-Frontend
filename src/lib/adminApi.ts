@@ -1,4 +1,5 @@
 import { authHeader, setSession, updateSessionUser, type SessionUser } from "@/lib/Auth";
+import type { P2POrder } from "@/lib/p2pApi";
 
 const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8081";
 
@@ -65,6 +66,14 @@ export type AdminSummary = {
   recentUsers: AdminRecentUser[];
 };
 
+export type AdminP2PPrice = {
+  asset: string;
+  fiatCurrency: string;
+  price: string;
+  priceDate: string;
+  createdAt: string;
+};
+
 export async function adminLogin(loginId: string, password: string) {
   const result = await adminReq<{ token: string; user: SessionUser }>("/admin/login", {
     method: "POST",
@@ -76,6 +85,28 @@ export async function adminLogin(loginId: string, password: string) {
 
 export function getAdminDashboard() {
   return adminReq<AdminSummary>("/admin/dashboard");
+}
+
+export function getAdminP2PPrice() {
+  return adminReq<{ price: AdminP2PPrice }>("/admin/p2p/price");
+}
+
+export function setAdminP2PPrice(price: string) {
+  return adminReq<{ price: AdminP2PPrice }>("/admin/p2p/price", {
+    method: "PUT",
+    body: JSON.stringify({ price }),
+  });
+}
+
+export function getAdminP2PAppeals() {
+  return adminReq<{ orders: P2POrder[] }>("/admin/p2p/appeals");
+}
+
+export function resolveAdminP2PAppeal(orderId: string, action: "release"|"cancel") {
+  return adminReq<{ order: P2POrder }>("/admin/p2p/appeals/resolve", {
+    method: "POST",
+    body: JSON.stringify({ orderId, action }),
+  });
 }
 
 export function getAdminProfile() {
