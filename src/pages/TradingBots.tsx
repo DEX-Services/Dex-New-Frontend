@@ -98,7 +98,7 @@ export default function TradingBots() {
   const refreshMyBots = useCallback(async () => {
     try {
       const r = await getMyBots();
-      setMyBots(r.bots);
+      setMyBots(r.bots ?? []);
       setAuthed(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -117,7 +117,7 @@ export default function TradingBots() {
   useEffect(() => {
     const strategy = MARKETPLACE_TAB_TO_STRATEGY[marketplaceTab];
     getMarketplace(strategy)
-      .then((r) => setMarketplaceBots(r.bots))
+      .then((r) => setMarketplaceBots(r.bots ?? []))
       .catch(() => setMarketplaceBots([]));
   }, [marketplaceTab]);
 

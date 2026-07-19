@@ -1,6 +1,8 @@
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { toast } from "sonner";
+import { setAuthExpiredHandler } from "@/lib/apiClient";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,6 +46,18 @@ function ScrollToTop() {
   return null;
 }
 
+/** Surfaces a session-expiry notice when any API call gets a 401/403. The
+ *  stale token is already cleared inside apiClient; here we just tell the user. */
+function AuthExpiryWatcher() {
+  useEffect(() => {
+    setAuthExpiredHandler(() => {
+      toast.error("Your session has expired. Please sign in again.");
+    });
+    return () => setAuthExpiredHandler(null);
+  }, []);
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider delayDuration={200}>
@@ -51,6 +65,7 @@ const App = () => (
       <Sonner theme="dark" position="top-right" />
       <BrowserRouter>
         <ScrollToTop />
+        <AuthExpiryWatcher />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/trade" element={<Index />} />

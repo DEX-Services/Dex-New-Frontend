@@ -671,6 +671,23 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
           >
             Trades
           </button>
+          {/* Data-source badge: be explicit when depth/trades are simulated so a
+              user never mistakes generated numbers for a real order book. */}
+          <span
+            className={cn(
+              "mx-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0",
+              backendMarket
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-amber-500/15 text-amber-400"
+            )}
+            title={
+              backendMarket
+                ? "Live order book and trades from the exchange"
+                : "Simulated data — this market is not connected to the exchange"
+            }
+          >
+            {backendMarket ? "Live" : "Simulated"}
+          </span>
           {/* Collapse / expand toggle */}
           <button
             onClick={() => setObOpen(o => !o)}
