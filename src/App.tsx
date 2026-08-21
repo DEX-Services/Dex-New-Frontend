@@ -29,6 +29,7 @@ import NotFound from "./pages/NotFound.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminProfile from "./pages/AdminProfile.tsx";
+import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,7 @@ const App = () => (
           <Route path="/login" element={<AdminLogin />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/market-makers" element={<AdminMarketMakers />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
           </Route>
           <Route path="*" element={<NotFound />} />

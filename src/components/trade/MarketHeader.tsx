@@ -1,6 +1,6 @@
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
-import { useBinancePrice } from "@/lib/useBinancePrice";
+import { useIndexPrice } from "@/lib/useIndexPrice";
 import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,14 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 }) {
   const navigate = useNavigate();
   const market = useMarket(symbol);
-  const binance = useBinancePrice(market?.asset === "crypto" ? market.base : undefined);
+  const index = useIndexPrice(market?.asset === "crypto" ? market.base : undefined);
   const [aiActive, setAiActive] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
-  const livePrice = binance?.lastPrice ?? market.price;
-  const liveChange = binance?.changePercent ?? market.change24h;
-  const liveVolume = binance?.quoteVolume ?? market.volume24h;
+  const livePrice = index?.lastPrice ?? market.price;
+  const liveChange = index?.changePercent ?? market.change24h;
+  const liveVolume = index?.quoteVolume ?? market.volume24h;
   const positive = liveChange >= 0;
 
   return (
@@ -62,8 +62,8 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
           tone={market.funding >= 0 ? "buy" : "sell"}
         />
       )}
-      {binance && <Stat label="24h High" value={`$${formatPrice(binance.high)}`} />}
-      {binance && <Stat label="24h Low" value={`$${formatPrice(binance.low)}`} />}
+      {index && <Stat label="24h High" value={`$${formatPrice(index.high)}`} />}
+      {index && <Stat label="24h Low" value={`$${formatPrice(index.low)}`} />}
       <Stat label="Mark Price" value={`$${formatPrice(livePrice * 1.0001)}`} />
       <Stat label="Index" value={`$${formatPrice(livePrice * 0.9999)}`} />
 

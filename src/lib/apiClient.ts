@@ -154,9 +154,21 @@ export type SubmitOrderParams = {
   symbol: string;
   market: string;
   side: "BUY" | "SELL";
-  type?: "LIMIT" | "MARKET" | "IOC" | "FOK";
+  type?: "LIMIT" | "MARKET" | "IOC" | "FOK" | "POST_ONLY" | "STOP";
   price?: string;
   qty: string;
+  // STOP / STOP-LIMIT: the trigger price. A STOP order with `price` also set
+  // becomes a stop-limit (rests as a limit once triggered); without `price`
+  // it becomes a stop-market.
+  stopPrice?: string;
+  // Futures-only: reject the order instead of letting it increase or flip
+  // the position (enforced server-side against the live position).
+  reduceOnly?: boolean;
+  // MARKET-only: caps how far a market order may walk the book from the
+  // best opposite quote, in basis points. The engine converts the order to
+  // an equivalent slippage-bounded IOC limit. Omit for uncapped (legacy)
+  // market-order behaviour.
+  slippageBps?: number;
   // Futures-only.
   leverage?: number;
   marginMode?: "ISOLATED" | "CROSS";
@@ -176,6 +188,9 @@ export function submitOrder(p: SubmitOrderParams) {
     price: p.price ?? "0",
     qty: p.qty,
   });
+  if (p.stopPrice) params.set("stopPrice", p.stopPrice);
+  if (p.reduceOnly) params.set("reduceOnly", "true");
+  if (p.slippageBps !== undefined) params.set("slippageBps", String(p.slippageBps));
   if (p.leverage !== undefined) params.set("leverage", String(p.leverage));
   if (p.marginMode) params.set("marginMode", p.marginMode);
   if (p.optionType) params.set("optionType", p.optionType);

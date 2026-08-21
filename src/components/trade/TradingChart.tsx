@@ -1,8 +1,13 @@
-import { useEffect, useRef, useId } from "react";
+import { useEffect, useRef } from "react";
 import { INITIAL_MARKETS } from "@/lib/mockData";
+import { createBinanceDatafeed } from "@/lib/binanceDatafeed";
+
+function marketFor(symbol: string) {
+  return INITIAL_MARKETS.find(m => m.symbol === symbol);
+}
 
 function toTradingViewSymbol(symbol: string): string {
-  const market = INITIAL_MARKETS.find(m => m.symbol === symbol);
+  const market = marketFor(symbol);
   const asset = market?.asset;
   const base = (market?.base ?? symbol.split("-")[0]).toUpperCase();
 
@@ -28,15 +33,61 @@ declare global {
   }
 }
 
+// ─── Licensed Advanced Charting Library (crypto pairs) ─────────────────────
+//
+// The licensed library ships as a static bundle (public/charting_library/,
+// copied from the vendor drop — see .gitignore) and, unlike the free tv.js
+// embed, has no data of its own: it always needs an explicit `datafeed`.
+// Crypto pairs get a small custom datafeed backed by Binance's public REST +
+// WS APIs (binanceDatafeed.ts) — the same data source the previous free
+// widget used via TradingView's own BINANCE: resolver, just fetched
+// ourselves since the licensed library can't resolve TradingView-hosted
+// symbols on its own.
+
+// The two libraries both define window.TradingView.widget, and whichever
+// loads second overwrites the first's — they cannot coexist on one page. In
+// practice a session only ever needs one (all-crypto vs. mixed-asset
+// layouts are rare in the same view), but track which is currently loaded
+// so a layout that mixes asset classes reloads the right script instead of
+// silently reusing the wrong one.
+let loadedVariant: "advanced" | "embed" | null = null;
+let advancedLibScriptPromise: Promise<void> | null = null;
+function loadAdvancedChartingLibrary(): Promise<void> {
+  if (loadedVariant === "advanced") return Promise.resolve();
+  advancedLibScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "/charting_library/charting_library.standalone.js";
+    script.async = true;
+    script.onload = () => {
+      loadedVariant = "advanced";
+      resolve();
+    };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return advancedLibScriptPromise;
+}
+
+// ─── Free tv.js embed (non-crypto: forex / stocks / commodity) ─────────────
+//
+// These asset classes are UI-only today (no live backend, mock prices) and
+// were previously charted via TradingView's own hosted data through the free
+// widget's built-in resolver, which the Binance-only custom datafeed above
+// cannot serve. Keeping tv.js for this slice avoids losing that chart
+// entirely; swap it to the licensed library once a real data source for
+// these asset classes exists.
+
 let tvScriptPromise: Promise<void> | null = null;
-function loadTradingViewScript(): Promise<void> {
-  if (window.TradingView) return Promise.resolve();
-  if (tvScriptPromise) return tvScriptPromise;
+function loadTradingViewEmbedScript(): Promise<void> {
+  if (loadedVariant === "embed") return Promise.resolve();
   tvScriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/tv.js";
     script.async = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      loadedVariant = "embed";
+      resolve();
+    };
     script.onerror = reject;
     document.head.appendChild(script);
   });
@@ -45,48 +96,72 @@ function loadTradingViewScript(): Promise<void> {
 
 function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const widgetId = useId().replace(/:/g, "");
-  const tvSymbol = toTradingViewSymbol(symbol);
   const widgetRef = useRef<any>(null);
+  const isCrypto = marketFor(symbol)?.asset === "crypto" || !marketFor(symbol);
+  const base = (marketFor(symbol)?.base ?? symbol.split("-")[0]).toUpperCase();
+  const tvSymbol = toTradingViewSymbol(symbol);
 
   useEffect(() => {
     let cancelled = false;
     const container = containerRef.current;
     if (!container) return;
     container.innerHTML = "";
-    container.id = widgetId;
 
     const isLight = document.documentElement.getAttribute("data-theme") === "light";
 
-    loadTradingViewScript().then(() => {
-      if (cancelled || !window.TradingView) return;
-      widgetRef.current = new window.TradingView.widget({
-        autosize: true,
-        symbol: tvSymbol,
-        interval: timeframe,
-        timezone: "Etc/UTC",
-        theme: isLight ? "light" : "dark",
-        style: "1",
-        locale: "en",
-        enable_publishing: false,
-        allow_symbol_change: false,
-        save_image: false,
-        calendar: false,
-        hide_top_toolbar: false,
-        hide_legend: false,
-        hide_side_toolbar: false,
-        container_id: widgetId,
-        studies: ["Volume@tv-basicstudies"],
-        disabled_features: [
-          "header_compare",
-          "compare_symbol",
-          "header_symbol_search",
-          "symbol_search_hot_key",
-          "study_templates",
-          "popup_hints",
-        ],
+    const commonOptions = {
+      autosize: true,
+      interval: timeframe,
+      timezone: "Etc/UTC",
+      theme: isLight ? "light" : "dark",
+      style: "1",
+      locale: "en",
+      enable_publishing: false,
+      allow_symbol_change: false,
+      save_image: false,
+      calendar: false,
+      hide_top_toolbar: false,
+      hide_legend: false,
+      hide_side_toolbar: false,
+      // Pass the DOM element directly rather than an id string for the
+      // widget to look up itself (the previous `container_id: widgetId`
+      // approach threw "There is no such element - #" — the id-based
+      // lookup wasn't finding the container reliably). `container` accepts
+      // `HTMLElement | string` per charting_library.d.ts; passing the
+      // element we already hold via containerRef sidesteps the lookup
+      // entirely.
+      container,
+      disabled_features: [
+        "header_compare",
+        "compare_symbol",
+        "header_symbol_search",
+        "symbol_search_hot_key",
+        "study_templates",
+        "popup_hints",
+      ],
+    };
+
+    if (isCrypto) {
+      loadAdvancedChartingLibrary().then(() => {
+        if (cancelled || !window.TradingView) return;
+        widgetRef.current = new window.TradingView.widget({
+          ...commonOptions,
+          symbol: base,
+          datafeed: createBinanceDatafeed(),
+          library_path: "/charting_library/",
+          studies_overrides: {},
+        });
       });
-    });
+    } else {
+      loadTradingViewEmbedScript().then(() => {
+        if (cancelled || !window.TradingView) return;
+        widgetRef.current = new window.TradingView.widget({
+          ...commonOptions,
+          symbol: tvSymbol,
+          studies: ["Volume@tv-basicstudies"],
+        });
+      });
+    }
 
     return () => {
       cancelled = true;
@@ -94,13 +169,13 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
         try {
           widgetRef.current.remove();
         } catch {
-          // tv.js widget teardown can throw if its internal DOM node was
-          // already detached (e.g. rapid symbol switches); safe to ignore.
+          // Widget teardown can throw if its internal DOM node was already
+          // detached (e.g. rapid symbol switches); safe to ignore.
         }
       }
       widgetRef.current = null;
     };
-  }, [tvSymbol, timeframe, widgetId]);
+  }, [isCrypto, base, tvSymbol, timeframe]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }

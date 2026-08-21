@@ -196,19 +196,73 @@ export function TradePanel({
       return;
     }
 
+    // TP/SL is not a distinct order type on the engine — it's an entry order
+    // (placed here as a market order, since a resting-limit entry combined
+    // with contingent exits adds a "what if the entry never fills" state
+    // this panel doesn't track) plus one real STOP order per enabled target,
+    // submitted on the *opposite* side and reduce-only so it can only close
+    // the position it's protecting, never open a new one. Previously this
+    // branch submitted a plain market/limit order and silently discarded
+    // tpslTargets entirely — the position had zero actual protection despite
+    // the UI implying otherwise.
+    const isTpsl = orderType === "tpsl";
+    const exitSide = side === "buy" ? "SELL" : "BUY";
+    const futuresParams = isFutures
+      ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" }
+      : {};
+
     try {
       const res = await orders.place({
         symbol: backendMarket.symbol,
         market: backendMarket.market,
         side: side === "buy" ? "BUY" : "SELL",
-        type: orderType === "market" ? "MARKET" : "LIMIT",
-        price: orderType === "market" ? undefined : limitPrice,
+        type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
+        price: orderType === "market" || isTpsl ? undefined : limitPrice,
         qty: positionSize.toFixed(LOT_DECIMALS),
-        ...(isFutures ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" } : {}),
+        ...futuresParams,
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
       });
+
+      if (isTpsl) {
+        const attempted: string[] = [];
+        const failed: string[] = [];
+        for (const target of tpslTargets) {
+          for (const leg of [
+            { enabled: target.tpEnabled, stopPrice: target.tp, label: "take-profit" },
+            { enabled: target.slEnabled, stopPrice: target.sl, label: "stop-loss" },
+          ]) {
+            if (!leg.enabled || !leg.stopPrice) continue;
+            attempted.push(leg.label);
+            try {
+              await orders.place({
+                symbol: backendMarket.symbol,
+                market: backendMarket.market,
+                side: exitSide,
+                type: "STOP",
+                stopPrice: leg.stopPrice,
+                // A stop-limit rests at stopPrice once triggered; a plain
+                // stop-market (no price) fills at whatever the book offers.
+                price: target.mode === "limit" ? leg.stopPrice : undefined,
+                qty: positionSize.toFixed(LOT_DECIMALS),
+                ...(isFutures ? { reduceOnly: true, marginMode: futuresParams.marginMode } : {}),
+              });
+            } catch (err) {
+              failed.push(leg.label);
+            }
+          }
+        }
+        if (failed.length > 0) {
+          toast.error("Some protective orders failed", {
+            description: `${failed.join(" & ")} could not be placed — check the position manually.`,
+          });
+        } else if (attempted.length > 0) {
+          toast.success("Protective orders placed", {
+            description: `${attempted.join(" & ")} armed for this position.`,
+          });
+        }
+      }
     } catch (err) {
       toast.error("Order failed", { description: err instanceof Error ? err.message : String(err) });
     }
@@ -370,12 +424,13 @@ export function TradePanel({
                   {moreOrders.map(order => (
                     <DropdownMenuItem
                       key={order}
-                      onSelect={() => toast.info(`${order} order selected`, {
-                        description: "Advanced order setup is ready to configure.",
+                      disabled
+                      onSelect={() => toast.info(`${order} orders aren't available yet`, {
+                        description: "This order type isn't wired up on the exchange yet — use Limit, Market, or TP/SL instead.",
                       })}
-                      className="text-xs"
+                      className="text-xs opacity-60"
                     >
-                      {order}
+                      {order} <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
