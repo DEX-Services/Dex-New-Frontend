@@ -4,7 +4,9 @@
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
   "BTC-USDT": { symbol: "BTC-USDT", market: "SPOT" },
   "ETH-USDT": { symbol: "ETH-USDT", market: "SPOT" },
+  "SOL-USDT": { symbol: "SOL-USDT", market: "SPOT" },
   "BTC-PERP": { symbol: "BTC-USDC", market: "FUTURES" },
+  "ETH-PERP": { symbol: "ETH-USDC", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed
@@ -12,13 +14,6 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
 // The backend's /option-chain endpoint is queried with this underlying symbol.
 const OPTIONS_UNDERLYING: Record<string, { underlying: string; quote: string }> = {
   BTC: { underlying: "BTC-USDT", quote: "USDT" },
-};
-
-// Maintenance margin rate per symbol, matching the backend's symbol_configs.
-// Used by the frontend to compute an accurate liquidation price display that
-// matches the backend's actual liquidation trigger.
-const MAINTENANCE_MARGIN_RATE: Record<string, number> = {
-  "BTC-USDC": 0.005,
 };
 
 export function backendOptionsMarketFor(baseAsset: string) {
@@ -31,10 +26,14 @@ export function backendMarketFor(frontendSymbol: string) {
   return REGISTERED[frontendSymbol] ?? null;
 }
 
-// maintenanceMarginRateFor returns the maintenance margin rate for a given
-// engine symbol, defaulting to 0.005 (0.5%) — the standard crypto perp rate.
-export function maintenanceMarginRateFor(engineSymbol: string): number {
-  return MAINTENANCE_MARGIN_RATE[engineSymbol] ?? 0.005;
+// All backend-registered FUTURES symbol/market pairs, engine-symbol form
+// (e.g. "BTC-USDC", not "BTC-PERP"). Used to batch-fetch real tickers
+// (mark price, MMR) for every open position's symbol at once, instead of
+// hardcoding maintenance margin rates client-side — that hardcoded map used
+// to be the only source for the liquidation-price preview and could
+// silently drift from whatever symbol_configs actually says.
+export function registeredFuturesSymbols(): { symbol: string; market: string }[] {
+  return Object.values(REGISTERED).filter((e) => e.market === "FUTURES");
 }
 
 // optionInstrumentSymbol builds the per-instrument symbol the backend now

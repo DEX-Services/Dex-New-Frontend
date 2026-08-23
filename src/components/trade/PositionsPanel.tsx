@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
 import { getPositions, FuturesPositionDTO, OptionsPositionDTO } from "@/lib/apiClient";
-import { frontendSymbolFor, maintenanceMarginRateFor } from "@/lib/backendMarkets";
+import { frontendSymbolFor } from "@/lib/backendMarkets";
+import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
 import { wsClient, WSEvent } from "@/lib/wsClient";
 import { toast } from "sonner";
@@ -31,6 +32,30 @@ const MOCK_AUTOMATED_ORDERS = [
   { id: "auto_004", source: "AI Agent", name: "Risk Rebalance", strategy: "Rebalancing", symbol: "HYPE-PERP", side: "sell", type: "Market", size: 20, price: 29.84, status: "Queued" },
 ] as const;
 
+// resolveMarkPrice picks the mark price a position's PnL/liquidation
+// preview is computed against, in priority order:
+//   1. The real engine ticker's mark price, whenever it's actually usable
+//      (> 0 — an empty order book still returns a 200 with markPrice "0",
+//      which isn't a real quote to compute PnL against).
+//   2. The position DTO's own markPrice (also real backend data, just a
+//      possibly-stale snapshot from when /positions was last fetched).
+//   3. The client-side mock market feed's price, as a last resort only.
+// Exported and pulled out of the component specifically so this priority
+// order is independently testable: previously step 3 ran FIRST, so a real
+// open position's displayed PnL could silently be computed against a
+// fabricated price even while the real value was sitting right there in
+// the position DTO.
+export function resolveMarkPrice(
+  tickerMarkPrice: number | undefined,
+  positionMarkPrice: string,
+  mockMarketPrice: number | undefined
+): number {
+  if (tickerMarkPrice !== undefined && tickerMarkPrice > 0) return tickerMarkPrice;
+  const fromPosition = parseFloat(positionMarkPrice);
+  if (fromPosition > 0) return fromPosition;
+  return mockMarketPrice ?? 0;
+}
+
 export function PositionsPanel({
   markets,
   account,
@@ -44,6 +69,7 @@ export function PositionsPanel({
   const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
+  const futuresTickers = useFuturesTickers();
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
   const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
@@ -140,10 +166,30 @@ export function PositionsPanel({
         });
     };
     fetchPositions();
+    // 5s poll stays as a safety net (catches liquidations and anything else
+    // that changes a position without a WS event this panel listens for),
+    // but the primary signal is now the WS stream: an own-account order fill
+    // or funding payment refetches immediately, so a position typically
+    // updates within milliseconds of the fill instead of waiting up to 5s.
     const interval = setInterval(fetchPositions, 5000);
+    const unsubWs = wsClient.subscribe((evt: WSEvent) => {
+      // The order-fill stream is a symbol-wide broadcast, not scoped to
+      // this account (the engine doesn't tag WS events with an account ID
+      // for order fills — only FUNDING carries accountId) — so this can
+      // trigger on someone else's fill too. That's a harmless extra
+      // getPositions() call (still correctly account-scoped server-side),
+      // not a correctness issue, and it's the best signal available without
+      // adding a new backend event type just for this.
+      const isFillOnFuturesSymbol =
+        (evt.type === "ORDER_FILLED" || evt.type === "ORDER_PARTIALLY_FILLED") &&
+        evt.market === "FUTURES";
+      const isOwnFunding = evt.type === "FUNDING" && evt.funding?.accountId === account;
+      if (isFillOnFuturesSymbol || isOwnFunding) fetchPositions();
+    });
     return () => {
       cancelled = true;
       clearInterval(interval);
+      unsubWs();
     };
   }, [account]);
 
@@ -152,7 +198,9 @@ export function PositionsPanel({
       const size = parseFloat(p.size);
       const entry = parseFloat(p.entryPrice);
       const displaySymbol = frontendSymbolFor(p.symbol, "FUTURES");
-      const mark = markets.find(mk => mk.symbol === displaySymbol)?.price ?? parseFloat(p.markPrice);
+      const ticker = futuresTickers[p.symbol];
+      const mockMarketPrice = markets.find(mk => mk.symbol === displaySymbol)?.price;
+      const mark = resolveMarkPrice(ticker?.markPrice, p.markPrice, mockMarketPrice);
       const side = p.side === "BUY" ? "long" as const : "short" as const;
       const leverage = p.leverage || 1;
       const margin = parseFloat(p.margin);
@@ -162,13 +210,16 @@ export function PositionsPanel({
       // Liquidation price derived from the backend's MarginRatio < MMR rule:
       //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
       //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
-      const mmr = maintenanceMarginRateFor(p.symbol);
+      // MMR comes from the real ticker (symbol_configs) when available;
+      // 0.005 (0.5%, the standard crypto perp rate) is a last-resort
+      // fallback only, not the primary source anymore.
+      const mmr = (ticker?.maintenanceMarginRatePct ?? 0.5) / 100;
       const liq = side === "long"
         ? (entry * (1 - 1 / leverage)) / (1 - mmr)
         : (entry * (1 + 1 / leverage)) / (1 + mmr);
       return { symbol: p.symbol, side, size, entry, leverage, margin, mark, pnl, pnlPct, liq, direction };
     });
-  }, [futuresPositions, markets]);
+  }, [futuresPositions, markets, futuresTickers]);
 
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
 

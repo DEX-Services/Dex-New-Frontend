@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { BarChart3, LogOut, User, Zap } from "lucide-react";
+import { BarChart3, LogOut, User, Zap, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -30,6 +30,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
         <nav className="hidden sm:flex items-center gap-1 ml-3">
           <AdminNavLink to="/admin" label="Dashboard" icon={BarChart3} end />
+          <AdminNavLink to="/admin/market-makers" label="Market Makers" icon={Waves} />
           <AdminNavLink to="/admin/profile" label="Profile" icon={User} />
         </nav>
 

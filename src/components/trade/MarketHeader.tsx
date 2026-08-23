@@ -1,6 +1,8 @@
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
-import { useBinancePrice } from "@/lib/useBinancePrice";
+import { useIndexPrice } from "@/lib/useIndexPrice";
+import { useTicker } from "@/lib/useTicker";
+import { backendMarketFor } from "@/lib/backendMarkets";
 import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,15 +19,31 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 }) {
   const navigate = useNavigate();
   const market = useMarket(symbol);
-  const binance = useBinancePrice(market?.asset === "crypto" ? market.base : undefined);
+  const index = useIndexPrice(market?.asset === "crypto" ? market.base : undefined);
+  const backendMarket = backendMarketFor(symbol);
+  const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
   const [aiActive, setAiActive] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
-  const livePrice = binance?.lastPrice ?? market.price;
-  const liveChange = binance?.changePercent ?? market.change24h;
-  const liveVolume = binance?.quoteVolume ?? market.volume24h;
+  const livePrice = index?.lastPrice ?? market.price;
+  const liveChange = index?.changePercent ?? market.change24h;
+  const liveVolume = index?.quoteVolume ?? market.volume24h;
   const positive = liveChange >= 0;
+
+  // Mark/index/funding: real when the symbol is backend-registered and the
+  // engine has quoted data (ticker.markPrice > 0 — an empty order book still
+  // returns a 200 with markPrice "0", which isn't a usable value). Falls
+  // back to the previous fabricated ±0.01% spread and the static mock
+  // funding rate only when there's genuinely nothing real to show, same
+  // "Simulated"-style degrade the rest of the trade page already uses for
+  // unregistered symbols.
+  const hasRealTicker = !!ticker && ticker.markPrice > 0;
+  const markPrice = hasRealTicker ? ticker.markPrice : livePrice * 1.0001;
+  const indexPrice = hasRealTicker && ticker.indexPrice !== null ? ticker.indexPrice : livePrice * 0.9999;
+  const fundingPct = hasRealTicker && ticker.fundingRatePct !== null
+    ? ticker.fundingRatePct / 100
+    : market.funding;
 
   return (
     <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-6 overflow-x-auto">
@@ -55,17 +73,17 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 
       <Stat label="24h Volume" value={`$${formatCompact(liveVolume)}`} />
       {market.openInterest && <Stat label="Open Interest" value={`$${formatCompact(market.openInterest)}`} />}
-      {market.funding !== undefined && (
+      {fundingPct !== undefined && (
         <Stat
           label="Funding"
-          value={`${market.funding >= 0 ? "+" : ""}${(market.funding * 100).toFixed(4)}%`}
-          tone={market.funding >= 0 ? "buy" : "sell"}
+          value={`${fundingPct >= 0 ? "+" : ""}${(fundingPct * 100).toFixed(4)}%`}
+          tone={fundingPct >= 0 ? "buy" : "sell"}
         />
       )}
-      {binance && <Stat label="24h High" value={`$${formatPrice(binance.high)}`} />}
-      {binance && <Stat label="24h Low" value={`$${formatPrice(binance.low)}`} />}
-      <Stat label="Mark Price" value={`$${formatPrice(livePrice * 1.0001)}`} />
-      <Stat label="Index" value={`$${formatPrice(livePrice * 0.9999)}`} />
+      {index && <Stat label="24h High" value={`$${formatPrice(index.high)}`} />}
+      {index && <Stat label="24h Low" value={`$${formatPrice(index.low)}`} />}
+      <Stat label="Mark Price" value={`$${formatPrice(markPrice)}`} />
+      <Stat label="Index" value={`$${formatPrice(indexPrice)}`} />
 
       <div className="ml-auto flex items-center gap-2 min-w-fit">
         <Button

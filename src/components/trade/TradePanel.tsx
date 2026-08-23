@@ -13,6 +13,7 @@ import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } fro
 import { useOrders } from "@/lib/useOrders";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
+import { useTicker } from "@/lib/useTicker";
 
 type Side = "buy" | "sell";
 type OrderType = "market" | "limit" | "tpsl";
@@ -43,6 +44,8 @@ export function TradePanel({
   orders: ReturnType<typeof useOrders>;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
+  const backendMarket = backendMarketFor(symbol);
+  const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
   const walletState = useWallet();
   const BALANCE = walletState.balances.reduce((sum, b) => sum + b.available, 0);
   const leverageInputRef = useRef<HTMLInputElement>(null);
@@ -119,11 +122,17 @@ export function TradePanel({
   // Solving for the mark price at which margin + unrealized PnL = MMR * notional:
   //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
   //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
-  const mmr = 0.005; // 0.5% maintenance margin rate (matches BTC-USDC FUTURES config)
+  // MMR and fee rates come from the real backend config (symbol_configs) via
+  // the ticker when available, so this preview can't silently drift from
+  // the engine's actual liquidation trigger and fee schedule. 0.5% MMR /
+  // 5bps-10bps fee are last-resort fallbacks for unregistered symbols only.
+  const mmr = (ticker?.maintenanceMarginRatePct ?? 0.5) / 100;
   const liqPrice = side === "buy"
     ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
-  const fee = orderValue * (isOptions ? 0.001 : 0.0005);
+  const feeRatePct = isOptions ? 0.1 : 0.05; // 10bps / 5bps fallback for unregistered symbols
+  const feeRate = (ticker?.takerFeePct ?? feeRatePct) / 100;
+  const fee = orderValue * feeRate;
   const primaryTarget = tpslTargets[0];
   const tpPct = ((parseFloat(primaryTarget.tp) - price) / price) * 100 * (side === "buy" ? 1 : -1);
   const slPct = ((parseFloat(primaryTarget.sl) - price) / price) * 100 * (side === "buy" ? -1 : 1);
@@ -188,27 +197,84 @@ export function TradePanel({
       return;
     }
 
-    const backendMarket = backendMarketFor(symbol);
     if (!backendMarket) {
-      toast.success(`${mode.toUpperCase()} ${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
-        description: `${positionSize.toFixed(4)} ${symbol.split("-")[0]} @ ${orderType === "market" ? "market" : limitPrice}`,
+      // Previously showed a fake success toast here — the order was never
+      // submitted anywhere, but the UI told the user it had been placed.
+      // Match the options-mode pattern above: an honest "not available"
+      // error, not a fabricated fill.
+      toast.error(`${symbol} isn't available to trade yet`, {
+        description: "This market isn't live on the exchange yet — try BTC-USDT, ETH-USDT, SOL-USDT, BTC-PERP, or ETH-PERP.",
       });
       return;
     }
+
+    // TP/SL is not a distinct order type on the engine — it's an entry order
+    // (placed here as a market order, since a resting-limit entry combined
+    // with contingent exits adds a "what if the entry never fills" state
+    // this panel doesn't track) plus one real STOP order per enabled target,
+    // submitted on the *opposite* side and reduce-only so it can only close
+    // the position it's protecting, never open a new one. Previously this
+    // branch submitted a plain market/limit order and silently discarded
+    // tpslTargets entirely — the position had zero actual protection despite
+    // the UI implying otherwise.
+    const isTpsl = orderType === "tpsl";
+    const exitSide = side === "buy" ? "SELL" : "BUY";
+    const futuresParams = isFutures
+      ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" }
+      : {};
 
     try {
       const res = await orders.place({
         symbol: backendMarket.symbol,
         market: backendMarket.market,
         side: side === "buy" ? "BUY" : "SELL",
-        type: orderType === "market" ? "MARKET" : "LIMIT",
-        price: orderType === "market" ? undefined : limitPrice,
+        type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
+        price: orderType === "market" || isTpsl ? undefined : limitPrice,
         qty: positionSize.toFixed(LOT_DECIMALS),
-        ...(isFutures ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" } : {}),
+        ...futuresParams,
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
       });
+
+      if (isTpsl) {
+        const attempted: string[] = [];
+        const failed: string[] = [];
+        for (const target of tpslTargets) {
+          for (const leg of [
+            { enabled: target.tpEnabled, stopPrice: target.tp, label: "take-profit" },
+            { enabled: target.slEnabled, stopPrice: target.sl, label: "stop-loss" },
+          ]) {
+            if (!leg.enabled || !leg.stopPrice) continue;
+            attempted.push(leg.label);
+            try {
+              await orders.place({
+                symbol: backendMarket.symbol,
+                market: backendMarket.market,
+                side: exitSide,
+                type: "STOP",
+                stopPrice: leg.stopPrice,
+                // A stop-limit rests at stopPrice once triggered; a plain
+                // stop-market (no price) fills at whatever the book offers.
+                price: target.mode === "limit" ? leg.stopPrice : undefined,
+                qty: positionSize.toFixed(LOT_DECIMALS),
+                ...(isFutures ? { reduceOnly: true, marginMode: futuresParams.marginMode } : {}),
+              });
+            } catch (err) {
+              failed.push(leg.label);
+            }
+          }
+        }
+        if (failed.length > 0) {
+          toast.error("Some protective orders failed", {
+            description: `${failed.join(" & ")} could not be placed — check the position manually.`,
+          });
+        } else if (attempted.length > 0) {
+          toast.success("Protective orders placed", {
+            description: `${attempted.join(" & ")} armed for this position.`,
+          });
+        }
+      }
     } catch (err) {
       toast.error("Order failed", { description: err instanceof Error ? err.message : String(err) });
     }
@@ -370,12 +436,13 @@ export function TradePanel({
                   {moreOrders.map(order => (
                     <DropdownMenuItem
                       key={order}
-                      onSelect={() => toast.info(`${order} order selected`, {
-                        description: "Advanced order setup is ready to configure.",
+                      disabled
+                      onSelect={() => toast.info(`${order} orders aren't available yet`, {
+                        description: "This order type isn't wired up on the exchange yet — use Limit, Market, or TP/SL instead.",
                       })}
-                      className="text-xs"
+                      className="text-xs opacity-60"
                     >
-                      {order}
+                      {order} <span className="ml-auto text-[10px] text-muted-foreground">soon</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
