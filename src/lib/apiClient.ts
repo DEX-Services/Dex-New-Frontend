@@ -139,6 +139,30 @@ export function getDepth(symbol: string, market: string, levels = 20) {
   return req<DepthResponse>(`/depth?${params}`);
 }
 
+// Real order-book-derived and settlement-derived numbers — no 24h
+// high/low/volume (the engine doesn't track rolling windows; use
+// useIndexPrice for that). indexPrice/fundingRatePct/maintenanceMarginRatePct
+// are only present for FUTURES.
+export type TickerResponse = {
+  symbol: string;
+  market: string;
+  bestBid: string;
+  bestAsk: string;
+  midPrice: string;
+  markPrice: string;
+  indexPrice?: string;
+  spread: string;
+  fundingRatePct?: string;
+  makerFeePct?: string;
+  takerFeePct?: string;
+  maintenanceMarginRatePct?: string;
+};
+
+export function getTicker(symbol: string, market: string) {
+  const params = new URLSearchParams({ symbol, market });
+  return req<TickerResponse>(`/ticker?${params}`);
+}
+
 export function getTrades(symbol: string, market: string, limit = 50) {
   const params = new URLSearchParams({ symbol, market, limit: String(limit) });
   return req<TradesResponse>(`/trades?${params}`);

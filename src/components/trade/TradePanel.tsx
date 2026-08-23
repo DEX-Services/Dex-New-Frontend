@@ -13,6 +13,7 @@ import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } fro
 import { useOrders } from "@/lib/useOrders";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
+import { useTicker } from "@/lib/useTicker";
 
 type Side = "buy" | "sell";
 type OrderType = "market" | "limit" | "tpsl";
@@ -43,6 +44,8 @@ export function TradePanel({
   orders: ReturnType<typeof useOrders>;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
+  const backendMarket = backendMarketFor(symbol);
+  const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
   const walletState = useWallet();
   const BALANCE = walletState.balances.reduce((sum, b) => sum + b.available, 0);
   const leverageInputRef = useRef<HTMLInputElement>(null);
@@ -119,11 +122,17 @@ export function TradePanel({
   // Solving for the mark price at which margin + unrealized PnL = MMR * notional:
   //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
   //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
-  const mmr = 0.005; // 0.5% maintenance margin rate (matches BTC-USDC FUTURES config)
+  // MMR and fee rates come from the real backend config (symbol_configs) via
+  // the ticker when available, so this preview can't silently drift from
+  // the engine's actual liquidation trigger and fee schedule. 0.5% MMR /
+  // 5bps-10bps fee are last-resort fallbacks for unregistered symbols only.
+  const mmr = (ticker?.maintenanceMarginRatePct ?? 0.5) / 100;
   const liqPrice = side === "buy"
     ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
-  const fee = orderValue * (isOptions ? 0.001 : 0.0005);
+  const feeRatePct = isOptions ? 0.1 : 0.05; // 10bps / 5bps fallback for unregistered symbols
+  const feeRate = (ticker?.takerFeePct ?? feeRatePct) / 100;
+  const fee = orderValue * feeRate;
   const primaryTarget = tpslTargets[0];
   const tpPct = ((parseFloat(primaryTarget.tp) - price) / price) * 100 * (side === "buy" ? 1 : -1);
   const slPct = ((parseFloat(primaryTarget.sl) - price) / price) * 100 * (side === "buy" ? -1 : 1);
@@ -188,10 +197,13 @@ export function TradePanel({
       return;
     }
 
-    const backendMarket = backendMarketFor(symbol);
     if (!backendMarket) {
-      toast.success(`${mode.toUpperCase()} ${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
-        description: `${positionSize.toFixed(4)} ${symbol.split("-")[0]} @ ${orderType === "market" ? "market" : limitPrice}`,
+      // Previously showed a fake success toast here — the order was never
+      // submitted anywhere, but the UI told the user it had been placed.
+      // Match the options-mode pattern above: an honest "not available"
+      // error, not a fabricated fill.
+      toast.error(`${symbol} isn't available to trade yet`, {
+        description: "This market isn't live on the exchange yet — try BTC-USDT, ETH-USDT, SOL-USDT, BTC-PERP, or ETH-PERP.",
       });
       return;
     }
