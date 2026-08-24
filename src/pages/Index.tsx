@@ -6,6 +6,7 @@ import { TradePanel, type MarketMode } from "@/components/trade/TradePanel";
 import { PositionsPanel } from "@/components/trade/PositionsPanel";
 import { MarketHeader } from "@/components/trade/MarketHeader";
 import { useMarket, useMarkets } from "@/lib/useMarkets";
+import { useLivePrice } from "@/lib/useLivePrice";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { PanelGroup, Panel, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
@@ -791,7 +792,13 @@ const Index = () => {
   const orders = useOrders(account);
   const market = useMarket(symbol);
   const markets = useMarkets();
-  const price = market?.price ?? 0;
+  // Real index price (crypto, live) when available, mock simulator
+  // otherwise — same priority MarketHeader uses, via the shared hook, so
+  // the order panel's default price/liquidation preview/chart can't show a
+  // different number than the header does. Previously this read
+  // market.price directly, so the header showed a real price like $79,602
+  // while the order entry panel below it defaulted to a stale mock value.
+  const price = useLivePrice(symbol);
   const isMobile = useIsMobile();
   const isOptionsMarket = market?.category === "options";
   const [tradeMode, setTradeMode] = useState<MarketMode>("futures");

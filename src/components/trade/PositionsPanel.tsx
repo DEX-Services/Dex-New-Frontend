@@ -10,6 +10,7 @@ import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
 import { wsClient, WSEvent } from "@/lib/wsClient";
+import { getMyBots, Bot as BotDTO } from "@/lib/botsApi";
 import { toast } from "sonner";
 
 type FundingEntry = {
@@ -25,12 +26,32 @@ const MOCK_HISTORY = [
   { time: "09:55", symbol: "BTC-PERP", side: "buy", size: 0.08, price: 66900, status: "Cancelled", pnl: "—" },
 ];
 
-const MOCK_AUTOMATED_ORDERS = [
-  { id: "auto_001", source: "Bot", name: "BTC Grid", strategy: "Futures Grid", symbol: "BTC-PERP", side: "buy", type: "Limit", size: 0.025, price: 66540, status: "Working" },
-  { id: "auto_002", source: "AI Agent", name: "Momentum Flow", strategy: "Trend Follow", symbol: "ETH-PERP", side: "sell", type: "Stop", size: 0.8, price: 3495, status: "Watching" },
-  { id: "auto_003", source: "Bot", name: "SOL DCA", strategy: "Futures DCA", symbol: "SOL-PERP", side: "buy", type: "Limit", size: 12, price: 158.6, status: "Working" },
-  { id: "auto_004", source: "AI Agent", name: "Risk Rebalance", strategy: "Rebalancing", symbol: "HYPE-PERP", side: "sell", type: "Market", size: 20, price: 29.84, status: "Queued" },
-] as const;
+// Strategy keys are raw identifiers from the bots service (e.g.
+// "futures_dca", not "Futures DCA") — mirrors strategy.Templates() in
+// bots/internal/strategy/strategy.go. Humanized for display only.
+const STRATEGY_LABELS: Record<string, string> = {
+  spot_grid: "Spot Grid",
+  futures_grid: "Futures Grid",
+  spot_dca: "Spot DCA",
+  futures_dca: "Futures DCA",
+  futures_twap: "Futures TWAP",
+  arbitrage: "Arbitrage",
+  market_maker: "Market Maker",
+};
+
+export function humanizeStrategy(key: string): string {
+  return STRATEGY_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export type BotStatusDisplay = { label: string; tone: "buy" | "primary" | "warning" | "muted" | "sell" };
+
+export function botStatusDisplay(bot: BotDTO): BotStatusDisplay {
+  if (bot.status === "error") return { label: "Error", tone: "sell" };
+  if (bot.isRunning) return { label: "Running", tone: "buy" };
+  if (bot.status === "paused") return { label: "Paused", tone: "warning" };
+  if (bot.status === "draft") return { label: "Draft", tone: "muted" };
+  return { label: "Stopped", tone: "muted" };
+}
 
 // resolveMarkPrice picks the mark price a position's PnL/liquidation
 // preview is computed against, in priority order:
@@ -70,6 +91,8 @@ export function PositionsPanel({
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
   const futuresTickers = useFuturesTickers();
+  const [myBots, setMyBots] = useState<BotDTO[]>([]);
+  const [botsAuthed, setBotsAuthed] = useState(true);
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
   const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
@@ -193,6 +216,43 @@ export function PositionsPanel({
     };
   }, [account]);
 
+  // Bot / AI Agent tab: the account's own strategy bots (grid/DCA/TWAP/
+  // market-maker) from the bots service, replacing 4 hardcoded fake rows
+  // that always showed regardless of which wallet was connected. Same
+  // poll-every-5s + 401-detection pattern as TradingBots.tsx, since this
+  // is the same authed endpoint (GET /bots, cookie-scoped to the account).
+  useEffect(() => {
+    if (!account) {
+      setMyBots([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchBots = () => {
+      getMyBots()
+        .then((res) => {
+          if (cancelled) return;
+          setMyBots(res.bots ?? []);
+          setBotsAuthed(true);
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          const msg = e instanceof Error ? e.message : "";
+          if (/401|unauthorized|not authenticated/i.test(msg)) {
+            setBotsAuthed(false);
+            setMyBots([]);
+          }
+          // Other errors (network, 5xx): keep whatever was last loaded
+          // rather than clearing the table on a transient failure.
+        });
+    };
+    fetchBots();
+    const interval = setInterval(fetchBots, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [account]);
+
   const positions = useMemo(() => {
     return futuresPositions.map(p => {
       const size = parseFloat(p.size);
@@ -239,7 +299,7 @@ export function PositionsPanel({
                 Options Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{optionsOrders.length}</span>
               </TabsTrigger>
               <TabsTrigger value="automated" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
-                Bot / AI Agent <span className="ml-1.5 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px]">{MOCK_AUTOMATED_ORDERS.length}</span>
+                Bot / AI Agent <span className="ml-1.5 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px]">{myBots.length}</span>
               </TabsTrigger>
               <TabsTrigger value="trades" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Trade History</TabsTrigger>
               <TabsTrigger value="funding" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Funding History</TabsTrigger>
@@ -393,59 +453,73 @@ export function PositionsPanel({
         </TabsContent>
 
         <TabsContent value="automated" className="flex-1 overflow-auto m-0">
-          <table className="w-full min-w-[880px] text-[11px] font-mono">
-            <thead className="text-[10px] text-muted-foreground uppercase">
-              <tr className="border-b border-border/50">
-                <th className="text-left px-3 py-1.5">Source</th>
-                <th className="text-left">Name</th>
-                <th className="text-left">Strategy</th>
-                <th className="text-left">Symbol</th>
-                <th className="text-left">Side</th>
-                <th className="text-left">Type</th>
-                <th className="text-right">Size</th>
-                <th className="text-right">Price</th>
-                <th className="text-right pr-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_AUTOMATED_ORDERS.map(order => (
-                <tr key={order.id} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="px-3 py-2">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-sans text-[10px] font-semibold",
-                      order.source === "AI Agent"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-secondary/15 text-secondary"
-                    )}>
-                      {order.source === "AI Agent"
-                        ? <Sparkles className="h-3 w-3" />
-                        : <Bot className="h-3 w-3" />}
-                      {order.source}
-                    </span>
-                  </td>
-                  <td className="font-sans font-semibold">{order.name}</td>
-                  <td className="text-muted-foreground">{order.strategy}</td>
-                  <td className="font-sans font-semibold">{order.symbol}</td>
-                  <td className={order.side === "buy" ? "text-buy" : "text-sell"}>{order.side.toUpperCase()}</td>
-                  <td>{order.type}</td>
-                  <td className="text-right">{order.size}</td>
-                  <td className="text-right">{formatPrice(order.price)}</td>
-                  <td className="text-right pr-3">
-                    <span className={cn(
-                      "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                      order.status === "Working"
-                        ? "bg-buy/10 text-buy"
-                        : order.status === "Watching"
-                          ? "bg-primary/10 text-primary"
-                          : "bg-warning/10 text-warning"
-                    )}>
-                      {order.status}
-                    </span>
-                  </td>
+          {!botsAuthed ? (
+            <div className="flex flex-col items-center justify-center gap-1 py-10 text-center text-xs text-muted-foreground">
+              <Bot className="h-5 w-5 mb-1 opacity-50" />
+              Connect your wallet to see your bots.
+            </div>
+          ) : myBots.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-1 py-10 text-center text-xs text-muted-foreground">
+              <Bot className="h-5 w-5 mb-1 opacity-50" />
+              No bots running yet.
+              <span>Create one from Trading Bots to see it here.</span>
+            </div>
+          ) : (
+            <table className="w-full min-w-[880px] text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Source</th>
+                  <th className="text-left">Name</th>
+                  <th className="text-left">Strategy</th>
+                  <th className="text-left">Symbol</th>
+                  <th className="text-left">Market</th>
+                  <th className="text-right">Investment</th>
+                  <th className="text-right">Net PnL</th>
+                  <th className="text-right pr-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {myBots.map(bot => {
+                  const statusDisplay = botStatusDisplay(bot);
+                  const netPnl = parseFloat(bot.stats?.netPnl ?? "0");
+                  const isAI = bot.strategy === "market_maker";
+                  return (
+                    <tr key={bot.id} className="border-b border-border/30 hover:bg-muted/20">
+                      <td className="px-3 py-2">
+                        <span className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-2 py-1 font-sans text-[10px] font-semibold",
+                          isAI ? "bg-primary/10 text-primary" : "bg-secondary/15 text-secondary"
+                        )}>
+                          {isAI ? <Sparkles className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                          {isAI ? "AI Agent" : "Bot"}
+                        </span>
+                      </td>
+                      <td className="font-sans font-semibold">{bot.name}</td>
+                      <td className="text-muted-foreground">{humanizeStrategy(bot.strategy)}</td>
+                      <td className="font-sans font-semibold">{bot.symbol}</td>
+                      <td>{bot.market}</td>
+                      <td className="text-right">${formatPrice(parseFloat(bot.investment))}</td>
+                      <td className={cn("text-right", netPnl >= 0 ? "text-buy" : "text-sell")}>
+                        {netPnl >= 0 ? "+" : ""}${formatPrice(Math.abs(netPnl))}
+                      </td>
+                      <td className="text-right pr-3">
+                        <span className={cn(
+                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          statusDisplay.tone === "buy" && "bg-buy/10 text-buy",
+                          statusDisplay.tone === "primary" && "bg-primary/10 text-primary",
+                          statusDisplay.tone === "warning" && "bg-warning/10 text-warning",
+                          statusDisplay.tone === "sell" && "bg-sell/10 text-sell",
+                          statusDisplay.tone === "muted" && "bg-muted text-muted-foreground"
+                        )}>
+                          {statusDisplay.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
 
         <TabsContent value="history" className="flex-1 overflow-auto m-0">

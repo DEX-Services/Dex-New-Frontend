@@ -60,6 +60,26 @@ export function TradePanel({
   const [sizePct, setSizePct] = useState(25);
   const [sizeInput, setSizeInput] = useState((BALANCE * 0.25).toFixed(2));
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
+  // useState(price...) above only reads `price` on first render. `price` is
+  // 0 (or a mock value) until the real live-price hook resolves — usually
+  // a few hundred ms after mount — so without this effect, limitPrice stays
+  // frozen at whatever `price` happened to be at that first render (a stale
+  // mock number like $67,432.50 sitting next to a header correctly showing
+  // $79,602). Re-sync to the live price automatically UNTIL the user
+  // actually edits the field themselves — editedPriceRef flips true the
+  // moment they type, so a live price update never clobbers what they
+  // typed mid-edit.
+  const editedPriceRef = useRef(false);
+  useEffect(() => {
+    if (editedPriceRef.current) return;
+    if (price > 0) setLimitPrice(price.toFixed(2));
+  }, [price]);
+  // Switching symbols means the old edited price is for a different
+  // instrument entirely — resume auto-following the new symbol's live
+  // price instead of carrying over a stale manual edit.
+  useEffect(() => {
+    editedPriceRef.current = false;
+  }, [symbol]);
   const [tpslTargets, setTpslTargets] = useState<TpslTarget[]>([
     {
       id: 1,
@@ -74,15 +94,29 @@ export function TradePanel({
   const [expiry, setExpiry] = useState("7D");
   const [strike, setStrike] = useState((Math.round(price / 100) * 100).toString());
   const [chain, setChain] = useState<OptionChainEntry[]>([]);
+  const editedStrikeRef = useRef(false);
 
   useEffect(() => {
     if (!selectedOption) return;
+    editedStrikeRef.current = true; // a specific contract was chosen; stop auto-seeding from price
     setMode("options");
     onModeChange?.("options");
     setOptType(selectedOption.type);
     setExpiry(selectedOption.expiry);
     setStrike(selectedOption.strike.toString());
   }, [onModeChange, selectedOption]);
+
+  // Same staleness bug as limitPrice: the initial useState only reads
+  // `price` once, before the real live price has resolved. Keep the
+  // suggested strike following the live price until the user picks a real
+  // contract from the chain (selectedOption, above) or edits it directly.
+  useEffect(() => {
+    if (editedStrikeRef.current) return;
+    if (price > 0) setStrike((Math.round(price / 100) * 100).toString());
+  }, [price]);
+  useEffect(() => {
+    editedStrikeRef.current = false;
+  }, [symbol]);
 
   useEffect(() => {
     if (!isCustomLeverageOpen) return;
@@ -459,10 +493,18 @@ export function TradePanel({
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
               <span>Price (USDC)</span>
-              <button onClick={() => setLimitPrice(price.toFixed(2))} className="text-primary hover:underline font-medium">Mid</button>
+              <button
+                onClick={() => { editedPriceRef.current = true; setLimitPrice(price.toFixed(2)); }}
+                className="text-primary hover:underline font-medium"
+              >
+                Mid
+              </button>
             </div>
-            <Input value={limitPrice} onChange={e => setLimitPrice(e.target.value)}
-              className="h-9 rounded-lg font-mono text-sm bg-muted/30 border-border px-3" />
+            <Input
+              value={limitPrice}
+              onChange={e => { editedPriceRef.current = true; setLimitPrice(e.target.value); }}
+              className="h-9 rounded-lg font-mono text-sm bg-muted/30 border-border px-3"
+            />
           </div>
         )}
 
@@ -470,8 +512,11 @@ export function TradePanel({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-muted-foreground mb-1.5">Strike</div>
-              <Input value={strike} onChange={e => setStrike(e.target.value)}
-                className="h-10 rounded-xl font-mono text-sm bg-muted/30 border-border px-3" />
+              <Input
+                value={strike}
+                onChange={e => { editedStrikeRef.current = true; setStrike(e.target.value); }}
+                className="h-10 rounded-xl font-mono text-sm bg-muted/30 border-border px-3"
+              />
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1.5">Option Price</div>

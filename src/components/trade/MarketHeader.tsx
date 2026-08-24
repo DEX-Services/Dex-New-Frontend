@@ -1,6 +1,7 @@
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
 import { useIndexPrice } from "@/lib/useIndexPrice";
+import { useLivePrice } from "@/lib/useLivePrice";
 import { useTicker } from "@/lib/useTicker";
 import { backendMarketFor } from "@/lib/backendMarkets";
 import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
@@ -20,13 +21,13 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const navigate = useNavigate();
   const market = useMarket(symbol);
   const index = useIndexPrice(market?.asset === "crypto" ? market.base : undefined);
+  const livePrice = useLivePrice(symbol);
   const backendMarket = backendMarketFor(symbol);
   const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
   const [aiActive, setAiActive] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
-  const livePrice = index?.lastPrice ?? market.price;
   const liveChange = index?.changePercent ?? market.change24h;
   const liveVolume = index?.quoteVolume ?? market.volume24h;
   const positive = liveChange >= 0;
