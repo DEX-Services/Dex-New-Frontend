@@ -2,15 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useLivePrice } from "./useLivePrice";
 
-// Regression test for the exact bug reported: MarketHeader showed a real
-// index price (e.g. $79,602) while the order entry panel defaulted to a
-// stale mock price ($67,432.50) baked into mockData.ts, because the two
-// derived "current price" independently instead of sharing one hook. This
-// pins useLivePrice's priority order — real index price wins whenever the
-// feed is live, the mock market price is a fallback only — so both
-// MarketHeader and the trade page's order panel are structurally
-// guaranteed to agree (they call the same hook), not just coincidentally
-// in sync today.
+// Executable markets must take their price exclusively from the matching
+// engine's market-summary feed. An external index is useful for displayed
+// non-executable assets, but must not silently replace an unavailable engine
+// price in the order-entry path.
 
 function mockIndexFetch(price: number | null) {
   return vi.fn().mockResolvedValue({
@@ -41,25 +36,17 @@ describe("useLivePrice", () => {
     vi.unstubAllGlobals();
   });
 
-  it("prefers the real index price over the mock market price for a crypto symbol", async () => {
+  it("does not substitute an index price for an executable market", async () => {
     const { result } = renderHook(() => useLivePrice("BTC-PERP"));
 
     await waitFor(() => {
-      // The mock seed for BTC-PERP is 67432.5 (mockData.ts) — the real
-      // index price must win, not that stale number.
-      expect(result.current).toBeCloseTo(79602.01, 2);
+      expect(result.current).toBe(0);
     });
   });
 
-  it("returns a positive number immediately from the mock market feed while the index request is in flight", async () => {
-    // Before the async index fetch resolves, the hook must not return 0/NaN
-    // for a known symbol — it should fall back to the mock market price
-    // synchronously on first render, same as before this fix, just no
-    // longer stuck there once the real price arrives. unmount() before the
-    // index fetch/useMarkets' background tick can land a state update after
-    // the test returns (harmless in practice, just noisy in test output).
+  it("reports an unavailable executable price before the engine summary arrives", () => {
     const { result, unmount } = renderHook(() => useLivePrice("BTC-PERP"));
-    expect(result.current).toBeGreaterThan(0);
+    expect(result.current).toBe(0);
     unmount();
   });
 

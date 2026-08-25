@@ -175,6 +175,21 @@ export function getTicker(symbol: string, market: string) {
   return req<TickerResponse>(`/ticker?${params}`);
 }
 
+export type MarketSummaryResponse = {
+  symbol: string;
+  market: string;
+  price: string;
+  change24hPct?: string;
+  volume24h?: string;
+  has24hData: boolean;
+  updatedAt: string;
+};
+
+export function getMarketSummary(symbol: string, market: string) {
+  const params = new URLSearchParams({ symbol, market });
+  return req<MarketSummaryResponse>(`/market-summary?${params}`);
+}
+
 export function getTrades(symbol: string, market: string, limit = 50) {
   const params = new URLSearchParams({ symbol, market, limit: String(limit) });
   return req<TradesResponse>(`/trades?${params}`);

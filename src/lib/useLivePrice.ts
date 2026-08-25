@@ -1,5 +1,6 @@
 import { useMarket } from "./useMarkets";
 import { useIndexPrice } from "./useIndexPrice";
+import { backendMarketFor } from "./backendMarkets";
 
 // The single "what price is this symbol at right now" answer for the trade
 // page — real index price (Redis-backed, from price-fetcher's Binance and
@@ -23,5 +24,9 @@ import { useIndexPrice } from "./useIndexPrice";
 export function useLivePrice(symbol: string): number {
   const market = useMarket(symbol);
   const index = useIndexPrice(market?.base);
+  // The five executable markets use the matching engine's single market
+  // summary source. Do not substitute an external index/mock price when the
+  // engine has no fresh price — callers can render the unavailable state.
+  if (backendMarketFor(symbol)) return market?.price ?? 0;
   return index?.lastPrice ?? market?.price ?? 0;
 }

@@ -28,8 +28,9 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
-  const liveChange = index?.changePercent ?? market.change24h;
-  const liveVolume = index?.quoteVolume ?? market.volume24h;
+  const executable = !!backendMarket;
+  const liveChange = executable ? market.change24h : (index?.changePercent ?? market.change24h);
+  const liveVolume = executable ? market.volume24h : (index?.quoteVolume ?? market.volume24h);
   const positive = liveChange >= 0;
 
   // Mark/index/funding: real when the symbol is backend-registered and the
@@ -57,6 +58,11 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
             {market.symbol}
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-secondary/20 text-secondary uppercase">{market.category}</span>
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground uppercase">{market.asset}</span>
+            {executable && market.dataStatus !== "live" && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning/20 text-warning uppercase">
+                {market.dataStatus === "stale" ? "Stale" : "Unavailable"}
+              </span>
+            )}
           </div>
           <div className="text-[10px] text-muted-foreground">{market.base} / {market.quote}</div>
         </div>
@@ -83,8 +89,8 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
       )}
       {index && <Stat label="24h High" value={`$${formatPrice(index.high)}`} />}
       {index && <Stat label="24h Low" value={`$${formatPrice(index.low)}`} />}
-      <Stat label="Mark Price" value={`$${formatPrice(markPrice)}`} />
-      <Stat label="Index" value={`$${formatPrice(indexPrice)}`} />
+      <Stat label="Mark Price" value={hasRealTicker ? `$${formatPrice(markPrice)}` : "Unavailable"} />
+      <Stat label="Index" value={hasRealTicker && ticker?.indexPrice !== null ? `$${formatPrice(indexPrice)}` : "Unavailable"} />
 
       <div className="ml-auto flex items-center gap-2 min-w-fit">
         <Button

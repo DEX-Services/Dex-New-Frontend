@@ -15,6 +15,10 @@ export type Market = {
   favorite?: boolean;
   funding?: number;
   openInterest?: number;
+  // Executable markets are overwritten by the engine's market-summary feed.
+  // Non-executable markets intentionally retain their existing display data.
+  dataStatus?: "live" | "unavailable" | "stale";
+  updatedAt?: number;
 };
 
 // Every market below has a REAL live price backing it — the hosted
