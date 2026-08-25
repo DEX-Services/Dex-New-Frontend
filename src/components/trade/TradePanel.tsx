@@ -14,6 +14,7 @@ import { useOrders } from "@/lib/useOrders";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
 import { useMarketMetadata } from "@/lib/useMarketMetadata";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 type Side = "buy" | "sell";
 type OrderType = "market" | "limit" | "tpsl";
@@ -55,6 +56,9 @@ export function TradePanel({
   const [orderType, setOrderType] = useState<OrderType>("limit");
   const [marginMode, setMarginMode] = useState<MarginMode>("isolated");
   const [leverage, setLeverage] = useState(10);
+  const [reduceOnly, setReduceOnly] = useState(false);
+  const [slippageBps, setSlippageBps] = useState("50");
+  const [marketConfirmOpen, setMarketConfirmOpen] = useState(false);
   const [leverageInput, setLeverageInput] = useState("10");
   const [isCustomLeverageOpen, setIsCustomLeverageOpen] = useState(false);
   const [sizePct, setSizePct] = useState(25);
@@ -190,7 +194,7 @@ export function TradePanel({
   const contracts = sizePct / 10;
   const optionTotal = optionPrice * contracts;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmedMarketOrder = false) => {
     if (isOptions) {
       const backendOptions = backendOptionsMarketFor(baseAsset);
       if (!backendOptions || !chainMatch) {
@@ -274,6 +278,12 @@ export function TradePanel({
       return;
     }
 
+    const isMarketExecution = orderType === "market" || orderType === "tpsl";
+    if (isFutures && isMarketExecution && leverage > 1 && !confirmedMarketOrder) {
+      setMarketConfirmOpen(true);
+      return;
+    }
+
     // TP/SL is not a distinct order type on the engine — it's an entry order
     // (placed here as a market order, since a resting-limit entry combined
     // with contingent exits adds a "what if the entry never fills" state
@@ -285,8 +295,8 @@ export function TradePanel({
     // the UI implying otherwise.
     const isTpsl = orderType === "tpsl";
     const exitSide = side === "buy" ? "SELL" : "BUY";
-    const futuresParams = isFutures
-      ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS" }
+      const futuresParams = isFutures
+      ? { leverage, marginMode: marginMode.toUpperCase() as "ISOLATED" | "CROSS", ...(reduceOnly ? { reduceOnly: true } : {}) }
       : {};
 
     try {
@@ -297,6 +307,7 @@ export function TradePanel({
         type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
         price: orderType === "market" || isTpsl ? undefined : limitPrice,
         qty: positionSize.toFixed(lotDecimals),
+        ...(isMarketExecution && Number(slippageBps) >= 0 ? { slippageBps: Math.round(Number(slippageBps)) } : {}),
         ...futuresParams,
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
@@ -659,6 +670,22 @@ export function TradePanel({
           </div>
         )}
 
+        {isFutures && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-2 text-xs text-muted-foreground">
+              <input type="checkbox" checked={reduceOnly} onChange={e => setReduceOnly(e.target.checked)} className="accent-primary" />
+              Reduce only
+            </label>
+            {(orderType === "market" || orderType === "tpsl") && (
+              <label className="flex items-center gap-1 rounded-md border border-border bg-muted/20 px-2 text-xs text-muted-foreground">
+                Max slippage
+                <Input value={slippageBps} onChange={e => setSlippageBps(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="h-7 border-0 bg-transparent px-1 text-right font-mono text-xs" aria-label="Maximum market-order slippage in basis points" />
+                bps
+              </label>
+            )}
+          </div>
+        )}
+
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
             <span>Size</span>
@@ -824,7 +851,7 @@ export function TradePanel({
           </div>
         )}
 
-        <Button onClick={handleSubmit}
+        <Button onClick={() => void handleSubmit()}
           className={cn(
             "w-full h-8 rounded-lg font-bold text-sm mt-auto",
             side === "buy"
@@ -840,6 +867,20 @@ export function TradePanel({
               : `${side === "buy" ? "Open Long" : "Open Short"} ${leverage}x`}
         </Button>
       </div>
+      <AlertDialog open={marketConfirmOpen} onOpenChange={setMarketConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm leveraged market order</AlertDialogTitle>
+            <AlertDialogDescription>
+              This {leverage}x market order may execute up to {slippageBps || "0"} bps from the best available price.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleSubmit(true)}>Place order</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
