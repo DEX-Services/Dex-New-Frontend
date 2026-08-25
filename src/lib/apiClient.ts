@@ -190,6 +190,27 @@ export function getMarketSummary(symbol: string, market: string) {
   return req<MarketSummaryResponse>(`/market-summary?${params}`);
 }
 
+export type MarketMetadata = {
+  displaySymbol: string;
+  symbol: string;
+  market: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  tickSize: string;
+  lotSize: string;
+  minNotional: string;
+  maxPrice: string;
+  makerFeePct: string;
+  takerFeePct: string;
+  maintenanceMarginRatePct?: string;
+  maxLeverage?: number;
+  enabledOrderTypes: string[];
+};
+
+export function getMarkets() {
+  return req<MarketMetadata[]>("/markets");
+}
+
 export function getTrades(symbol: string, market: string, limit = 50) {
   const params = new URLSearchParams({ symbol, market, limit: String(limit) });
   return req<TradesResponse>(`/trades?${params}`);

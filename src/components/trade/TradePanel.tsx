@@ -13,7 +13,7 @@ import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } fro
 import { useOrders } from "@/lib/useOrders";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
-import { useTicker } from "@/lib/useTicker";
+import { useMarketMetadata } from "@/lib/useMarketMetadata";
 
 type Side = "buy" | "sell";
 type OrderType = "market" | "limit" | "tpsl";
@@ -45,7 +45,7 @@ export function TradePanel({
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
   const backendMarket = backendMarketFor(symbol);
-  const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
+  const marketMetadata = useMarketMetadata(symbol);
   const walletState = useWallet();
   const BALANCE = walletState.balances.reduce((sum, b) => sum + b.available, 0);
   const leverageInputRef = useRef<HTMLInputElement>(null);
@@ -143,29 +143,24 @@ export function TradePanel({
 
   const sizeUsd = BALANCE * (sizePct / 100);
   const orderValue = sizeUsd * effLeverage;
-  // Round the position size to the engine's lot size (0.00001 = 5 decimals)
-  // so the submitted quantity is always a valid multiple and won't be rejected
-  // by the matching engine's lot-size validation. We floor to 5 decimals via
-  // string formatting to avoid floating-point drift from Math.floor math.
-  const LOT_DECIMALS = 5;
+  const lotSize = Number(marketMetadata?.lotSize ?? 0);
+  const tickSize = Number(marketMetadata?.tickSize ?? 0);
+  const lotDecimals = lotSize > 0 ? Math.max(0, Math.ceil(-Math.log10(lotSize))) : 8;
   const rawPositionSize = orderValue / price;
-  const positionSize = Number(rawPositionSize.toFixed(LOT_DECIMALS));
+  const positionSize = lotSize > 0 ? Math.floor((rawPositionSize + Number.EPSILON) / lotSize) * lotSize : 0;
   const margin = sizeUsd;
   // Liquidation price matches the backend's MarginRatio < MMR trigger:
   //   (margin + PnL) / notional < MMR
   // Solving for the mark price at which margin + unrealized PnL = MMR * notional:
   //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
   //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
-  // MMR and fee rates come from the real backend config (symbol_configs) via
-  // the ticker when available, so this preview can't silently drift from
-  // the engine's actual liquidation trigger and fee schedule. 0.5% MMR /
-  // 5bps-10bps fee are last-resort fallbacks for unregistered symbols only.
-  const mmr = (ticker?.maintenanceMarginRatePct ?? 0.5) / 100;
+  // These values are from /markets (the engine symbol configuration), never
+  // hardcoded browser fallbacks for executable markets.
+  const mmr = Number(marketMetadata?.maintenanceMarginRatePct ?? 0) / 100;
   const liqPrice = side === "buy"
     ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
-  const feeRatePct = isOptions ? 0.1 : 0.05; // 10bps / 5bps fallback for unregistered symbols
-  const feeRate = (ticker?.takerFeePct ?? feeRatePct) / 100;
+  const feeRate = isOptions ? 0.001 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
   const fee = orderValue * feeRate;
   const primaryTarget = tpslTargets[0];
   const tpPct = ((parseFloat(primaryTarget.tp) - price) / price) * 100 * (side === "buy" ? 1 : -1);
@@ -242,6 +237,43 @@ export function TradePanel({
       return;
     }
 
+    if (!marketMetadata) {
+      toast.error("Market configuration unavailable", {
+        description: "Order validation is waiting for the exchange market configuration. Please try again shortly.",
+      });
+      return;
+    }
+
+    const engineOrderType = orderType === "tpsl" ? "MARKET" : orderType.toUpperCase();
+    const requestedPrice = orderType === "market" || orderType === "tpsl" ? price : Number(limitPrice);
+    const minNotional = Number(marketMetadata.minNotional);
+    const isMultiple = (value: number, increment: number) =>
+      increment > 0 && Math.abs(value / increment - Math.round(value / increment)) < 1e-7;
+    if (!marketMetadata.enabledOrderTypes.includes(engineOrderType)) {
+      toast.error("Order type unavailable", { description: `${engineOrderType} is not enabled for ${symbol}.` });
+      return;
+    }
+    if (!Number.isFinite(requestedPrice) || requestedPrice <= 0 || requestedPrice > Number(marketMetadata.maxPrice)) {
+      toast.error("Invalid price", { description: `Enter a price up to ${marketMetadata.maxPrice}.` });
+      return;
+    }
+    if (orderType === "limit" && !isMultiple(requestedPrice, tickSize)) {
+      toast.error("Invalid price increment", { description: `Price must be a multiple of ${marketMetadata.tickSize}.` });
+      return;
+    }
+    if (!Number.isFinite(positionSize) || positionSize <= 0 || !isMultiple(positionSize, lotSize)) {
+      toast.error("Invalid size", { description: `Size must be a multiple of ${marketMetadata.lotSize}.` });
+      return;
+    }
+    if (requestedPrice * positionSize < minNotional) {
+      toast.error("Order below minimum", { description: `Minimum notional is ${marketMetadata.minNotional}.` });
+      return;
+    }
+    if (isFutures && marketMetadata.maxLeverage && leverage > marketMetadata.maxLeverage) {
+      toast.error("Leverage exceeds market maximum", { description: `Maximum leverage is ${marketMetadata.maxLeverage}x.` });
+      return;
+    }
+
     // TP/SL is not a distinct order type on the engine — it's an entry order
     // (placed here as a market order, since a resting-limit entry combined
     // with contingent exits adds a "what if the entry never fills" state
@@ -264,7 +296,7 @@ export function TradePanel({
         side: side === "buy" ? "BUY" : "SELL",
         type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
         price: orderType === "market" || isTpsl ? undefined : limitPrice,
-        qty: positionSize.toFixed(LOT_DECIMALS),
+        qty: positionSize.toFixed(lotDecimals),
         ...futuresParams,
       });
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
@@ -291,7 +323,7 @@ export function TradePanel({
                 // A stop-limit rests at stopPrice once triggered; a plain
                 // stop-market (no price) fills at whatever the book offers.
                 price: target.mode === "limit" ? leg.stopPrice : undefined,
-                qty: positionSize.toFixed(LOT_DECIMALS),
+                qty: positionSize.toFixed(lotDecimals),
                 ...(isFutures ? { reduceOnly: true, marginMode: futuresParams.marginMode } : {}),
               });
             } catch (err) {
@@ -320,7 +352,7 @@ export function TradePanel({
   const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
   const setLeverageValue = (value: number) => {
     if (!isIsolatedMargin) return;
-    const next = Math.round(clamp(value, 1, 100));
+    const next = Math.round(clamp(value, 1, marketMetadata?.maxLeverage || 1));
     setLeverage(next);
     setLeverageInput(String(next));
   };
@@ -346,7 +378,7 @@ export function TradePanel({
       setLeverageInput(cleaned);
       return;
     }
-    const clamped = Math.round(clamp(numericValue, 1, 100));
+    const clamped = Math.round(clamp(numericValue, 1, marketMetadata?.maxLeverage || 1));
     setLeverageInput(clamped === numericValue ? cleaned : String(clamped));
     setLeverage(clamped);
   };
@@ -580,14 +612,14 @@ export function TradePanel({
             <Slider
               value={[leverage]}
               min={1}
-              max={100}
+              max={marketMetadata?.maxLeverage || 1}
               step={1}
               onValueChange={v => setLeverageValue(v[0])}
               disabled={!isIsolatedMargin}
               className={cn("my-1 h-3", !isIsolatedMargin && "opacity-50")}
             />
             <div className="mt-2 flex flex-wrap gap-1">
-              {[1, 5, 10, 50, 100].map(l => (
+              {[1, 5, 10, 50, marketMetadata?.maxLeverage || 1].filter((l, i, values) => l <= (marketMetadata?.maxLeverage || 1) && values.indexOf(l) === i).map(l => (
                 <button key={l} onClick={() => setLeverageValue(l)} disabled={!isIsolatedMargin}
                   className={cn("h-8 min-w-[4rem] flex-1 text-[11px] rounded-md border transition-colors",
                     !isIsolatedMargin
@@ -630,7 +662,7 @@ export function TradePanel({
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
             <span>Size</span>
-            <span className="font-mono">{positionSize.toFixed(4)} {baseAsset}</span>
+            <span className="font-mono">{positionSize.toFixed(lotDecimals)} {baseAsset}</span>
           </div>
           <div className="flex gap-1 mb-1">
             <Input
@@ -666,7 +698,7 @@ export function TradePanel({
               Custom
             </button>
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground">Min. trade size 1 USDC</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">Min. notional {marketMetadata?.minNotional ?? "—"}</div>
         </div>
 
         {!isOptions && orderType === "tpsl" && (
