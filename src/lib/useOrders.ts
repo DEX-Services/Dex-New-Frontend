@@ -12,6 +12,10 @@ export type OpenOrder = {
   qty: string;
   filled: string;
   status: string;
+  // Set only for a take-profit or stop-loss leg belonging to an attached
+  // order group; empty for a regular standalone order.
+  groupId?: string;
+  groupRole?: "TP" | "SL";
 };
 
 const TERMINAL = new Set(["FILLED", "CANCELLED", "REJECTED"]);

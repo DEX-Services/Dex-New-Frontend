@@ -138,6 +138,7 @@ export function PositionsPanel({
         side: p.side === "long" ? "SELL" : "BUY",
         type: "MARKET",
         qty: String(p.size),
+        reduceOnly: true,
       });
       const filled = parseFloat(res.filled || "0");
       if (filled <= 0) {
@@ -387,6 +388,7 @@ export function PositionsPanel({
                 <tr className="border-b border-border/50">
                   <th className="text-left px-3 py-1.5">Symbol</th>
                   <th className="text-left">Side</th>
+                  <th className="text-left">Type</th>
                   <th className="text-right">Qty</th>
                   <th className="text-right">Price</th>
                   <th className="text-right">Filled</th>
@@ -399,6 +401,21 @@ export function PositionsPanel({
                   <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
                     <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
+                    <td>
+                      {o.groupRole ? (
+                        <span
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-sans font-semibold",
+                            o.groupRole === "TP" ? "bg-buy/15 text-buy" : "bg-sell/15 text-sell"
+                          )}
+                          title={`${o.groupRole === "TP" ? "Take-profit" : "Stop-loss"} — protects filled exposure, cancelled automatically if its sibling leg fills`}
+                        >
+                          {o.groupRole === "TP" ? "TP" : "SL"}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                     <td className="text-right">{o.qty}</td>
                     <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
                     <td className="text-right text-muted-foreground">{o.filled}</td>
