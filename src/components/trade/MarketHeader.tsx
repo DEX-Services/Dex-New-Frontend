@@ -79,6 +79,13 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
       </div>
 
       <Stat label="24h Volume" value={`$${formatCompact(liveVolume)}`} />
+      {executable && (
+        <Stat
+          label="Feed"
+          value={market.updatedAt ? new Date(market.updatedAt).toLocaleTimeString("en-US", { hour12: false }) : "Unavailable"}
+          tone={market.dataStatus === "stale" ? "sell" : undefined}
+        />
+      )}
       {market.openInterest && <Stat label="Open Interest" value={`$${formatCompact(market.openInterest)}`} />}
       {fundingPct !== undefined && (
         <Stat

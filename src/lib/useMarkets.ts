@@ -40,8 +40,12 @@ async function refreshExecutableMarkets() {
         updatedAt,
       });
     } catch {
-      markets = markets.map(m => m.symbol !== market.symbol || m.dataStatus === "live" ? m : {
-        ...m, dataStatus: "unavailable" as const,
+      markets = markets.map(m => {
+        if (m.symbol !== market.symbol) return m;
+        // Retain the last genuine engine value but clearly mark it stale;
+        // never replace it with a simulated or external value.
+        if (m.dataStatus === "live") return { ...m, dataStatus: "stale" as const };
+        return { ...m, dataStatus: "unavailable" as const };
       });
     }
   }));
