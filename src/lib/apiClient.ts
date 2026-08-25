@@ -1,6 +1,10 @@
 import { authHeader, clearSession } from "./Auth";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+// Public market-data endpoints remain on the matching engine. Account-scoped
+// trading actions use Dex-Backend, which authenticates the wallet session and
+// derives the account server-side.
+const ENGINE_API_URL = import.meta.env.VITE_ENGINE_API_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+const TRADE_API_URL = import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8081";
 
 /**
  * ApiError carries the HTTP status alongside the message so callers (and the
@@ -72,11 +76,12 @@ function parseRetryAfter(res: Response): number | undefined {
   return Number.isFinite(secs) ? secs : undefined;
 }
 
-async function doFetch<T>(path: string, opts?: RequestInit): Promise<T> {
+async function doFetch<T>(baseURL: string, path: string, opts?: RequestInit, includeCredentials = false): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${baseURL}${path}`, {
       ...opts,
+      ...(includeCredentials ? { credentials: "include" as const } : {}),
       headers: { ...authHeader(), ...(opts?.headers ?? {}) },
     });
   } catch (e) {
@@ -110,7 +115,7 @@ async function req<T>(path: string, opts?: RequestInit, attempts = 3): Promise<T
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
-      return await doFetch<T>(path, opts);
+      return await doFetch<T>(ENGINE_API_URL, path, opts);
     } catch (e) {
       lastErr = e;
       if (!(e instanceof ApiError)) throw e;
@@ -128,6 +133,13 @@ async function req<T>(path: string, opts?: RequestInit, attempts = 3): Promise<T
     }
   }
   throw lastErr;
+}
+
+// Account-scoped operations are deliberately not retried: successful order
+// placement/cancellation can be followed by a dropped response, and retrying
+// would create a second action. Dex-Backend authenticates using dex_session.
+async function tradeReq<T>(path: string, opts?: RequestInit): Promise<T> {
+  return doFetch<T>(TRADE_API_URL, path, opts, true);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -169,8 +181,9 @@ export function getTrades(symbol: string, market: string, limit = 50) {
 }
 
 export function getBalance(account: string, asset: string) {
-  const params = new URLSearchParams({ account, asset });
-  return req<BalanceResponse>(`/admin/balance?${params}`);
+  void account; // Account identity is derived from the wallet session server-side.
+  const params = new URLSearchParams({ asset });
+  return tradeReq<BalanceResponse>(`/trade/balance?${params}`);
 }
 
 export type SubmitOrderParams = {
@@ -203,31 +216,26 @@ export type SubmitOrderParams = {
 };
 
 export function submitOrder(p: SubmitOrderParams) {
-  const params = new URLSearchParams({
-    account: p.account,
-    symbol: p.symbol,
-    market: p.market,
-    side: p.side,
-    type: p.type ?? "LIMIT",
-    price: p.price ?? "0",
-    qty: p.qty,
+  const { account: _account, reduceOnly, ...order } = p;
+  void _account; // Dex-Backend resolves the account from dex_session.
+  return tradeReq<OrderResponse>(`/trade/order`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ...order,
+      ...(reduceOnly ? { reduceOnly: true } : {}),
+      type: order.type ?? "LIMIT",
+      price: order.price ?? "0",
+    }),
   });
-  if (p.stopPrice) params.set("stopPrice", p.stopPrice);
-  if (p.reduceOnly) params.set("reduceOnly", "true");
-  if (p.slippageBps !== undefined) params.set("slippageBps", String(p.slippageBps));
-  if (p.leverage !== undefined) params.set("leverage", String(p.leverage));
-  if (p.marginMode) params.set("marginMode", p.marginMode);
-  if (p.optionType) params.set("optionType", p.optionType);
-  if (p.strike) params.set("strike", p.strike);
-  if (p.expiry) params.set("expiry", p.expiry);
-  // Non-idempotent: a retry could place a second order. attempts=1.
-  return req<OrderResponse>(`/order?${params}`, { method: "POST" }, 1);
 }
 
 export function cancelOrder(symbol: string, market: string, orderId: string) {
-  const params = new URLSearchParams({ symbol, market, order_id: orderId });
-  // Non-idempotent from the caller's perspective; don't auto-retry.
-  return req<OrderResponse>(`/cancel?${params}`, { method: "POST" }, 1);
+  return tradeReq<OrderResponse>(`/trade/cancel`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ symbol, market, orderId }),
+  });
 }
 
 export type FuturesPositionDTO = {
@@ -268,13 +276,13 @@ export type OpenOrderDTO = {
 export type OrdersResponse = { orders: OpenOrderDTO[] };
 
 export function getOrders(account: string) {
-  const params = new URLSearchParams({ account });
-  return req<OrdersResponse>(`/orders?${params}`);
+  void account;
+  return tradeReq<OrdersResponse>(`/trade/orders`);
 }
 
 export function getPositions(account: string) {
-  const params = new URLSearchParams({ account });
-  return req<PositionsResponse>(`/positions?${params}`);
+  void account;
+  return tradeReq<PositionsResponse>(`/trade/positions`);
 }
 
 export type OptionChainEntry = {
