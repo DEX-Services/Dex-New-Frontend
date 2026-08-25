@@ -35,7 +35,12 @@ const cache = new Map<string, CacheEntry>();
 const inFlight = new Map<string, Promise<void>>();
 
 async function fetchIndex(base: string): Promise<void> {
-  const res = await fetch(`${BOTS_API_URL}/index/${base.toUpperCase()}`);
+  // NOT upper-cased: the backend now does an exact (case-preserving) Redis
+  // lookup — Live-Rates.com stock tickers are stored with a case-sensitive
+  // suffix ("AAPL.us", not "AAPL.US"), so forcing upper case here would
+  // silently miss them. Crypto/forex/commodity bases are already
+  // upper-case in mockData.ts, so this is a no-op for those.
+  const res = await fetch(`${BOTS_API_URL}/index/${encodeURIComponent(base)}`);
   if (!res.ok) throw new Error(`index ${res.status}`);
   const d: IndexResponse = await res.json();
   const price = parseFloat(d.price);

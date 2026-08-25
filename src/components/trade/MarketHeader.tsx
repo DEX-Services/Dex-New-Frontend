@@ -20,7 +20,9 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 }) {
   const navigate = useNavigate();
   const market = useMarket(symbol);
-  const index = useIndexPrice(market?.asset === "crypto" ? market.base : undefined);
+  // Not gated to crypto — price-fetcher's real feed also covers every
+  // forex/commodity/stock base still in INITIAL_MARKETS (see mockData.ts).
+  const index = useIndexPrice(market?.base);
   const livePrice = useLivePrice(symbol);
   const backendMarket = backendMarketFor(symbol);
   const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);

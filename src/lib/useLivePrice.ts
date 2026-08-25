@@ -2,8 +2,8 @@ import { useMarket } from "./useMarkets";
 import { useIndexPrice } from "./useIndexPrice";
 
 // The single "what price is this symbol at right now" answer for the trade
-// page — real index price (Redis-backed, ultimately from Binance/Live-Rates
-// via price-fetcher) when the asset is crypto and the feed is live, the
+// page — real index price (Redis-backed, from price-fetcher's Binance and
+// Live-Rates.com feeds) when the feed is live for this symbol's base, the
 // client-side mock simulator otherwise.
 //
 // This priority order previously lived only inside MarketHeader.tsx, so the
@@ -14,8 +14,14 @@ import { useIndexPrice } from "./useIndexPrice";
 // stale $67,432.50 baked into mockData.ts. Anything that needs "the current
 // price for this symbol" should use this hook instead of useMarket(...).price
 // directly, so there's exactly one place this priority order is decided.
+//
+// Not gated to crypto: price-fetcher also carries real forex/commodity/
+// stock tickers now, and every base still in INITIAL_MARKETS (mockData.ts)
+// is one price-fetcher genuinely supports — a symbol with no real feed at
+// all simply gets an always-stale useIndexPrice response and falls through
+// to the mock, same as before.
 export function useLivePrice(symbol: string): number {
   const market = useMarket(symbol);
-  const index = useIndexPrice(market?.asset === "crypto" ? market.base : undefined);
+  const index = useIndexPrice(market?.base);
   return index?.lastPrice ?? market?.price ?? 0;
 }

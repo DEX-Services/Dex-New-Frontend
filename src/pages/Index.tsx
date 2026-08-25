@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { PanelGroup, Panel, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { Calculator, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, BarChart2, BookOpen, ArrowLeftRight, List, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateOptionChain, generateOrderBook, generateTrade, formatCompact, formatPrice, OptionContract, Trade } from "@/lib/mockData";
+import { generateOptionChain, formatCompact, formatPrice, OptionContract } from "@/lib/mockData";
 import { backendMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
 import { useOrders } from "@/lib/useOrders";
@@ -597,27 +597,18 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
   const [tab, setTab] = useState<"book" | "trades">("book");
   const backendMarket = backendMarketFor(symbol);
 
-  // Order book data — real depth/trades for backend-registered pairs, mock otherwise.
-  const [mockBook, setMockBook] = useState(() => generateOrderBook(price));
-  const [mockTrades, setMockTrades] = useState<Trade[]>([]);
-
-  useEffect(() => {
-    if (backendMarket) return;
-    const id = setInterval(() => setMockBook(generateOrderBook(price)), 1200);
-    return () => clearInterval(id);
-  }, [price, backendMarket]);
-
-  useEffect(() => {
-    if (backendMarket) return;
-    const id = setInterval(() => setMockTrades(prev => [generateTrade(price), ...prev].slice(0, 30)), 800);
-    return () => clearInterval(id);
-  }, [price, backendMarket]);
-
+  // Order book / trades: real depth for backend-registered pairs only. This
+  // used to fall back to a fabricated order book (generateOrderBook) and
+  // trade tape (generateTrade) for every other symbol, labeled "Simulated"
+  // — technically honest about the label, but still showed fake price
+  // levels and fake fills a user could act on. Now there's simply nothing
+  // to show for those symbols; see the "not available" panel below instead
+  // of rendering fake rows.
   const liveBook = useOrderBook(backendMarket?.symbol ?? "", backendMarket?.market ?? "", 14);
   const liveTrades = useRecentTrades(backendMarket?.symbol ?? "", backendMarket?.market ?? "", 30);
 
-  const book = backendMarket ? liveBook : mockBook;
-  const trades = backendMarket ? liveTrades : mockTrades;
+  const book = backendMarket ? liveBook : { bids: [], asks: [] };
+  const trades = backendMarket ? liveTrades : [];
 
   const maxBidTotal = Math.max(...book.bids.map(b => b.total), 1);
   const maxAskTotal = Math.max(...book.asks.map(a => a.total), 1);
@@ -672,23 +663,17 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
           >
             Trades
           </button>
-          {/* Data-source badge: be explicit when depth/trades are simulated so a
-              user never mistakes generated numbers for a real order book. */}
-          <span
-            className={cn(
-              "mx-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0",
-              backendMarket
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-amber-500/15 text-amber-400"
-            )}
-            title={
-              backendMarket
-                ? "Live order book and trades from the exchange"
-                : "Simulated data — this market is not connected to the exchange"
-            }
-          >
-            {backendMarket ? "Live" : "Simulated"}
-          </span>
+          {/* Live badge only — there's no longer a "Simulated" state to
+              label; a market with no backend order book shows the "not
+              available" panel below instead of fake data with a badge. */}
+          {backendMarket && (
+            <span
+              className="mx-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0 bg-emerald-500/15 text-emerald-400"
+              title="Live order book and trades from the exchange"
+            >
+              Live
+            </span>
+          )}
           {/* Collapse / expand toggle */}
           <button
             onClick={() => setObOpen(o => !o)}
@@ -710,7 +695,12 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
             opacity: obOpen ? 1 : 0,
           }}
         >
-          {tab === "book" ? (
+          {!backendMarket ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-1 py-10 text-center text-xs text-muted-foreground">
+              <span className="text-sm font-semibold text-foreground">Trading not available</span>
+              <span>This market isn't live on the exchange yet.</span>
+            </div>
+          ) : tab === "book" ? (
             <div className="flex-1 flex flex-col text-[10px] font-mono overflow-hidden min-h-0">
               {/* Column headers */}
               <div className="grid grid-cols-3 gap-1 px-2 py-1 text-[9px] text-muted-foreground uppercase border-b border-border/50 shrink-0">
