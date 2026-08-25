@@ -325,6 +325,13 @@ export function getOrders(account: string) {
   return tradeReq<OrdersResponse>(`/trade/orders`);
 }
 
+export type OrderHistoryDTO = { id: string; symbol: string; market: string; side: "BUY" | "SELL"; type: string; price: string; quantity: string; filled: string; status: string; createdAt: string; updatedAt: string };
+export type OrderHistoryResponse = { orders: OrderHistoryDTO[]; nextCursor?: string };
+export function getOrderHistory(limit = 50, before?: string) {
+  const params = new URLSearchParams({ limit: String(limit) }); if (before) params.set("before", before);
+  return tradeReq<OrderHistoryResponse>(`/trade/order-history?${params}`);
+}
+
 export function getPositions(account: string) {
   void account;
   return tradeReq<PositionsResponse>(`/trade/positions`);

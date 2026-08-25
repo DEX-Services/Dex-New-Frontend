@@ -5,7 +5,7 @@ import { formatPrice } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
-import { getPositions, FuturesPositionDTO, OptionsPositionDTO } from "@/lib/apiClient";
+import { getPositions, getOrderHistory, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO } from "@/lib/apiClient";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
@@ -20,11 +20,6 @@ type FundingEntry = {
   payment: number;
 };
 
-const MOCK_HISTORY = [
-  { time: "11:42", symbol: "ETH-PERP", side: "buy", size: 1.2, price: 3512.3, status: "Filled", pnl: "+$84.20" },
-  { time: "10:18", symbol: "SOL-PERP", side: "sell", size: 25, price: 170.4, status: "Filled", pnl: "-$32.50" },
-  { time: "09:55", symbol: "BTC-PERP", side: "buy", size: 0.08, price: 66900, status: "Cancelled", pnl: "—" },
-];
 
 // Strategy keys are raw identifiers from the bots service (e.g.
 // "futures_dca", not "Futures DCA") — mirrors strategy.Templates() in
@@ -89,6 +84,7 @@ export function PositionsPanel({
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
   const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
+  const [orderHistory, setOrderHistory] = useState<OrderHistoryDTO[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
   const futuresTickers = useFuturesTickers();
   const [myBots, setMyBots] = useState<BotDTO[]>([]);
@@ -215,6 +211,8 @@ export function PositionsPanel({
       unsubWs();
     };
   }, [account]);
+
+  useEffect(() => { if (account) getOrderHistory().then(r => setOrderHistory(r.orders ?? [])).catch(() => setOrderHistory([])); }, [account]);
 
   // Bot / AI Agent tab: the account's own strategy bots (grid/DCA/TWAP/
   // market-maker) from the bots service, replacing 4 hardcoded fake rows
@@ -536,15 +534,15 @@ export function PositionsPanel({
               </tr>
             </thead>
             <tbody>
-              {MOCK_HISTORY.map((h, i) => (
-                <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="px-3 py-2">{h.time}</td>
+              {orderHistory.map((h) => (
+                <tr key={h.id} className="border-b border-border/30 hover:bg-muted/20">
+                  <td className="px-3 py-2">{new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
                   <td className="font-sans font-semibold">{h.symbol}</td>
-                  <td className={h.side === "buy" ? "text-buy" : "text-sell"}>{h.side.toUpperCase()}</td>
-                  <td className="text-right">{h.size}</td>
-                  <td className="text-right">{formatPrice(h.price)}</td>
+                  <td className={h.side === "BUY" ? "text-buy" : "text-sell"}>{h.side}</td>
+                  <td className="text-right">{h.filled}/{h.quantity}</td>
+                  <td className="text-right">{formatPrice(parseFloat(h.price) || 0)}</td>
                   <td className="text-right text-muted-foreground">{h.status}</td>
-                  <td className={cn("text-right pr-3 font-bold", h.pnl.startsWith("+") ? "text-buy" : h.pnl.startsWith("-") ? "text-sell" : "")}>{h.pnl}</td>
+                  <td className="text-right pr-3">—</td>
                 </tr>
               ))}
             </tbody>
