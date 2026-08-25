@@ -5,7 +5,7 @@ import { formatPrice } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
-import { getPositions, getOrderHistory, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO } from "@/lib/apiClient";
+import { getPositions, getOrderHistory, getFills, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO, FillDTO } from "@/lib/apiClient";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
@@ -85,6 +85,7 @@ export function PositionsPanel({
   const [optionsPositions, setOptionsPositions] = useState<OptionsPositionDTO[]>([]);
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryDTO[]>([]);
+  const [fills, setFills] = useState<FillDTO[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
   const futuresTickers = useFuturesTickers();
   const [myBots, setMyBots] = useState<BotDTO[]>([]);
@@ -214,6 +215,7 @@ export function PositionsPanel({
   }, [account]);
 
   useEffect(() => { if (account) getOrderHistory().then(r => setOrderHistory(r.orders ?? [])).catch(() => setOrderHistory([])); }, [account]);
+  useEffect(() => { if (account) getFills().then(r => setFills(r.fills ?? [])).catch(() => setFills([])); }, [account]);
 
   // Bot / AI Agent tab: the account's own strategy bots (grid/DCA/TWAP/
   // market-maker) from the bots service, replacing 4 hardcoded fake rows
@@ -538,36 +540,69 @@ export function PositionsPanel({
         </TabsContent>
 
         <TabsContent value="history" className="flex-1 overflow-auto m-0">
-          <table className="w-full text-[11px] font-mono">
-            <thead className="text-[10px] text-muted-foreground uppercase">
-              <tr className="border-b border-border/50">
-                <th className="text-left px-3 py-1.5">Time</th>
-                <th className="text-left">Symbol</th>
-                <th className="text-left">Side</th>
-                <th className="text-right">Size</th>
-                <th className="text-right">Price</th>
-                <th className="text-right">Status</th>
-                <th className="text-right pr-3">PnL</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orderHistory.map((h) => (
-                <tr key={h.id} className="border-b border-border/30 hover:bg-muted/20">
-                  <td className="px-3 py-2">{new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                  <td className="font-sans font-semibold">{h.symbol}</td>
-                  <td className={h.side === "BUY" ? "text-buy" : "text-sell"}>{h.side}</td>
-                  <td className="text-right">{h.filled}/{h.quantity}</td>
-                  <td className="text-right">{formatPrice(parseFloat(h.price) || 0)}</td>
-                  <td className="text-right text-muted-foreground">{h.status}</td>
-                  <td className="text-right pr-3">—</td>
+          {orderHistory.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No order history yet.</div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Time</th>
+                  <th className="text-left">Symbol</th>
+                  <th className="text-left">Side</th>
+                  <th className="text-right">Size</th>
+                  <th className="text-right">Avg Fill</th>
+                  <th className="text-right">Fee</th>
+                  <th className="text-right">Status</th>
+                  <th className="text-left pr-3">Reason</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {orderHistory.map((h) => (
+                  <tr key={h.id} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2">{new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="font-sans font-semibold">{h.symbol}</td>
+                    <td className={h.side === "BUY" ? "text-buy" : "text-sell"}>{h.side}</td>
+                    <td className="text-right">{h.filled}/{h.quantity}</td>
+                    <td className="text-right">{parseFloat(h.avgFillPrice) > 0 ? formatPrice(parseFloat(h.avgFillPrice)) : "—"}</td>
+                    <td className="text-right text-muted-foreground">{parseFloat(h.feePaid) > 0 ? h.feePaid : "—"}</td>
+                    <td className="text-right text-muted-foreground">{h.status}</td>
+                    <td className="text-left pr-3 text-muted-foreground truncate max-w-[220px]" title={h.rejectReason}>{h.rejectReason ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
 
-        <TabsContent value="trades" className="flex-1 m-0 p-6 text-center text-sm text-muted-foreground">
-          No trades yet today. Open a position to start.
+        <TabsContent value="trades" className="flex-1 overflow-auto m-0">
+          {fills.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No trades yet. Open a position to start.</div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Time</th>
+                  <th className="text-left">Symbol</th>
+                  <th className="text-left">Side</th>
+                  <th className="text-right">Price</th>
+                  <th className="text-right">Size</th>
+                  <th className="text-right pr-3">Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fills.map((f) => (
+                  <tr key={f.tradeId} className="border-b border-border/30 hover:bg-muted/20">
+                    <td className="px-3 py-2">{new Date(f.executedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    <td className="font-sans font-semibold">{f.symbol}</td>
+                    <td className={f.side === "BUY" ? "text-buy" : "text-sell"}>{f.side}</td>
+                    <td className="text-right">{formatPrice(parseFloat(f.price) || 0)}</td>
+                    <td className="text-right">{f.quantity}</td>
+                    <td className="text-right pr-3 text-muted-foreground">{f.feePaid}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </TabsContent>
         <TabsContent value="funding" className="flex-1 overflow-auto m-0">
           {fundingHistory.length === 0 ? (

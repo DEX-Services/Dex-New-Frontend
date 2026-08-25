@@ -329,11 +329,37 @@ export function getOrders(account: string) {
   return tradeReq<OrdersResponse>(`/trade/orders`);
 }
 
-export type OrderHistoryDTO = { id: string; symbol: string; market: string; side: "BUY" | "SELL"; type: string; price: string; quantity: string; filled: string; status: string; createdAt: string; updatedAt: string };
+export type OrderHistoryDTO = {
+  id: string; symbol: string; market: string; side: "BUY" | "SELL"; type: string;
+  price: string; quantity: string; filled: string; status: string;
+  rejectReason?: string; avgFillPrice: string; feePaid: string;
+  createdAt: string; updatedAt: string;
+};
 export type OrderHistoryResponse = { orders: OrderHistoryDTO[]; nextCursor?: string };
-export function getOrderHistory(limit = 50, before?: string) {
-  const params = new URLSearchParams({ limit: String(limit) }); if (before) params.set("before", before);
+export type HistoryFilters = { limit?: number; before?: string; after?: string; symbol?: string; market?: string };
+export function getOrderHistory(filters: HistoryFilters = {}) {
+  const { limit = 50, before, after, symbol, market } = filters;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  if (after) params.set("after", after);
+  if (symbol) params.set("symbol", symbol);
+  if (market) params.set("market", market);
   return tradeReq<OrderHistoryResponse>(`/trade/order-history?${params}`);
+}
+
+export type FillDTO = {
+  tradeId: string; orderId: string; symbol: string; market: string; side: "BUY" | "SELL";
+  price: string; quantity: string; feePaid: string; executedAt: string;
+};
+export type FillsResponse = { fills: FillDTO[]; nextCursor?: string };
+export function getFills(filters: HistoryFilters = {}) {
+  const { limit = 50, before, after, symbol, market } = filters;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  if (after) params.set("after", after);
+  if (symbol) params.set("symbol", symbol);
+  if (market) params.set("market", market);
+  return tradeReq<FillsResponse>(`/trade/fills?${params}`);
 }
 
 export function getPositions(account: string) {
