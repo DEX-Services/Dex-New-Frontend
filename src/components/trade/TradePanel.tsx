@@ -100,15 +100,16 @@ export function TradePanel({
   const [chain, setChain] = useState<OptionChainEntry[]>([]);
   const editedStrikeRef = useRef(false);
 
+  // Options trading is hidden from this delivery (plan.md 5.1) — the
+  // Options tab above is disabled, so this effect is intentionally a no-op
+  // rather than force-switching into a mode the UI no longer allows
+  // selecting. Index.tsx also no longer activates the options layout or
+  // passes a selectedOption, so selectedOption is expected to always be
+  // undefined here; this guard just keeps the two in agreement even if that
+  // assumption is ever violated by a future caller.
   useEffect(() => {
     if (!selectedOption) return;
-    editedStrikeRef.current = true; // a specific contract was chosen; stop auto-seeding from price
-    setMode("options");
-    onModeChange?.("options");
-    setOptType(selectedOption.type);
-    setExpiry(selectedOption.expiry);
-    setStrike(selectedOption.strike.toString());
-  }, [onModeChange, selectedOption]);
+  }, [selectedOption]);
 
   // Same staleness bug as limitPrice: the initial useState only reads
   // `price` once, before the real live price has resolved. Keep the
@@ -426,7 +427,17 @@ export function TradePanel({
           <TabsList className="grid grid-cols-3 h-8 bg-muted/30 w-full rounded-lg p-0.5">
             <TabsTrigger value="spot" className="h-7 text-xs font-semibold rounded-md">Spot</TabsTrigger>
             <TabsTrigger value="futures" className="h-7 text-xs font-semibold rounded-md">Futures</TabsTrigger>
-            <TabsTrigger value="options" className="h-7 text-xs font-semibold rounded-md">Options</TabsTrigger>
+            {/* Options execution is hidden from this delivery (plan.md 5.1):
+                the visible option workspace generated fake contracts via
+                generateOptionChain() while order entry used a separate real
+                backend chain — two disagreeing sources of "the" option
+                chain. Disabled here (not removed) so the mode/order-entry
+                code underneath doesn't need to change; Index.tsx also never
+                activates the options layout or passes a selectedOption, so
+                this tab is unreachable in practice as well as disabled. */}
+            <TabsTrigger value="options" disabled className="h-7 text-xs font-semibold rounded-md opacity-50 cursor-not-allowed" title="Options trading is coming soon">
+              Options <span className="ml-1 text-[9px] text-muted-foreground">soon</span>
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

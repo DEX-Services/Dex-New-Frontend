@@ -790,9 +790,19 @@ const Index = () => {
   // while the order entry panel below it defaulted to a stale mock value.
   const price = useLivePrice(symbol);
   const isMobile = useIsMobile();
+  // Options execution is hidden from this delivery (plan.md 5.1): the
+  // option workspace previously rendered here called generateOptionChain()
+  // (fabricated contracts) while the real order-entry panel called the
+  // backend's actual option chain — two disagreeing sources for "the"
+  // option chain. optionLayoutActive is now hardcoded false so neither the
+  // mock chain nor the OptionWorkspace UI can activate; the underlying
+  // market-category/tradeMode plumbing is left in place, unused, so this is
+  // a one-line, easily-revertible gate rather than a structural rewrite,
+  // per plan.md 5.1 item 3 ("preserve the existing code without extending
+  // it; revisit with a dedicated options specification").
   const isOptionsMarket = market?.category === "options";
   const [tradeMode, setTradeMode] = useState<MarketMode>("futures");
-  const optionLayoutActive = isOptionsMarket || tradeMode === "options";
+  const optionLayoutActive = false;
   const optionContracts = useMemo(
     () => optionLayoutActive ? generateOptionChain(symbol, price) : [],
     [optionLayoutActive, symbol, price]
