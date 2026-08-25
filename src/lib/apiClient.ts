@@ -362,6 +362,31 @@ export function getFills(filters: HistoryFilters = {}) {
   return tradeReq<FillsResponse>(`/trade/fills?${params}`);
 }
 
+export type FundingPaymentDTO = { symbol: string; rate: string; amount: string; createdAt: string };
+export type FundingHistoryResponse = { payments: FundingPaymentDTO[]; nextCursor?: string };
+export function getFundingHistory(filters: HistoryFilters = {}) {
+  const { limit = 50, before, after, symbol } = filters;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  if (after) params.set("after", after);
+  if (symbol) params.set("symbol", symbol);
+  return tradeReq<FundingHistoryResponse>(`/trade/funding-history?${params}`);
+}
+
+export type RealizedPnlDTO = {
+  symbol: string; closedQty: string; pnl: string; marginReturned: string;
+  isLiquidation: boolean; createdAt: string;
+};
+export type PnlHistoryResponse = { entries: RealizedPnlDTO[]; nextCursor?: string };
+export function getPnlHistory(filters: HistoryFilters = {}) {
+  const { limit = 50, before, after, symbol } = filters;
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  if (after) params.set("after", after);
+  if (symbol) params.set("symbol", symbol);
+  return tradeReq<PnlHistoryResponse>(`/trade/pnl-history?${params}`);
+}
+
 export function getPositions(account: string) {
   void account;
   return tradeReq<PositionsResponse>(`/trade/positions`);

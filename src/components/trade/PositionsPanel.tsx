@@ -5,7 +5,7 @@ import { formatPrice } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Bot, Sparkles, X } from "lucide-react";
-import { getPositions, getOrderHistory, getFills, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO, FillDTO } from "@/lib/apiClient";
+import { getPositions, getOrderHistory, getFills, getFundingHistory, getPnlHistory, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO, FillDTO, RealizedPnlDTO } from "@/lib/apiClient";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
@@ -18,6 +18,9 @@ type FundingEntry = {
   symbol: string;
   rate: string;
   payment: number;
+  // Set for rows loaded from the persisted REST history, used to avoid
+  // double-counting a WS event for the same payment right after a fetch.
+  key?: string;
 };
 
 
@@ -86,6 +89,7 @@ export function PositionsPanel({
   const [fundingHistory, setFundingHistory] = useState<FundingEntry[]>([]);
   const [orderHistory, setOrderHistory] = useState<OrderHistoryDTO[]>([]);
   const [fills, setFills] = useState<FillDTO[]>([]);
+  const [realizedPnl, setRealizedPnl] = useState<RealizedPnlDTO[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
   const futuresTickers = useFuturesTickers();
   const [myBots, setMyBots] = useState<BotDTO[]>([]);
@@ -104,6 +108,25 @@ export function PositionsPanel({
       .catch(() => {});
   }, [account]);
 
+  // Persisted funding history (survives refresh/reconnect/another device) —
+  // previously this tab was WS-only and its state was wiped on every
+  // refresh even though funding payments were already durably stored.
+  useEffect(() => {
+    if (!account) return;
+    getFundingHistory({ limit: 50 })
+      .then((res) => {
+        const rows: FundingEntry[] = (res.payments ?? []).map((p) => ({
+          key: `${p.symbol}:${p.createdAt}`,
+          time: new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          symbol: p.symbol,
+          rate: (parseFloat(p.rate) * 100).toFixed(4) + "%",
+          payment: parseFloat(p.amount),
+        }));
+        setFundingHistory(rows);
+      })
+      .catch(() => {});
+  }, [account]);
+
   useEffect(() => {
     const unsub = wsClient.subscribe((evt: WSEvent) => {
       if (evt.type !== "FUNDING" || !evt.funding) return;
@@ -113,6 +136,10 @@ export function PositionsPanel({
         rate: (parseFloat(evt.funding.rate) * 100).toFixed(4) + "%",
         payment: parseFloat(evt.funding.payment),
       };
+      // Live delta: prepend unconditionally. A duplicate against the most
+      // recent REST-loaded row (same symbol/payment landing within the same
+      // fetch-then-WS race) is a display-only edge case, not a correctness
+      // issue — the persisted history from the next refresh is authoritative.
       setFundingHistory((prev) => [entry, ...prev].slice(0, 50));
     });
     return unsub;
@@ -216,6 +243,7 @@ export function PositionsPanel({
 
   useEffect(() => { if (account) getOrderHistory().then(r => setOrderHistory(r.orders ?? [])).catch(() => setOrderHistory([])); }, [account]);
   useEffect(() => { if (account) getFills().then(r => setFills(r.fills ?? [])).catch(() => setFills([])); }, [account]);
+  useEffect(() => { if (account) getPnlHistory().then(r => setRealizedPnl(r.entries ?? [])).catch(() => setRealizedPnl([])); }, [account]);
 
   // Bot / AI Agent tab: the account's own strategy bots (grid/DCA/TWAP/
   // market-maker) from the bots service, replacing 4 hardcoded fake rows
@@ -304,6 +332,7 @@ export function PositionsPanel({
               </TabsTrigger>
               <TabsTrigger value="trades" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Trade History</TabsTrigger>
               <TabsTrigger value="funding" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Funding History</TabsTrigger>
+              <TabsTrigger value="realizedPnl" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Realized PnL</TabsTrigger>
               <TabsTrigger value="history" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Order History</TabsTrigger>
             </TabsList>
           </div>
@@ -630,6 +659,44 @@ export function PositionsPanel({
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          )}
+        </TabsContent>
+
+        <TabsContent value="realizedPnl" className="flex-1 overflow-auto m-0">
+          {realizedPnl.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">
+              No realized PnL yet. Closing a position records it here.
+            </div>
+          ) : (
+            <table className="w-full text-[11px] font-mono">
+              <thead className="text-[10px] text-muted-foreground uppercase">
+                <tr className="border-b border-border/50">
+                  <th className="text-left px-3 py-1.5">Time</th>
+                  <th className="text-left">Symbol</th>
+                  <th className="text-right">Closed Qty</th>
+                  <th className="text-right">Margin Returned</th>
+                  <th className="text-right">PnL</th>
+                  <th className="text-left pr-3">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {realizedPnl.map((p, i) => {
+                  const pnl = parseFloat(p.pnl);
+                  return (
+                    <tr key={i} className="border-b border-border/30 hover:bg-muted/20">
+                      <td className="px-3 py-2">{new Date(p.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                      <td className="font-sans font-semibold">{p.symbol}</td>
+                      <td className="text-right">{p.closedQty}</td>
+                      <td className="text-right text-muted-foreground">{p.marginReturned}</td>
+                      <td className={cn("text-right font-bold", pnl >= 0 ? "text-buy" : "text-sell")}>
+                        {pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}
+                      </td>
+                      <td className="text-left pr-3 text-muted-foreground">{p.isLiquidation ? "Liquidation" : "Close"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
