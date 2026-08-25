@@ -7,7 +7,6 @@ import { backendMarketFor } from "@/lib/backendMarkets";
 import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { SwapDialog } from "./SwapDialog";
@@ -26,7 +25,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const livePrice = useLivePrice(symbol);
   const backendMarket = backendMarketFor(symbol);
   const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
-  const [aiActive, setAiActive] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
@@ -102,15 +100,12 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
         <Button
           variant="outline"
           size="sm"
-          onClick={() => { setAiActive(!aiActive); toast.success(`AI Agent ${!aiActive ? "activated" : "stopped"}`); }}
-          className={cn(
-            "h-8 text-xs glass",
-            aiActive ? "border-primary/60 text-primary shadow-glow-primary" : "border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
-          )}
+          onClick={() => navigate("/ai-agent")}
+          className="h-8 text-xs glass border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
+          title="Open AI Agent"
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
           AI Agent
-          {aiActive && <span className="ml-1.5 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
         </Button>
         <Button
           variant="outline"
