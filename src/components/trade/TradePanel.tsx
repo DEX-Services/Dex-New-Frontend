@@ -261,7 +261,7 @@ export function TradePanel({
       toast.error("Invalid price increment", { description: `Price must be a multiple of ${marketMetadata.tickSize}.` });
       return;
     }
-    if (!Number.isFinite(positionSize) || positionSize <= 0 || !isMultiple(positionSize, lotSize)) {
+    if (!Number.isFinite(positionSize) || positionSize <= 0 || positionSize > Number(marketMetadata.maxQuantity) || !isMultiple(positionSize, lotSize)) {
       toast.error("Invalid size", { description: `Size must be a multiple of ${marketMetadata.lotSize}.` });
       return;
     }

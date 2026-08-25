@@ -200,6 +200,7 @@ export type MarketMetadata = {
   lotSize: string;
   minNotional: string;
   maxPrice: string;
+  maxQuantity: string;
   makerFeePct: string;
   takerFeePct: string;
   maintenanceMarginRatePct?: string;
