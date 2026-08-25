@@ -45,7 +45,7 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const indexPrice = hasRealTicker && ticker.indexPrice !== null ? ticker.indexPrice : livePrice * 0.9999;
   const fundingPct = hasRealTicker && ticker.fundingRatePct !== null
     ? ticker.fundingRatePct / 100
-    : market.funding;
+    : executable ? undefined : market.funding;
 
   return (
     <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-6 overflow-x-auto">
