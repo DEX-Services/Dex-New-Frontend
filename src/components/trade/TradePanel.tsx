@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
-import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
+import { getOptionChain, OptionChainEntry, submitAttachedOrder } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
 import { useMarketMetadata } from "@/lib/useMarketMetadata";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -300,58 +300,25 @@ export function TradePanel({
       : {};
 
     try {
-      const res = await orders.place({
-        symbol: backendMarket.symbol,
+      const parentOrder = {
+          symbol: backendMarket.symbol,
         market: backendMarket.market,
         side: side === "buy" ? "BUY" : "SELL",
         type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
         price: orderType === "market" || isTpsl ? undefined : limitPrice,
-        qty: positionSize.toFixed(lotDecimals),
-        ...(isMarketExecution && Number(slippageBps) >= 0 ? { slippageBps: Math.round(Number(slippageBps)) } : {}),
-        ...futuresParams,
-      });
+          qty: positionSize.toFixed(lotDecimals), account: "",
+          ...(isMarketExecution && Number(slippageBps) >= 0 ? { slippageBps: Math.round(Number(slippageBps)) } : {}),
+          ...futuresParams,
+      };
+      const res = isTpsl
+        ? await submitAttachedOrder(parentOrder,
+            tpslTargets[0]?.tpEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: tpslTargets[0].tp, qty: "0" } : undefined,
+            tpslTargets[0]?.slEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: tpslTargets[0].sl, qty: "0" } : undefined)
+        : await orders.place(parentOrder);
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
       });
 
-      if (isTpsl) {
-        const attempted: string[] = [];
-        const failed: string[] = [];
-        for (const target of tpslTargets) {
-          for (const leg of [
-            { enabled: target.tpEnabled, stopPrice: target.tp, label: "take-profit" },
-            { enabled: target.slEnabled, stopPrice: target.sl, label: "stop-loss" },
-          ]) {
-            if (!leg.enabled || !leg.stopPrice) continue;
-            attempted.push(leg.label);
-            try {
-              await orders.place({
-                symbol: backendMarket.symbol,
-                market: backendMarket.market,
-                side: exitSide,
-                type: "STOP",
-                stopPrice: leg.stopPrice,
-                // A stop-limit rests at stopPrice once triggered; a plain
-                // stop-market (no price) fills at whatever the book offers.
-                price: target.mode === "limit" ? leg.stopPrice : undefined,
-                qty: positionSize.toFixed(lotDecimals),
-                ...(isFutures ? { reduceOnly: true, marginMode: futuresParams.marginMode } : {}),
-              });
-            } catch (err) {
-              failed.push(leg.label);
-            }
-          }
-        }
-        if (failed.length > 0) {
-          toast.error("Some protective orders failed", {
-            description: `${failed.join(" & ")} could not be placed — check the position manually.`,
-          });
-        } else if (attempted.length > 0) {
-          toast.success("Protective orders placed", {
-            description: `${attempted.join(" & ")} armed for this position.`,
-          });
-        }
-      }
     } catch (err) {
       toast.error("Order failed", { description: err instanceof Error ? err.message : String(err) });
     }

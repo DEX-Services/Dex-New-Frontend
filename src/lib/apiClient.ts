@@ -267,6 +267,14 @@ export function submitOrder(p: SubmitOrderParams) {
   });
 }
 
+export function submitAttachedOrder(parent: SubmitOrderParams, takeProfit?: SubmitOrderParams, stopLoss?: SubmitOrderParams) {
+  const clean = (order?: SubmitOrderParams) => order ? { ...order, account: undefined } : undefined;
+  return tradeReq<OrderResponse>(`/trade/attached-order`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ parent: clean(parent), takeProfit: clean(takeProfit), stopLoss: clean(stopLoss) }),
+  });
+}
+
 export function cancelOrder(symbol: string, market: string, orderId: string) {
   return tradeReq<OrderResponse>(`/trade/cancel`, {
     method: "POST",
