@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
 import { useIndexPrice } from "@/lib/useIndexPrice";
