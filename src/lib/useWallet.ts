@@ -17,7 +17,18 @@ export const WALLETS: WalletInfo[] = [
   { id: "bitget", name: "Bitget Wallet", tag: "Easy", desc: "Connect via the Bitget Wallet extension", popular: true },
 ];
 
-export type Balance = { asset: string; amount: number; locked: number; available: number };
+// locked = tradingLocked + withdrawalLocked, kept for existing callers that
+// only care about the combined figure. tradingLocked/withdrawalLocked are
+// exposed separately for the holdings view (available / order-reserved /
+// withdrawal-locked), matching plan.md 4.3's required breakdown.
+export type Balance = {
+  asset: string;
+  amount: number;
+  locked: number;
+  available: number;
+  tradingLocked: number;
+  withdrawalLocked: number;
+};
 export type WalletSource = WalletId;
 
 export type WalletState = {
@@ -62,7 +73,9 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
   OUR_Token: 18,
 };
 
-const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({ asset, amount: 0, locked: 0, available: 0 }));
+const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({
+  asset, amount: 0, locked: 0, available: 0, tradingLocked: 0, withdrawalLocked: 0,
+}));
 
 function rawBalanceToNumber(raw: string, decimals: number) {
   const normalized = raw.trim();
@@ -80,7 +93,7 @@ async function syncBalancesWithBackend() {
     const tradingLocked = rawBalanceToNumber(response.locked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
     const withdrawalLocked = rawBalanceToNumber(response.withdrawalLocked?.[asset] ?? "0", ASSET_DECIMALS[asset]);
     const locked = tradingLocked + withdrawalLocked;
-    return { asset, amount, locked, available: Math.max(0, amount - locked) };
+    return { asset, amount, locked, available: Math.max(0, amount - locked), tradingLocked, withdrawalLocked };
   });
   setState({ balances });
   return balances;

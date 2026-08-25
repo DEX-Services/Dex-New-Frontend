@@ -9,6 +9,7 @@ import { getPositions, getOrderHistory, getFills, getFundingHistory, getPnlHisto
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { useOrders } from "@/lib/useOrders";
+import { useWallet } from "@/lib/useWallet";
 import { wsClient, WSEvent } from "@/lib/wsClient";
 import { getMyBots, Bot as BotDTO } from "@/lib/botsApi";
 import { toast } from "sonner";
@@ -97,6 +98,8 @@ export function PositionsPanel({
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
   const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
+  const spotOrders = orders.orders.filter(o => o.market === "SPOT");
+  const walletState = useWallet();
 
   const refetchPositions = useCallback(() => {
     if (!account) return;
@@ -321,6 +324,7 @@ export function PositionsPanel({
               <TabsTrigger value="positions" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Position <span className="ml-1.5 px-1.5 py-0.5 rounded bg-primary/20 text-[10px]">{positions.length}</span>
               </TabsTrigger>
+              <TabsTrigger value="holdings" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Holdings</TabsTrigger>
               <TabsTrigger value="futuresOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Futures Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{futuresOrders.length}</span>
               </TabsTrigger>
@@ -408,6 +412,74 @@ export function PositionsPanel({
               </tbody>
             </table>
           )}
+        </TabsContent>
+
+        <TabsContent value="holdings" className="flex-1 overflow-auto m-0">
+          <table className="w-full text-[11px] font-mono">
+            <thead className="text-[10px] text-muted-foreground uppercase">
+              <tr className="border-b border-border/50">
+                <th className="text-left px-3 py-1.5">Asset</th>
+                <th className="text-right">Total</th>
+                <th className="text-right">Available</th>
+                <th className="text-right">Order-Reserved</th>
+                <th className="text-right pr-3">Withdrawal-Locked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {walletState.balances.map((b) => (
+                <tr key={b.asset} className="border-b border-border/30 hover:bg-muted/20">
+                  <td className="px-3 py-2 font-sans font-semibold">{b.asset}</td>
+                  <td className="text-right">{b.amount.toFixed(4)}</td>
+                  <td className="text-right text-buy">{b.available.toFixed(4)}</td>
+                  <td className="text-right text-muted-foreground">{b.tradingLocked.toFixed(4)}</td>
+                  <td className="text-right pr-3 text-muted-foreground">{b.withdrawalLocked.toFixed(4)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="border-t border-border/50 mt-2 pt-2 px-3 pb-3">
+            <div className="text-[10px] text-muted-foreground uppercase mb-1.5">
+              Spot open orders reserving balance ({spotOrders.length})
+            </div>
+            {spotOrders.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No open spot orders.</div>
+            ) : (
+              <table className="w-full text-[11px] font-mono">
+                <tbody>
+                  {spotOrders.map((o) => (
+                    <tr key={o.id} className="border-b border-border/20">
+                      <td className="py-1 font-sans font-semibold">{o.symbol}</td>
+                      <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
+                      <td className="text-right">{o.qty}</td>
+                      <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                      <td className="text-right text-muted-foreground">{o.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div className="text-[10px] text-muted-foreground uppercase mb-1.5 mt-3">
+              Recent spot fills ({fills.filter((f) => f.market === "SPOT").length})
+            </div>
+            {fills.filter((f) => f.market === "SPOT").length === 0 ? (
+              <div className="text-xs text-muted-foreground">No spot fills yet.</div>
+            ) : (
+              <table className="w-full text-[11px] font-mono">
+                <tbody>
+                  {fills.filter((f) => f.market === "SPOT").slice(0, 10).map((f) => (
+                    <tr key={f.tradeId} className="border-b border-border/20">
+                      <td className="py-1 font-sans font-semibold">{f.symbol}</td>
+                      <td className={f.side === "BUY" ? "text-buy" : "text-sell"}>{f.side}</td>
+                      <td className="text-right">{f.quantity} @ {formatPrice(parseFloat(f.price) || 0)}</td>
+                      <td className="text-right text-muted-foreground">{new Date(f.executedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="futuresOrders" className="flex-1 overflow-auto m-0">
