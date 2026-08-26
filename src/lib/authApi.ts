@@ -72,5 +72,14 @@ export function requestWithdrawal(asset: string, amount: string) {
   });
 }
 
+// Test-only fixed 1:1 conversion between USDC and USDT ledger balances.
+export function swapAssets(sourceAsset: string, destinationAsset: string, amount: string) {
+  return authReq<{ status: string; sourceAsset: string; destinationAsset: string; amount: string }>(`/wallet/swap`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceAsset, destinationAsset, amount }),
+  });
+}
+
 
 
