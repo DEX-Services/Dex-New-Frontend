@@ -63,14 +63,19 @@ type SendTransactionParams = {
   data?: string;
 };
 
-const SUPPORTED_ASSETS = ["USDC", "USDT", "BUSD", "OUR_Token"] as const;
+const SUPPORTED_ASSETS = ["BTC", "USDC", "USDT", "BUSD", "OUR_Token"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
-  USDC: 6,
-  USDT: 6,
-  BUSD: 18,
-  OUR_Token: 18,
+	// The backend ledger stores every supported asset as a fixed-point raw
+	// integer with six fractional digits. BTC must use that same scale here:
+	// decoding it as eight decimals displayed balances 100x too small (for
+	// example, a real 0.000250 BTC appeared as 0.00000250 BTC).
+	BTC: 6,
+	USDC: 6,
+	USDT: 6,
+	BUSD: 6,
+	OUR_Token: 6,
 };
 
 const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({
@@ -404,5 +409,3 @@ if (typeof window !== "undefined") {
     }
   });
 }
-
-

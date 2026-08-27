@@ -25,6 +25,9 @@ export type MarketMaker = {
   indexFresh: boolean;
   config: Record<string, string>;
   stats: BotStats;
+  quoteAsset?: string;
+  quoteBalance?: string;
+  baseBalance?: string;
 };
 
 export type MMFundingEntry = {

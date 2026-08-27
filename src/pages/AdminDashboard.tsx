@@ -29,7 +29,7 @@ export default function AdminDashboard() {
   }, []);
 
   const balanceTotal = useMemo(() => {
-    return data?.totalBalances.reduce((sum, item) => sum + Number(item.amount || 0), 0) ?? 0;
+    return (data?.totalBalances ?? []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   }, [data]);
 
   return (

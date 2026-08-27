@@ -776,7 +776,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const [symbol, setSymbol] = useState("BTC-PERP");
+  const [symbol, setSymbol] = useState("BTC-USDT");
   const [collapsed, setCollapsed] = useState(false);
   const account = useAccount();
   const orders = useOrders(account);
@@ -801,7 +801,7 @@ const Index = () => {
   // per plan.md 5.1 item 3 ("preserve the existing code without extending
   // it; revisit with a dedicated options specification").
   const isOptionsMarket = market?.category === "options";
-  const [tradeMode, setTradeMode] = useState<MarketMode>("futures");
+  const [tradeMode, setTradeMode] = useState<MarketMode>("spot");
   const optionLayoutActive = false;
   const optionContracts = useMemo(
     () => optionLayoutActive ? generateOptionChain(symbol, price) : [],

@@ -57,8 +57,9 @@ async function fetchIndex(base: string): Promise<void> {
   });
 }
 
-// Poll interval matches the previous Binance hook so header cadence is unchanged.
-const POLL_MS = 5000;
+// Match the price-fetcher's one-second publishing cadence so the displayed
+// reference never lags the market-maker's external index by several seconds.
+const POLL_MS = 1000;
 
 function fromCache(base: string): IndexTicker | null {
   const c = cache.get(base);

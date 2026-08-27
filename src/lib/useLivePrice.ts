@@ -24,9 +24,10 @@ import { backendMarketFor } from "./backendMarkets";
 export function useLivePrice(symbol: string): number {
   const market = useMarket(symbol);
   const index = useIndexPrice(market?.base);
-  // The five executable markets use the matching engine's single market
-  // summary source. Do not substitute an external index/mock price when the
-  // engine has no fresh price — callers can render the unavailable state.
-  if (backendMarketFor(symbol)) return market?.price ?? 0;
+  // The external index is the authoritative displayed reference for both
+  // executable and display-only markets. The executable order book is quoted
+  // around this value, but its tick-rounded bid/ask midpoint can differ by a
+  // fraction of a tick; showing the index avoids that presentation drift.
+  if (backendMarketFor(symbol)) return index?.lastPrice ?? market?.price ?? 0;
   return index?.lastPrice ?? market?.price ?? 0;
 }

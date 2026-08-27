@@ -288,7 +288,7 @@ export default function Landing() {
       </section>
 
       {/* Mobile App Download Section */}
-      <section className="relative overflow-hidden py-20 px-6 lg:px-10 bg-[#030821]">
+      <section className="hidden relative overflow-hidden py-20 px-6 lg:px-10 bg-[#030821]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_40%,rgba(9,184,255,0.16),transparent_36%),radial-gradient(circle_at_88%_38%,rgba(0,115,255,0.12),transparent_32%)]" />
         <div className="relative max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-[1fr_auto_1fr] gap-10 items-center">
           {/* Left Side - Content */}

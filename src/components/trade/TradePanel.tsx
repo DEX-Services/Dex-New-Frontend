@@ -45,14 +45,19 @@ export function TradePanel({
   orders: ReturnType<typeof useOrders>;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
+  const quoteAsset = symbol.split("-")[1] || "USDC";
   const backendMarket = backendMarketFor(symbol);
   const marketMetadata = useMarketMetadata(symbol);
   const walletState = useWallet();
-  const BALANCE = walletState.balances.reduce((sum, b) => sum + b.available, 0);
+  const [mode, setMode] = useState<MarketMode>("spot");
+  const [side, setSide] = useState<Side>("buy");
+  const isSpotSell = mode === "spot" && side === "sell";
+  const quoteBalance = walletState.balances.find((b) => b.asset === quoteAsset)?.available ?? 0;
+  const baseBalance = walletState.balances.find((b) => b.asset === baseAsset)?.available ?? 0;
+  // Buys spend quote currency; spot sells spend the purchased base asset.
+  const BALANCE = isSpotSell ? baseBalance : quoteBalance;
   const leverageInputRef = useRef<HTMLInputElement>(null);
   const sizeInputRef = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<MarketMode>("futures");
-  const [side, setSide] = useState<Side>("buy");
   const [orderType, setOrderType] = useState<OrderType>("limit");
   const [marginMode, setMarginMode] = useState<MarginMode>("isolated");
   const [leverage, setLeverage] = useState(10);
@@ -63,6 +68,9 @@ export function TradePanel({
   const [isCustomLeverageOpen, setIsCustomLeverageOpen] = useState(false);
   const [sizePct, setSizePct] = useState(25);
   const [sizeInput, setSizeInput] = useState((BALANCE * 0.25).toFixed(2));
+  useEffect(() => {
+    setSizeInput((BALANCE * (sizePct / 100)).toFixed(isSpotSell ? 8 : 2));
+  }, [BALANCE, isSpotSell, sizePct]);
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
   // useState(price...) above only reads `price` on first render. `price` is
   // 0 (or a mock value) until the real live-price hook resolves — usually
@@ -146,13 +154,20 @@ export function TradePanel({
   const isIsolatedMargin = marginMode === "isolated";
   const effLeverage = isSpot ? 1 : leverage;
 
-  const sizeUsd = BALANCE * (sizePct / 100);
+  const sizeUsd = isSpotSell
+    ? BALANCE * (sizePct / 100) * price
+    : BALANCE * (sizePct / 100);
   const orderValue = sizeUsd * effLeverage;
   const lotSize = Number(marketMetadata?.lotSize ?? 0);
   const tickSize = Number(marketMetadata?.tickSize ?? 0);
   const lotDecimals = lotSize > 0 ? Math.max(0, Math.ceil(-Math.log10(lotSize))) : 8;
-  const rawPositionSize = orderValue / price;
-  const positionSize = lotSize > 0 ? Math.floor((rawPositionSize + Number.EPSILON) / lotSize) * lotSize : 0;
+  const quantityDecimals = isSpotSell ? Math.max(8, lotDecimals) : lotDecimals;
+  const rawPositionSize = isSpotSell ? BALANCE * (sizePct / 100) : orderValue / price;
+  // Spot sells must be able to liquidate dust balances below the normal
+  // market lot size. Buys, futures, and MM orders retain lot rounding.
+  const positionSize = isSpotSell
+    ? Number(rawPositionSize.toFixed(8))
+    : lotSize > 0 ? Math.floor((rawPositionSize + Number.EPSILON) / lotSize) * lotSize : 0;
   const margin = sizeUsd;
   // Liquidation price matches the backend's MarginRatio < MMR trigger:
   //   (margin + PnL) / notional < MMR
@@ -167,6 +182,9 @@ export function TradePanel({
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
   const feeRate = isOptions ? 0.001 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
   const fee = orderValue * feeRate;
+  const orderValueLabel = orderValue > 0 && orderValue < 1
+    ? `$${orderValue.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 8 })}`
+    : `$${orderValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   const primaryTarget = tpslTargets[0];
   const tpPct = ((parseFloat(primaryTarget.tp) - price) / price) * 100 * (side === "buy" ? 1 : -1);
   const slPct = ((parseFloat(primaryTarget.sl) - price) / price) * 100 * (side === "buy" ? -1 : 1);
@@ -250,7 +268,16 @@ export function TradePanel({
     }
 
     const engineOrderType = orderType === "tpsl" ? "MARKET" : orderType.toUpperCase();
-    const requestedPrice = orderType === "market" || orderType === "tpsl" ? price : Number(limitPrice);
+    const rawRequestedPrice = orderType === "market" || orderType === "tpsl" ? price : Number(limitPrice);
+    // JavaScript number arithmetic can produce values such as 78536.7702
+    // from a tick-aligned input/calculation. Normalize the submitted limit
+    // price to the exchange tick before validation and serialization.
+    const tickDecimals = tickSize > 0
+      ? Math.max(0, Math.ceil(-Math.log10(tickSize) - 1e-12))
+      : 8;
+    const requestedPrice = orderType === "limit" && tickSize > 0
+      ? Number((Math.round((rawRequestedPrice + Number.EPSILON) / tickSize) * tickSize).toFixed(tickDecimals))
+      : rawRequestedPrice;
     const minNotional = Number(marketMetadata.minNotional);
     const isMultiple = (value: number, increment: number) =>
       increment > 0 && Math.abs(value / increment - Math.round(value / increment)) < 1e-7;
@@ -266,11 +293,12 @@ export function TradePanel({
       toast.error("Invalid price increment", { description: `Price must be a multiple of ${marketMetadata.tickSize}.` });
       return;
     }
-    if (!Number.isFinite(positionSize) || positionSize <= 0 || positionSize > Number(marketMetadata.maxQuantity) || !isMultiple(positionSize, lotSize)) {
+    const allowsDustSpotSell = isSpot && side === "sell";
+    if (!Number.isFinite(positionSize) || positionSize <= 0 || positionSize > Number(marketMetadata.maxQuantity) || (!allowsDustSpotSell && !isMultiple(positionSize, lotSize))) {
       toast.error("Invalid size", { description: `Size must be a multiple of ${marketMetadata.lotSize}.` });
       return;
     }
-    if (requestedPrice * positionSize < minNotional) {
+    if (!allowsDustSpotSell && requestedPrice * positionSize < minNotional) {
       toast.error("Order below minimum", { description: `Minimum notional is ${marketMetadata.minNotional}.` });
       return;
     }
@@ -306,8 +334,8 @@ export function TradePanel({
         market: backendMarket.market,
         side: side === "buy" ? "BUY" : "SELL",
         type: orderType === "market" || isTpsl ? "MARKET" : "LIMIT",
-        price: orderType === "market" || isTpsl ? undefined : limitPrice,
-          qty: positionSize.toFixed(lotDecimals), account: "",
+          price: orderType === "market" || isTpsl ? undefined : requestedPrice.toFixed(tickDecimals),
+          qty: positionSize.toFixed(quantityDecimals), account: "",
           ...(isMarketExecution && Number(slippageBps) >= 0 ? { slippageBps: Math.round(Number(slippageBps)) } : {}),
           ...futuresParams,
       };
@@ -343,7 +371,7 @@ export function TradePanel({
   const setSizePercentValue = (value: number) => {
     const next = clamp(value, 0.004, 100);
     setSizePct(next);
-    setSizeInput((BALANCE * (next / 100)).toFixed(2));
+    setSizeInput((BALANCE * (next / 100)).toFixed(isSpotSell ? 8 : 2));
   };
   const handleLeverageInputChange = (value: string) => {
     if (!isIsolatedMargin) return;
@@ -376,17 +404,17 @@ export function TradePanel({
       setSizeInput(value);
       return;
     }
-    const usdnValue = clamp(numericValue, 1, BALANCE);
-    setSizeInput(usdnValue === numericValue ? value : usdnValue.toFixed(2));
+    const usdnValue = clamp(numericValue, 0, BALANCE);
+    setSizeInput(usdnValue === numericValue ? value : usdnValue.toFixed(isSpotSell ? 8 : 2));
     setSizePct((usdnValue / BALANCE) * 100);
   };
   const handleSizeBlur = () => {
     const numericValue = parseFloat(sizeInput);
     const usdnValue = Number.isFinite(numericValue)
-      ? clamp(numericValue, 1, BALANCE)
+      ? clamp(numericValue, 0, BALANCE)
       : sizeUsd;
     setSizePct((usdnValue / BALANCE) * 100);
-    setSizeInput(usdnValue.toFixed(2));
+    setSizeInput(usdnValue.toFixed(isSpotSell ? 8 : 2));
   };
   const addTpslTarget = () => {
     setTpslTargets(current => {
@@ -508,12 +536,12 @@ export function TradePanel({
       )}
 
       <div className="px-3 pt-2 pb-2 flex flex-col gap-2 flex-1 min-h-0">
-        <Row label="Available" value={`$${BALANCE.toLocaleString()}`} />
+        <Row label="Available" value={isSpotSell ? `${BALANCE.toFixed(8)} ${baseAsset}` : `$${BALANCE.toLocaleString()}`} />
 
         {orderType === "limit" && !isOptions && (
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>Price (USDC)</span>
+              <span>Price ({quoteAsset})</span>
               <button
                 onClick={() => { editedPriceRef.current = true; setLimitPrice(price.toFixed(2)); }}
                 className="text-primary hover:underline font-medium"
@@ -667,7 +695,7 @@ export function TradePanel({
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
             <span>Size</span>
-            <span className="font-mono">{positionSize.toFixed(lotDecimals)} {baseAsset}</span>
+            <span className="font-mono">{positionSize.toFixed(quantityDecimals)} {baseAsset}</span>
           </div>
           <div className="flex gap-1 mb-1">
             <Input
@@ -681,9 +709,9 @@ export function TradePanel({
             />
             <div
               className="flex h-8 items-center rounded-md border border-border bg-muted/30 px-3 text-xs font-semibold text-foreground"
-              aria-label="Size unit USDC"
+              aria-label={`Size unit ${isSpotSell ? baseAsset : quoteAsset}`}
             >
-              USDC
+              {isSpotSell ? baseAsset : quoteAsset}
             </div>
           </div>
           <Slider value={[sizePct]} min={1} max={100} step={1} onValueChange={v => setSizePercentValue(v[0])}
@@ -809,7 +837,7 @@ export function TradePanel({
           </div>
         ) : (
           <div className="glass-strong rounded-lg border border-border/50 px-3 py-1.5 space-y-0.5">
-            <Row label="Order value" value={`$${orderValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} />
+            <Row label="Order value" value={orderValueLabel} />
             {isFutures && <Row label="Margin" value={`$${margin.toFixed(2)}`} />}
             {isFutures && (
               <Row

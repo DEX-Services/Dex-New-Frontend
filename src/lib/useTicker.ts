@@ -60,7 +60,7 @@ async function fetchTicker(symbol: string, market: string): Promise<void> {
   });
 }
 
-const POLL_MS = 5000;
+const POLL_MS = 1000;
 
 function fromCache(symbol: string, market: string): Ticker | null {
   const c = cache.get(key(symbol, market));

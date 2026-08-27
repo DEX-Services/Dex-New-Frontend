@@ -46,7 +46,7 @@ export default function AdminMarketMakers() {
 
   const load = () =>
     listMarketMakers()
-      .then((r) => setDesks(r.marketMakers))
+      .then((r) => setDesks(r.marketMakers ?? []))
       .catch((e) => setError(e.message || "Could not load market makers."))
       .finally(() => setLoading(false));
 
@@ -68,7 +68,7 @@ export default function AdminMarketMakers() {
     setBusyAll(true);
     setError("");
     try {
-      setDesks((await fn()).marketMakers);
+      setDesks((await fn()).marketMakers ?? []);
     } catch (e: any) {
       setError(e.message || "Bulk action failed.");
     } finally {
@@ -186,8 +186,9 @@ function DeskCard({
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 text-sm">
-        <Stat label="Allocated" value={`$${fmt(desk.allocatedUsdc)}`} />
+      <div className="grid grid-cols-4 gap-3 text-sm">
+        <Stat label={`${desk.quoteAsset ?? "USDT"} (Buy)`} value={`$${fmt(desk.quoteBalance ?? desk.allocatedUsdc)}`} />
+        <Stat label={`${desk.base} (Sell)`} value={desk.baseBalance ? `${fmt(desk.baseBalance)} ${desk.base}` : "—"} />
         <Stat
           label="Index"
           value={desk.indexPrice ? `$${fmt(desk.indexPrice)}` : "—"}

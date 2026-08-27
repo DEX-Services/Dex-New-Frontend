@@ -30,8 +30,14 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   if (!market) return null;
 
   const executable = !!backendMarket;
-  const liveChange = executable ? market.change24h : (index?.changePercent ?? market.change24h);
-  const liveVolume = executable ? market.volume24h : (index?.quoteVolume ?? market.volume24h);
+  // For executable crypto markets the Price-Fetcher index is authoritative,
+  // including the headline price/stats. This keeps the large displayed price,
+  // Mark and Index identical instead of mixing an empty engine midpoint with
+  // a valid external reference.
+  const externalIndex = index?.fresh && index.lastPrice > 0 ? index.lastPrice : 0;
+  const displayedPrice = externalIndex || livePrice;
+  const liveChange = externalIndex ? (index?.changePercent ?? market.change24h) : market.change24h;
+  const liveVolume = externalIndex ? (index?.quoteVolume ?? market.volume24h) : market.volume24h;
   const positive = liveChange >= 0;
 
   // Mark/index/funding: real when the symbol is backend-registered and the
@@ -42,8 +48,11 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   // "Simulated"-style degrade the rest of the trade page already uses for
   // unregistered symbols.
   const hasRealTicker = !!ticker && ticker.markPrice > 0;
-  const markPrice = hasRealTicker ? ticker.markPrice : livePrice * 1.0001;
-  const indexPrice = hasRealTicker && ticker.indexPrice !== null ? ticker.indexPrice : livePrice * 0.9999;
+  // The Price-Fetcher index is the single displayed reference price. The
+  // engine book remains executable and tick-aligned around it, while the
+  // header avoids showing a slightly different averaged book midpoint.
+  const markPrice = externalIndex || (hasRealTicker ? ticker.markPrice : livePrice);
+  const indexPrice = externalIndex || (hasRealTicker && ticker.indexPrice !== null ? ticker.indexPrice : livePrice);
   const fundingPct = hasRealTicker && ticker.fundingRatePct !== null
     ? ticker.fundingRatePct / 100
     : executable ? undefined : market.funding;
@@ -59,7 +68,7 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
             {market.symbol}
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-secondary/20 text-secondary uppercase">{market.category}</span>
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground uppercase">{market.asset}</span>
-            {executable && market.dataStatus !== "live" && (
+            {executable && market.dataStatus !== "live" && !externalIndex && (
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning/20 text-warning uppercase">
                 {market.dataStatus === "stale" ? "Stale" : "Unavailable"}
               </span>
@@ -71,7 +80,7 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
 
       <div className="min-w-fit">
         <div className={cn("text-xl font-bold font-mono", positive ? "text-buy" : "text-sell")}>
-          ${formatPrice(livePrice)}
+          ${formatPrice(displayedPrice)}
         </div>
         <div className={cn("text-[11px] font-mono flex items-center gap-1", positive ? "text-buy" : "text-sell")}>
           {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -97,8 +106,8 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
       )}
       {index && <Stat label="24h High" value={`$${formatPrice(index.high)}`} />}
       {index && <Stat label="24h Low" value={`$${formatPrice(index.low)}`} />}
-      <Stat label="Mark Price" value={hasRealTicker ? `$${formatPrice(markPrice)}` : "Unavailable"} />
-      <Stat label="Index" value={hasRealTicker && ticker?.indexPrice !== null ? `$${formatPrice(indexPrice)}` : "Unavailable"} />
+      <Stat label="Mark Price" value={markPrice > 0 ? `$${formatPrice(markPrice)}` : "Unavailable"} />
+      <Stat label="Index" value={indexPrice > 0 ? `$${formatPrice(indexPrice)}` : "Unavailable"} />
 
       <div className="ml-auto flex items-center gap-2 min-w-fit">
         <Button
