@@ -187,7 +187,7 @@ function DeskCard({
       </div>
 
       <div className="grid grid-cols-4 gap-3 text-sm">
-        <Stat label={`${desk.quoteAsset ?? "USDT"} (Buy)`} value={`$${fmt(desk.quoteBalance ?? desk.allocatedUsdc)}`} />
+        <Stat label={`${desk.quoteAsset ?? "USDT"} (Buy)`} value={`$${fmt(desk.quoteBalance ?? desk.quoteAmount)}`} />
         <Stat label={`${desk.base} (Sell)`} value={desk.baseBalance ? `${fmt(desk.baseBalance)} ${desk.base}` : "—"} />
         <Stat
           label="Index"
@@ -273,10 +273,13 @@ function FundDialog({
   onError: (msg: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [asset, setAsset] = useState<"base" | "quote">("quote");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const isDeposit = mode === "deposit";
+  const quoteLabel = desk.quoteAsset ?? "USDT";
+  const assetLabel = asset === "base" ? desk.base : quoteLabel;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -284,7 +287,7 @@ function FundDialog({
     onError("");
     try {
       const call = isDeposit ? depositMarketMaker : withdrawMarketMaker;
-      onDone(await call(desk.id, amount, note));
+      onDone(await call(desk.id, asset, amount, note));
       setOpen(false);
       setAmount("");
       setNote("");
@@ -311,11 +314,23 @@ function FundDialog({
         <form onSubmit={submit} className="space-y-4">
           <p className="text-xs text-muted-foreground">
             {isDeposit
-              ? "Record USDC already moved into the treasury wallet. This credits the desk's on-engine balance."
-              : "Record USDC removed from the treasury wallet. Blocked if the amount is locked behind live quotes."}
+              ? `Record ${assetLabel} already moved into the treasury wallet. This credits the desk's on-engine balance for that asset only — the two legs are funded independently.`
+              : `Record ${assetLabel} removed from the treasury wallet. Blocked if the amount is locked behind live quotes.`}
           </p>
           <div>
-            <Label htmlFor="amount">Amount (USDC)</Label>
+            <Label htmlFor="asset">Asset</Label>
+            <Select value={asset} onValueChange={(v) => setAsset(v as "base" | "quote")}>
+              <SelectTrigger id="asset">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="base">{desk.base} (base — sell side)</SelectItem>
+                <SelectItem value="quote">{quoteLabel} (quote — buy side)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="amount">Amount ({assetLabel})</Label>
             <Input
               id="amount"
               type="number"
@@ -491,7 +506,7 @@ function DetailSheet({ desk, onError }: { desk: MarketMaker; onError: (msg: stri
                     <div key={h.id} className="text-xs glass rounded p-2 space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className={h.direction === "deposit" ? "text-buy" : "text-sell"}>
-                          {h.direction === "deposit" ? "+" : "−"}{fmt(h.amount)}
+                          {h.direction === "deposit" ? "+" : "−"}{fmt(h.amount)} {h.asset === "base" ? desk.base : (desk.quoteAsset ?? "USDT")}
                         </span>
                         <span className="text-muted-foreground">bal {fmt(h.balanceAfter)}</span>
                       </div>
