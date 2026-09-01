@@ -52,10 +52,19 @@ export function TradePanel({
   const [mode, setMode] = useState<MarketMode>("spot");
   const [side, setSide] = useState<Side>("buy");
   const isSpotSell = mode === "spot" && side === "sell";
+  const isSpotBuy = mode === "spot" && side === "buy";
+  const isOptions = mode === "options";
   const quoteBalance = walletState.balances.find((b) => b.asset === quoteAsset)?.available ?? 0;
   const baseBalance = walletState.balances.find((b) => b.asset === baseAsset)?.available ?? 0;
   // Buys spend quote currency; spot sells spend the purchased base asset.
   const BALANCE = isSpotSell ? baseBalance : quoteBalance;
+  // A spot buy's fee-inclusive engine reservation (orderValue * (1 +
+  // feeRate); see submit.go) means the max quote spendable at 100% is
+  // BALANCE / (1 + feeRate), not BALANCE itself. Computed here, ahead of
+  // sizeInput's own state, so the displayed size box and the actual order
+  // math (sizeUsd below) never disagree.
+  const feeRate = isOptions ? 0.001 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
+  const maxSpendable = isSpotBuy ? BALANCE / (1 + feeRate) : BALANCE;
   const leverageInputRef = useRef<HTMLInputElement>(null);
   const sizeInputRef = useRef<HTMLInputElement>(null);
   const [orderType, setOrderType] = useState<OrderType>("limit");
@@ -67,10 +76,10 @@ export function TradePanel({
   const [leverageInput, setLeverageInput] = useState("10");
   const [isCustomLeverageOpen, setIsCustomLeverageOpen] = useState(false);
   const [sizePct, setSizePct] = useState(25);
-  const [sizeInput, setSizeInput] = useState((BALANCE * 0.25).toFixed(2));
+  const [sizeInput, setSizeInput] = useState((maxSpendable * 0.25).toFixed(2));
   useEffect(() => {
-    setSizeInput((BALANCE * (sizePct / 100)).toFixed(isSpotSell ? 8 : 2));
-  }, [BALANCE, isSpotSell, sizePct]);
+    setSizeInput((maxSpendable * (sizePct / 100)).toFixed(isSpotSell ? 8 : 2));
+  }, [maxSpendable, isSpotSell, sizePct]);
   const [limitPrice, setLimitPrice] = useState(price.toFixed(2));
   // useState(price...) above only reads `price` on first render. `price` is
   // 0 (or a mock value) until the real live-price hook resolves — usually
@@ -150,13 +159,15 @@ export function TradePanel({
 
   const isSpot = mode === "spot";
   const isFutures = mode === "futures";
-  const isOptions = mode === "options";
   const isIsolatedMargin = marginMode === "isolated";
   const effLeverage = isSpot ? 1 : leverage;
 
+  // maxSpendable (declared above, near BALANCE) already accounts for the
+  // spot-buy fee-inclusive reservation, so sizing off it here keeps this in
+  // sync with the sizeInput box without repeating the (1 + feeRate) math.
   const sizeUsd = isSpotSell
     ? BALANCE * (sizePct / 100) * price
-    : BALANCE * (sizePct / 100);
+    : maxSpendable * (sizePct / 100);
   const orderValue = sizeUsd * effLeverage;
   const lotSize = Number(marketMetadata?.lotSize ?? 0);
   const tickSize = Number(marketMetadata?.tickSize ?? 0);
@@ -180,7 +191,6 @@ export function TradePanel({
   const liqPrice = side === "buy"
     ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
-  const feeRate = isOptions ? 0.001 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
   const fee = orderValue * feeRate;
   const orderValueLabel = orderValue > 0 && orderValue < 1
     ? `$${orderValue.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 8 })}`
@@ -371,7 +381,7 @@ export function TradePanel({
   const setSizePercentValue = (value: number) => {
     const next = clamp(value, 0.004, 100);
     setSizePct(next);
-    setSizeInput((BALANCE * (next / 100)).toFixed(isSpotSell ? 8 : 2));
+    setSizeInput((maxSpendable * (next / 100)).toFixed(isSpotSell ? 8 : 2));
   };
   const handleLeverageInputChange = (value: string) => {
     if (!isIsolatedMargin) return;
@@ -404,16 +414,16 @@ export function TradePanel({
       setSizeInput(value);
       return;
     }
-    const usdnValue = clamp(numericValue, 0, BALANCE);
+    const usdnValue = clamp(numericValue, 0, maxSpendable);
     setSizeInput(usdnValue === numericValue ? value : usdnValue.toFixed(isSpotSell ? 8 : 2));
-    setSizePct((usdnValue / BALANCE) * 100);
+    setSizePct((usdnValue / maxSpendable) * 100);
   };
   const handleSizeBlur = () => {
     const numericValue = parseFloat(sizeInput);
     const usdnValue = Number.isFinite(numericValue)
-      ? clamp(numericValue, 0, BALANCE)
+      ? clamp(numericValue, 0, maxSpendable)
       : sizeUsd;
-    setSizePct((usdnValue / BALANCE) * 100);
+    setSizePct((usdnValue / maxSpendable) * 100);
     setSizeInput(usdnValue.toFixed(isSpotSell ? 8 : 2));
   };
   const addTpslTarget = () => {
