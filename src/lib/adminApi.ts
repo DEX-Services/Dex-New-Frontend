@@ -90,3 +90,37 @@ export async function updateAdminProfile(profile: Pick<SessionUser, "name" | "em
   updateSessionUser(updated);
   return updated;
 }
+
+export type AdminUser = {
+  id: string;
+  walletAddress: string;
+  walletType: string;
+  createdAt: string;
+  lastLoginAt?: string;
+};
+
+export function searchAdminUsers(q: string, limit = 20) {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return adminReq<{ users: AdminUser[] }>(`/admin/users/search?${params}`);
+}
+
+export type AdjustBalanceDirection = "credit" | "debit";
+
+export type AdjustBalanceResult = {
+  userId: string;
+  balances: Record<string, string>;
+};
+
+// DEV/TESTING ONLY: manually credits or debits a user's balance for one
+// asset, outside any real deposit or trade. See AdminServer.AdjustUserBalance.
+export function adjustUserBalance(
+  userId: string,
+  asset: string,
+  amount: string,
+  direction: AdjustBalanceDirection,
+) {
+  return adminReq<AdjustBalanceResult>("/admin/users/balance", {
+    method: "POST",
+    body: JSON.stringify({ userId, asset, amount, direction }),
+  });
+}
