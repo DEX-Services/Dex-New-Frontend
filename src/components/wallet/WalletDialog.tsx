@@ -9,11 +9,13 @@ import { toast } from "sonner";
 
 const ICONS: Record<WalletId, { src: string; alt: string }> = {
   metamask: { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/MetaMask_Fox.svg/3840px-MetaMask_Fox.svg.png", alt: "MetaMask logo" },
+  trust: { src: "/wallet-icons/trust.svg?v=2", alt: "Trust Wallet logo" },
+  binance: { src: "/wallet-icons/binance.svg?v=2", alt: "Binance Wallet logo" },
   coinbase: { src: "https://images.icon-icons.com/2407/PNG/512/coinbase_icon_146203.png", alt: "Coinbase Wallet logo" },
-  bitget: { src: "https://s2.coinmarketcap.com/static/img/coins/200x200/11092.png", alt: "Bitget Wallet logo" },
+  bitget: { src: "/wallet-icons/bitget.svg?v=2", alt: "Bitget Wallet logo" },
 };
 
-const SUPPORTED_WALLETS: WalletId[] = ["metamask", "coinbase", "bitget"];
+const SUPPORTED_WALLETS: WalletId[] = ["metamask", "trust", "binance", "coinbase", "bitget"];
 
 export function WalletDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
   const w = useWallet();

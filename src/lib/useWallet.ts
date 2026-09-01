@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { getNonce, getWalletBalances, login as apiLogin, logout as apiLogout, me } from "@/lib/authApi";
 
-export type WalletId = "metamask" | "coinbase" | "bitget";
+export type WalletId = "metamask" | "trust" | "binance" | "coinbase" | "bitget";
 
 export type WalletInfo = {
   id: WalletId;
@@ -13,6 +13,8 @@ export type WalletInfo = {
 
 export const WALLETS: WalletInfo[] = [
   { id: "metamask", name: "MetaMask", tag: "Most popular", desc: "Connect via the MetaMask browser extension", popular: true },
+  { id: "trust", name: "Trust Wallet", tag: "Popular", desc: "Connect via the Trust Wallet browser extension", popular: true },
+  { id: "binance", name: "Binance Wallet", tag: "Popular", desc: "Connect via the Binance Wallet browser extension", popular: true },
   { id: "coinbase", name: "Coinbase Wallet", tag: "Easy", desc: "Connect via the Coinbase Wallet extension", popular: true },
   { id: "bitget", name: "Bitget Wallet", tag: "Easy", desc: "Connect via the Bitget Wallet extension", popular: true },
 ];
@@ -51,10 +53,28 @@ export type Eip1193Provider = {
   isCoinbaseWallet?: boolean;
   isBitgetWallet?: boolean;
   isBitKeep?: boolean;
+  isTrust?: boolean;
+  isTrustWallet?: boolean;
+  isBinance?: boolean;
+  isBinanceWallet?: boolean;
   providers?: Eip1193Provider[];
 };
 
-type EthereumWindow = Window & { ethereum?: Eip1193Provider; bitkeep?: Eip1193Provider & { ethereum?: Eip1193Provider }; bitKeep?: Eip1193Provider & { ethereum?: Eip1193Provider }; bitget?: Eip1193Provider & { ethereum?: Eip1193Provider } };
+type WalletNamespace = Eip1193Provider & { ethereum?: Eip1193Provider };
+type EthereumWindow = Window & {
+  ethereum?: Eip1193Provider;
+  bitkeep?: WalletNamespace;
+  bitKeep?: WalletNamespace;
+  bitget?: WalletNamespace;
+  trustwallet?: WalletNamespace;
+  BinanceChain?: Eip1193Provider;
+  binancew3w?: { ethereum?: Eip1193Provider };
+};
+
+type Eip6963ProviderDetail = {
+  info: { uuid: string; name: string; icon: string; rdns: string };
+  provider: Eip1193Provider;
+};
 
 type SendTransactionParams = {
   from: string;
@@ -113,6 +133,7 @@ let state: WalletState = { connected: false, balances: DEFAULT_BALANCES, restore
 const listeners = new Set<() => void>();
 const providerListeners = new WeakMap<object, { accountsChanged: (...args: unknown[]) => void; chainChanged: (...args: unknown[]) => void; disconnect: (...args: unknown[]) => void }>();
 let activeProvider: Eip1193Provider | null = null;
+const announcedProviders = new Map<string, Eip6963ProviderDetail>();
 
 const emit = () => listeners.forEach((l) => l());
 const setState = (next: Partial<WalletState>) => {
@@ -130,23 +151,74 @@ function getInjectedProviders(): Eip1193Provider[] {
   return Array.isArray(eth.providers) && eth.providers.length > 0 ? eth.providers : [eth];
 }
 
+function isProvider(value: unknown): value is Eip1193Provider {
+  return typeof value === "object" && value !== null && "request" in value && typeof (value as Eip1193Provider).request === "function";
+}
+
+function rememberAnnouncedProvider(event: Event) {
+  const detail = (event as CustomEvent<Eip6963ProviderDetail>).detail;
+  if (!detail?.info?.uuid || !isProvider(detail.provider)) return;
+  announcedProviders.set(detail.info.uuid, detail);
+}
+
+function requestAnnouncedProviders() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("eip6963:requestProvider"));
+}
+
+function getAnnouncedProvider(source: WalletId): Eip1193Provider | null {
+  requestAnnouncedProviders();
+  for (const { info, provider } of announcedProviders.values()) {
+    const identity = `${info.rdns} ${info.name}`.toLowerCase();
+    if (source === "trust" && (info.rdns.toLowerCase() === "com.trustwallet.app" || identity.includes("trust wallet"))) return provider;
+    if (source === "binance" && identity.includes("binance")) return provider;
+    if (source === "metamask" && identity.includes("metamask")) return provider;
+    if (source === "coinbase" && identity.includes("coinbase")) return provider;
+    if (source === "bitget" && (identity.includes("bitget") || identity.includes("bitkeep"))) return provider;
+  }
+  return null;
+}
+
 function getBitgetProvider(): Eip1193Provider | null {
   if (typeof window === "undefined") return null;
   const win = window as EthereumWindow;
-  const candidates: Array<Eip1193Provider | undefined> = [win.bitkeep?.ethereum, win.bitkeep, win.bitKeep?.ethereum, win.bitKeep, win.bitget?.ethereum, win.bitget, win.ethereum];
+  const candidates: Array<Eip1193Provider | undefined> = [win.bitkeep?.ethereum, win.bitkeep, win.bitKeep?.ethereum, win.bitKeep, win.bitget?.ethereum, win.bitget];
   for (const provider of candidates) {
-    if (!provider) continue;
+    if (!isProvider(provider)) continue;
     return provider;
   }
   return null;
 }
 
+function getTrustProvider(): Eip1193Provider | null {
+  if (typeof window === "undefined") return null;
+  const trust = (window as EthereumWindow).trustwallet;
+  if (isProvider(trust?.ethereum)) return trust.ethereum;
+  return isProvider(trust) ? trust : null;
+}
+
+function getBinanceProvider(): Eip1193Provider | null {
+  if (typeof window === "undefined") return null;
+  const win = window as EthereumWindow;
+  if (isProvider(win.binancew3w?.ethereum)) return win.binancew3w.ethereum;
+  return isProvider(win.BinanceChain) ? win.BinanceChain : null;
+}
+
 function matchProvider(source: WalletId): Eip1193Provider | null {
+  const announced = getAnnouncedProvider(source);
+  if (announced) return announced;
+
   const providers = getInjectedProviders();
-  if (providers.length === 0) return source === "bitget" ? getBitgetProvider() : null;
 
   if (source === "metamask") {
-    return providers.find((provider) => provider.isMetaMask && !provider.isCoinbaseWallet) ?? providers[0] ?? null;
+    return providers.find((provider) => provider.isMetaMask && !provider.isCoinbaseWallet && !provider.isTrust && !provider.isTrustWallet) ?? providers[0] ?? null;
+  }
+
+  if (source === "trust") {
+    return getTrustProvider() ?? providers.find((provider) => provider.isTrustWallet || provider.isTrust) ?? null;
+  }
+
+  if (source === "binance") {
+    return getBinanceProvider() ?? providers.find((provider) => provider.isBinanceWallet || provider.isBinance) ?? null;
   }
 
   if (source === "coinbase") {
@@ -154,7 +226,7 @@ function matchProvider(source: WalletId): Eip1193Provider | null {
   }
 
   if (source === "bitget") {
-    return getBitgetProvider() ?? providers.find((provider) => provider.isBitgetWallet || provider.isBitKeep) ?? null;
+    return providers.find((provider) => provider.isBitgetWallet || provider.isBitKeep) ?? getBitgetProvider();
   }
 
   return null;
@@ -218,7 +290,7 @@ function loadSession(): { walletId: WalletId; address: string } | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<{ walletId: WalletId; address: string }>;
-    if ((parsed.walletId === "metamask" || parsed.walletId === "coinbase" || parsed.walletId === "bitget") && typeof parsed.address === "string") {
+    if (WALLETS.some((walletInfo) => walletInfo.id === parsed.walletId) && typeof parsed.address === "string") {
       return { walletId: parsed.walletId, address: parsed.address };
     }
   } catch {
@@ -401,6 +473,8 @@ export function getTreasuryAddress() {
 }
 
 if (typeof window !== "undefined") {
+  window.addEventListener("eip6963:announceProvider", rememberAnnouncedProvider);
+  requestAnnouncedProviders();
   queueMicrotask(() => {
     if (canRestoreWallet()) {
       wallet.restoreSession().catch(() => {});

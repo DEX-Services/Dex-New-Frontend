@@ -15,7 +15,9 @@ export default function Landing() {
   const [walletOpen, setWalletOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const sponsors = [
-        { name: "Coinbase", logo: "https://logo.clearbit.com/coinbase.com" },
+    { name: "Coinbase", logo: "https://logo.clearbit.com/coinbase.com" },
+    { name: "Trust Wallet", logo: "/wallet-icons/trust.svg?v=2" },
+    { name: "Binance Wallet", logo: "/wallet-icons/binance.svg?v=2" },
     { name: "Bybit", logo: "https://logo.clearbit.com/bybit.com" },
     { name: "OKX", logo: "https://logo.clearbit.com/okx.com" },
     { name: "Kraken", logo: "https://logo.clearbit.com/kraken.com" },
@@ -262,7 +264,7 @@ export default function Landing() {
                 <Shield className="h-6 w-6 text-cyan-400" />
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Self-Custody</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Connect MetaMask, Coinbase, and Bitget.</p>
+              <p className="text-slate-400 text-sm leading-relaxed">Connect MetaMask, Trust Wallet, Binance Wallet, Coinbase, and Bitget.</p>
             </div>
 
             {/* Multi-Asset */}
