@@ -34,17 +34,17 @@ export default function Landing() {
       <header className="px-6 lg:px-10 h-16 flex items-center justify-between border-b border-glass-border glass-strong sticky top-0 z-30">
         <Link to="/" className="flex items-center gap-2">
           <img src={logo} alt="BitDx logo" className="h-9 w-9 rounded-lg shadow-lg object-contain" />
-          <span className="font-bold text-lg tracking-tight text-white">BitDx</span>
+          <span className="font-bold text-lg tracking-tight text-foreground">BitDx</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm text-slate-400">
-          <Link to="/trade" className="hover:text-white transition-colors">Trade</Link>
-          <Link to="/markets" className="hover:text-white transition-colors">Market</Link>
-          <Link to="/copy" className="hover:text-white transition-colors">Copy</Link>
-          <Link to="/prop" className="hover:text-white transition-colors">Prop Firm</Link>
-          <Link to="/p2p" className="hover:text-white transition-colors">P2P</Link>
-          <Link to="/token" className="hover:text-white transition-colors">Token</Link>
-          <Link to="/sip" className="hover:text-white transition-colors">SIP/SWP</Link>
+        <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
+          <Link to="/trade" className="hover:text-foreground transition-colors">Trade</Link>
+          <Link to="/markets" className="hover:text-foreground transition-colors">Market</Link>
+          <Link to="/copy" className="hover:text-foreground transition-colors">Copy</Link>
+          <Link to="/prop" className="hover:text-foreground transition-colors">Prop Firm</Link>
+          <Link to="/p2p" className="hover:text-foreground transition-colors">P2P</Link>
+          <Link to="/token" className="hover:text-foreground transition-colors">Token</Link>
+          <Link to="/sip" className="hover:text-foreground transition-colors">SIP/SWP</Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -56,7 +56,7 @@ export default function Landing() {
           </Button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
+            className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -64,14 +64,14 @@ export default function Landing() {
       </header>
 
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 bg-[#0a0e27]/95 backdrop-blur-lg border-b border-glass-border z-40 py-6 px-6 flex flex-col gap-4">
-          <Link to="/trade" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
-          <Link to="/markets" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Market</Link>
-          <Link to="/copy" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Copy</Link>
-          <Link to="/prop" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
-          <Link to="/p2p" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
-          <Link to="/token" className="text-slate-300 hover:text-white font-medium py-2 border-b border-slate-800/50" onClick={() => setMobileMenuOpen(false)}>Token</Link>
-          <Link to="/sip" className="text-slate-300 hover:text-white font-medium py-2" onClick={() => setMobileMenuOpen(false)}>SIP/SWP</Link>
+        <div className="md:hidden fixed inset-x-0 top-16 bg-card/95 backdrop-blur-lg border-b border-border z-40 py-6 px-6 flex flex-col gap-4">
+          <Link to="/trade" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
+          <Link to="/markets" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Market</Link>
+          <Link to="/copy" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Copy</Link>
+          <Link to="/prop" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
+          <Link to="/p2p" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
+          <Link to="/token" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Token</Link>
+          <Link to="/sip" className="text-muted-foreground hover:text-foreground font-medium py-2" onClick={() => setMobileMenuOpen(false)}>SIP/SWP</Link>
         </div>
       )}
 
@@ -200,12 +200,12 @@ export default function Landing() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-400 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "Forex", sub: "150+ Currency Pairs", icon: Globe, color: "text-violet-300 bg-violet-500/15 border-violet-500/35" },
+              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-300 bg-violet-500/15 border-violet-500/35" },
               { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
               { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-300 bg-amber-500/15 border-amber-500/35" },
               { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-300 bg-cyan-500/15 border-cyan-500/35" },
               { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "Algo Trading", sub: "Automated Strategies", icon: Bot, color: "text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
+              { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
               { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-300 bg-amber-500/15 border-amber-500/35" },
             ].map((item) => (
               <div key={item.title} className="group rounded-2xl border border-cyan-800/35 bg-[#071127]/90 p-5 md:p-6 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/10 transition-all">
@@ -580,7 +580,7 @@ export default function Landing() {
         </div>
       </footer>
 
-      <WalletDialog open={walletOpen} onOpenChange={setWalletOpen} />
+      <WalletDialog open={walletOpen} onOpenChange={setWalletOpen} onConnected={goTrade} />
     </div>
   );
 }

@@ -17,7 +17,7 @@ const ICONS: Record<WalletId, { src: string; alt: string }> = {
 
 const SUPPORTED_WALLETS: WalletId[] = ["metamask", "trust", "binance", "coinbase", "bitget"];
 
-export function WalletDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function WalletDialog({ open, onOpenChange, onConnected }: { open: boolean; onOpenChange: (v: boolean) => void; onConnected?: () => void }) {
   const w = useWallet();
   const [connecting, setConnecting] = useState<WalletId | null>(null);
 
@@ -32,6 +32,7 @@ export function WalletDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       await wallet.connect(id);
       toast.success(`${WALLETS.find((x) => x.id === id)?.name} connected`);
       onOpenChange(false);
+      onConnected?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Wallet connection failed";
       toast.error(message.includes("rejected") ? "Connection rejected by wallet" : message);
