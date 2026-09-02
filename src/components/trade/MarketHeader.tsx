@@ -134,7 +134,7 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
           variant="outline"
           size="sm"
           onClick={() => navigate("/trading-bots")}
-          className="h-8 text-xs glass border-secondary/30 text-secondary hover:bg-secondary/10 hover:text-secondary"
+          className="h-8 text-xs glass border-accent/30 text-accent hover:bg-accent/10 hover:text-accent"
           title="Open trading bots"
         >
           <Bot className="h-3.5 w-3.5 mr-1.5" />
