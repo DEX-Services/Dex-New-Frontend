@@ -1,4 +1,4 @@
-import { useLayoutEffect, useEffect } from "react";
+import { useLayoutEffect, useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { setAuthExpiredHandler } from "@/lib/apiClient";
@@ -31,6 +31,7 @@ import AdminProfile from "./pages/AdminProfile.tsx";
 import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
+import { readTheme, type ThemeMode } from "@/lib/theme";
 
 const queryClient = new QueryClient();
 
@@ -59,11 +60,26 @@ function AuthExpiryWatcher() {
   return null;
 }
 
+function ThemeAwareSonner() {
+  const [theme, setTheme] = useState<ThemeMode>(readTheme);
+
+  useEffect(() => {
+    const onThemeChange = (event: Event) => {
+      setTheme((event as CustomEvent<ThemeMode>).detail);
+    };
+
+    window.addEventListener("dex-theme-change", onThemeChange);
+    return () => window.removeEventListener("dex-theme-change", onThemeChange);
+  }, []);
+
+  return <Sonner theme={theme === "light" ? "light" : "dark"} position="top-right" />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider delayDuration={200}>
       <Toaster />
-      <Sonner theme="dark" position="top-right" />
+      <ThemeAwareSonner />
       <BrowserRouter>
         <ScrollToTop />
         <AuthExpiryWatcher />

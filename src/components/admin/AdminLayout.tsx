@@ -23,7 +23,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <Zap className="h-4 w-4 text-primary-foreground" strokeWidth={2.5} />
           </div>
           <div className="leading-tight">
-            <div className="font-bold text-base tracking-tight text-white">BitDx</div>
+            <div className="font-bold text-base tracking-tight text-foreground">BitDx</div>
             <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Admin</div>
           </div>
         </Link>
