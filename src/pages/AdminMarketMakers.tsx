@@ -187,7 +187,7 @@ function DeskCard({
       </div>
 
       <div className="grid grid-cols-4 gap-3 text-sm">
-        <Stat label={`${desk.quoteAsset ?? "USDT"} (Buy)`} value={`$${fmt(desk.quoteBalance ?? desk.quoteAmount)}`} />
+        <Stat label={`${desk.quoteAsset ?? "USDB"} (Buy)`} value={`$${fmt(desk.quoteBalance ?? desk.quoteAmount)}`} />
         <Stat label={`${desk.base} (Sell)`} value={desk.baseBalance ? `${fmt(desk.baseBalance)} ${desk.base}` : "—"} />
         <Stat
           label="Index"
@@ -278,7 +278,7 @@ function FundDialog({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const isDeposit = mode === "deposit";
-  const quoteLabel = desk.quoteAsset ?? "USDT";
+  const quoteLabel = desk.quoteAsset ?? "USDB";
   const assetLabel = asset === "base" ? desk.base : quoteLabel;
 
   const submit = async (e: FormEvent) => {
@@ -506,7 +506,7 @@ function DetailSheet({ desk, onError }: { desk: MarketMaker; onError: (msg: stri
                     <div key={h.id} className="text-xs glass rounded p-2 space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className={h.direction === "deposit" ? "text-buy" : "text-sell"}>
-                          {h.direction === "deposit" ? "+" : "−"}{fmt(h.amount)} {h.asset === "base" ? desk.base : (desk.quoteAsset ?? "USDT")}
+                          {h.direction === "deposit" ? "+" : "−"}{fmt(h.amount)} {h.asset === "base" ? desk.base : (desk.quoteAsset ?? "USDB")}
                         </span>
                         <span className="text-muted-foreground">bal {fmt(h.balanceAfter)}</span>
                       </div>

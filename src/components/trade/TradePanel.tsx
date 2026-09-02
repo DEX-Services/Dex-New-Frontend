@@ -265,7 +265,7 @@ export function TradePanel({
       // Match the options-mode pattern above: an honest "not available"
       // error, not a fabricated fill.
       toast.error(`${symbol} isn't available to trade yet`, {
-        description: "This market isn't live on the exchange yet — try BTC-USDT, ETH-USDT, SOL-USDT, BTC-PERP, or ETH-PERP.",
+        description: "This market isn't live on the exchange yet — try BTC-USDB, ETH-USDB, SOL-USDB, BTC-PERP, or ETH-PERP.",
       });
       return;
     }

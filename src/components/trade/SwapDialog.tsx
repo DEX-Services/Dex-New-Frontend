@@ -16,23 +16,39 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { swapAssets } from "@/lib/authApi";
 import { wallet, useWallet } from "@/lib/useWallet";
 import { cn } from "@/lib/utils";
 
+type TokenSymbol = "USDC" | "USDT" | "USDB";
+
 interface Token {
-  symbol: "USDC" | "USDT";
+  symbol: TokenSymbol;
   name: string;
   color: string;
   textColor: string;
   icon: string;
 }
 
-const USDC_TOKEN: Token = { symbol: "USDC", name: "USD Coin", color: "#2775CA", textColor: "#fff", icon: "$" };
-const USDT_TOKEN: Token = { symbol: "USDT", name: "Tether", color: "#26A17B", textColor: "#fff", icon: "₮" };
+// USDB is the platform's internal stable quote currency (pegged 1:1 to
+// USDT, no on-chain contract of its own) — every market trades against it.
+// This swap lets a user move deposit-intake USDC/USDT into tradable USDB
+// manually; real on-chain deposits already convert automatically (see
+// Dex-Backend's chain.Listener), this covers balances credited before that
+// migration or credited directly as USDC/USDT.
+const TOKENS: Record<TokenSymbol, Token> = {
+  USDC: { symbol: "USDC", name: "USD Coin", color: "#2775CA", textColor: "#fff", icon: "$" },
+  USDT: { symbol: "USDT", name: "Tether", color: "#26A17B", textColor: "#fff", icon: "₮" },
+  USDB: { symbol: "USDB", name: "BitDx USD", color: "#7C5CFC", textColor: "#fff", icon: "B" },
+};
+const TOKEN_LIST = Object.values(TOKENS);
 
 // Fixed 1:1 test rate, matching the backend's test-only /wallet/swap endpoint
-// (USDC <-> USDT only). Both assets use 6 decimals.
+// (swapTestPairs: any two of USDC/USDT/USDB). All three assets use 6
+// decimals, so no conversion factor is needed between any pair.
 const SWAP_DECIMALS = 6;
 
 function TokenAvatar({ token, size = 32 }: { token: Token; size?: number }) {
@@ -54,14 +70,34 @@ function TokenAvatar({ token, size = 32 }: { token: Token; size?: number }) {
   );
 }
 
-function TokenDisplay({ token }: { token: Token }) {
+function TokenSelect({
+  value, exclude, onChange,
+}: {
+  value: TokenSymbol;
+  exclude: TokenSymbol;
+  onChange: (symbol: TokenSymbol) => void;
+}) {
   return (
-    <div className="flex h-12 items-center rounded-xl border border-border bg-muted/30 px-3">
-      <span className="flex items-center gap-2">
-        <TokenAvatar token={token} size={34} />
-        <span className="font-bold">{token.symbol}</span>
-      </span>
-    </div>
+    <Select value={value} onValueChange={(v) => onChange(v as TokenSymbol)}>
+      <SelectTrigger className="h-12 min-w-[128px] rounded-xl border border-border bg-muted/30 px-3">
+        <SelectValue asChild>
+          <span className="flex items-center gap-2">
+            <TokenAvatar token={TOKENS[value]} size={26} />
+            <span className="font-bold">{value}</span>
+          </span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {TOKEN_LIST.filter((t) => t.symbol !== exclude).map((t) => (
+          <SelectItem key={t.symbol} value={t.symbol}>
+            <span className="flex items-center gap-2">
+              <TokenAvatar token={t} size={20} />
+              {t.symbol}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -90,13 +126,14 @@ export function SwapDialog({
   open: boolean;
   onOpenChange: (value: boolean) => void;
 }) {
-  const [reversed, setReversed] = useState(false);
+  const [fromSymbol, setFromSymbol] = useState<TokenSymbol>("USDC");
+  const [toSymbol, setToSymbol] = useState<TokenSymbol>("USDB");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { balances } = useWallet();
 
-  const fromToken = reversed ? USDT_TOKEN : USDC_TOKEN;
-  const toToken = reversed ? USDC_TOKEN : USDT_TOKEN;
+  const fromToken = TOKENS[fromSymbol];
+  const toToken = TOKENS[toSymbol];
   const numericAmount = Number.parseFloat(amount) || 0;
   // Fixed 1:1 test rate.
   const outputAmount = numericAmount;
@@ -109,8 +146,24 @@ export function SwapDialog({
     onOpenChange(nextOpen);
   };
 
+  // Picking a "From" token that collides with the current "To" bumps "To" to
+  // whichever token isn't now selected on either side, and vice versa —
+  // three tokens total means there's always exactly one other candidate.
+  const otherOf = (a: TokenSymbol, b: TokenSymbol) =>
+    TOKEN_LIST.map((t) => t.symbol).find((s) => s !== a && s !== b)!;
+
+  const handleFromChange = (symbol: TokenSymbol) => {
+    setFromSymbol(symbol);
+    if (symbol === toSymbol) setToSymbol(otherOf(symbol, fromSymbol));
+  };
+  const handleToChange = (symbol: TokenSymbol) => {
+    setToSymbol(symbol);
+    if (symbol === fromSymbol) setFromSymbol(otherOf(symbol, toSymbol));
+  };
+
   const handleDirectionChange = () => {
-    setReversed((current) => !current);
+    setFromSymbol(toSymbol);
+    setToSymbol(fromSymbol);
     setAmount(outputAmount > 0 ? amountForInput(outputAmount) : "");
   };
 
@@ -153,7 +206,7 @@ export function SwapDialog({
             Swap
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Swap between USDC and USDT at a fixed 1:1 test rate.
+            Swap between USDC, USDT, and USDB at a fixed 1:1 test rate.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +234,7 @@ export function SwapDialog({
             </div>
 
             <div className="flex items-center gap-3">
-              <TokenDisplay token={fromToken} />
+              <TokenSelect value={fromSymbol} exclude={toSymbol} onChange={handleFromChange} />
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <input
                   type="text"
@@ -233,7 +286,7 @@ export function SwapDialog({
               To
             </div>
             <div className="flex items-center gap-3">
-              <TokenDisplay token={toToken} />
+              <TokenSelect value={toSymbol} exclude={fromSymbol} onChange={handleToChange} />
               <div className="min-w-0 flex-1 truncate text-right font-mono text-2xl font-bold">
                 <span className={outputAmount > 0 ? "text-foreground" : "text-muted-foreground/40"}>
                   {outputAmount > 0 ? formatAmount(outputAmount) : "0"}
