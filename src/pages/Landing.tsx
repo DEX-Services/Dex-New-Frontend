@@ -226,67 +226,33 @@ export default function Landing() {
       {/* Features Section */}
       <section className="py-20 px-6 lg:px-10 bg-background">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
+          <div className="text-center mb-10 md:mb-16 space-y-4">
             <h2 className="text-4xl md:text-5xl font-black text-foreground">Built for serious traders</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 lg:hidden" />
+            <p className="text-sm md:text-lg text-muted-foreground max-w-2xl mx-auto">
               FROM FIRST TRADE TO FULL TIME PRO | ALL TOOLS INCLUDED
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Pro Charting */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <TrendingUp className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
+            {[
+              { title: "Pro Charting", sub: "Lightning-fast charts with 50+ indicators & drawing tools.", icon: TrendingUp, glow: "bg-cyan-500" },
+              { title: "Spot · Futures · Options", sub: "Trade every market type from one unified terminal.", icon: Layers, glow: "bg-violet-500" },
+              { title: "AI Agents & Bots", sub: "Automate strategies with AI-powered trading assistants.", icon: Bot, glow: "bg-emerald-500" },
+              { title: "Self-Custody", sub: "Connect MetaMask, Trust Wallet, Binance Wallet, Coinbase, and Bitget.", icon: Shield, glow: "bg-cyan-500" },
+              { title: "Multi-Asset", sub: "Crypto, Forex, Commodities and Stocks in one place.", icon: Globe, glow: "bg-violet-500" },
+              { title: "Up to 100× Leverage", sub: "Deep liquidity and ultra-low fees on every fill.", icon: Zap, glow: "bg-amber-500" },
+            ].map((item) => (
+              <div key={item.title} className="group relative overflow-hidden border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-4 md:p-5 lg:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
+                {/* Category glow accent — mobile & tablet only */}
+                <div className={`pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full blur-3xl opacity-30 lg:hidden ${item.glow}`} />
+                <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3 md:mb-4 lg:mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
+                  <item.icon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-base md:text-lg lg:text-xl font-bold text-foreground mb-2">{item.title}</h3>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-sm leading-relaxed">{item.sub}</p>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Pro Charting</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Lightning-fast charts with 50+ indicators & drawing tools.</p>
-            </div>
-
-            {/* Spot · Futures · Options */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Layers className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Spot · Futures · Options</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Trade every market type from one unified terminal.</p>
-            </div>
-
-            {/* AI Agents & Bots */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Bot className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">AI Agents & Bots</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Automate strategies with AI-powered trading assistants.</p>
-            </div>
-
-            {/* Self-Custody */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Shield className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Self-Custody</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Connect MetaMask, Trust Wallet, Binance Wallet, Coinbase, and Bitget.</p>
-            </div>
-
-            {/* Multi-Asset */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Globe className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Multi-Asset</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Crypto, Forex, Commodities and Stocks in one place.</p>
-            </div>
-
-            {/* Up to 100× Leverage */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Zap className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Up to 100× Leverage</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Deep liquidity and ultra-low fees on every fill.</p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
