@@ -498,9 +498,12 @@ export default function Landing() {
       </section> */}
 
       <footer className="border-t border-border bg-card px-6 py-10 lg:px-10">
-        <div className="mx-auto grid max-w-6xl gap-8 grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div className="space-y-4 col-span-2 md:col-span-1">
-            <Link to="/" className="inline-flex items-center gap-2">
+        {/* Gradient hairline accent — mobile & tablet only */}
+        <div className="mx-auto mb-8 h-px max-w-6xl bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent lg:hidden" />
+        <div className="mx-auto grid max-w-6xl gap-6 lg:gap-8 grid-cols-2 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="relative space-y-4 col-span-2 md:col-span-2 lg:col-span-1">
+            <div className="pointer-events-none absolute -top-6 -left-4 h-20 w-20 rounded-full bg-cyan-500/20 blur-3xl lg:hidden" />
+            <Link to="/" className="relative inline-flex items-center gap-2">
               <img src={logo} alt="BitDx logo" className="h-10 w-10 rounded-lg shadow-lg shadow-blue-500/20 object-contain" />
               <span className="font-bold text-xl tracking-tight text-foreground">BitDx</span>
             </Link>
@@ -510,38 +513,38 @@ export default function Landing() {
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Trade</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/trade" className="block hover:text-primary transition-colors">Trading Terminal</Link>
-              <Link to="/markets" className="block hover:text-primary transition-colors">Markets</Link>
-              <Link to="/copy" className="block hover:text-primary transition-colors">Copy Trading</Link>
-              <Link to="/prop" className="block hover:text-primary transition-colors">Prop Firm</Link>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Trade</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/trade" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Trading Terminal</Link>
+              <Link to="/markets" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Markets</Link>
+              <Link to="/copy" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Copy Trading</Link>
+              <Link to="/prop" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Prop Firm</Link>
             </div>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Products</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/p2p" className="block hover:text-primary transition-colors">P2P</Link>
-              <Link to="/token" className="block hover:text-primary transition-colors">Token</Link>
-              <Link to="/sip" className="block hover:text-primary transition-colors">DYP/SWAP</Link>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Products</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/p2p" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">P2P</Link>
+              <Link to="/token" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Token</Link>
+              <Link to="/sip" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">DYP/SWAP</Link>
             </div>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Company</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/profile" className="block hover:text-primary transition-colors">Profile</Link>
-              <Link to="/refer" className="block hover:text-primary transition-colors">Refer</Link>
-              <Link to="/settings" className="block hover:text-primary transition-colors">Settings</Link>
-              <button onClick={() => setWalletOpen(true)} className="block text-left hover:text-primary transition-colors">Connect Wallet</button>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Company</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/profile" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Profile</Link>
+              <Link to="/refer" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Refer</Link>
+              <Link to="/settings" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Settings</Link>
+              <button onClick={() => setWalletOpen(true)} className="block w-full text-left rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:w-auto lg:hover:bg-transparent lg:hover:text-primary">Connect Wallet</button>
             </div>
           </div>
         </div>
 
-        <div className="mx-auto mt-10 flex max-w-6xl flex-col gap-4 border-t border-border pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto mt-10 flex max-w-6xl flex-col items-center gap-4 border-t border-border pt-6 text-center text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between lg:text-left">
           <p>© 2026 BitDx. All rights reserved.</p>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
             <a href="#" className="hover:text-primary transition-colors">Terms</a>
             <a href="#" className="hover:text-primary transition-colors">Privacy</a>
             <a href="#" className="hover:text-primary transition-colors">Risk Disclosure</a>
