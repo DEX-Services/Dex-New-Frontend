@@ -1,19 +1,24 @@
 // Maps frontend market symbols to backend-registered symbol+market pairs.
 // Only pairs actually running in the matching engine get live data; everything
 // else keeps the existing mock simulation.
+//
+// Spot pairs quote in USDB, the platform's internal stable currency (pegged
+// 1:1 to USDT, no on-chain contract of its own) — see Dex-Backend's
+// chain.Listener and the matching-engine's cmd/engine/markets.go. USDT is no
+// longer a tradable quote currency.
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
-  "BTC-USDT": { symbol: "BTC-USDT", market: "SPOT" },
-  "ETH-USDT": { symbol: "ETH-USDT", market: "SPOT" },
-  "SOL-USDT": { symbol: "SOL-USDT", market: "SPOT" },
+  "BTC-USDB": { symbol: "BTC-USDB", market: "SPOT" },
+  "ETH-USDB": { symbol: "ETH-USDB", market: "SPOT" },
+  "SOL-USDB": { symbol: "SOL-USDB", market: "SPOT" },
   "BTC-PERP": { symbol: "BTC-USDC", market: "FUTURES" },
   "ETH-PERP": { symbol: "ETH-USDC", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed
-// by the base asset shown in the trade panel (e.g. "BTC" from "BTC-USDT").
+// by the base asset shown in the trade panel (e.g. "BTC" from "BTC-USDB").
 // The backend's /option-chain endpoint is queried with this underlying symbol.
 const OPTIONS_UNDERLYING: Record<string, { underlying: string; quote: string }> = {
-  BTC: { underlying: "BTC-USDT", quote: "USDT" },
+  BTC: { underlying: "BTC-USDB", quote: "USDB" },
 };
 
 export function backendOptionsMarketFor(baseAsset: string) {
@@ -38,7 +43,7 @@ export function registeredFuturesSymbols(): { symbol: string; market: string }[]
 
 // optionInstrumentSymbol builds the per-instrument symbol the backend now
 // expects for option orders. Format: BASE-QUOTE-STRIKE-EXPIRY-TYPE
-// (e.g. "BTC-USDT-55000-20250102-CALL"), matching the backend's seed format.
+// (e.g. "BTC-USDB-55000-20250102-CALL"), matching the backend's seed format.
 //
 // strike:  numeric strike price (e.g. 55000)
 // expiry:  RFC3339 timestamp from the option chain (e.g. "2025-01-15T00:00:00Z")
@@ -51,7 +56,7 @@ export function optionInstrumentSymbol(
   type: "CALL" | "PUT"
 ): string {
   const entry = OPTIONS_UNDERLYING[baseAsset];
-  const quote = entry?.quote ?? "USDT";
+  const quote = entry?.quote ?? "USDB";
   const expiryDate = expiry.slice(0, 10).replace(/-/g, "");
   return `${baseAsset}-${quote}-${strike}-${expiryDate}-${type}`;
 }

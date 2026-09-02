@@ -37,7 +37,7 @@ export default function AIAgent() {
   const [strategyType, setStrategyType] = useState("Spot Grid");
   const [risk, setRisk] = useState("Balanced");
   const [timeframe, setTimeframe] = useState("1-7 Days");
-  const [market, setMarket] = useState("BTC-USDT");
+  const [market, setMarket] = useState("BTC-USDB");
   const [investment, setInvestment] = useState("280");
   const [goal, setGoal] = useState("Steady compounding with controlled drawdown");
   const selectedMarket = marketPairs.find((item) => item.value === market);

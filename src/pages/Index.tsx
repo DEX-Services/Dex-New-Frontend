@@ -798,7 +798,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const [symbol, setSymbol] = useState("BTC-USDT");
+  const [symbol, setSymbol] = useState("BTC-USDB");
   const [collapsed, setCollapsed] = useState(false);
   const account = useAccount();
   const orders = useOrders(account);

@@ -40,9 +40,13 @@ export const INITIAL_MARKETS: Market[] = [
   { symbol: "ETH-PERP", base: "ETH", quote: "USD", price: 3521.8, change24h: 1.87, volume24h: 720_000_000, category: "perp", asset: "crypto", trending: true, favorite: true, funding: 0.008, openInterest: 540_000_000 },
   { symbol: "SOL-PERP", base: "SOL", quote: "USD", price: 168.42, change24h: -3.12, volume24h: 410_000_000, category: "perp", asset: "crypto", trending: true, funding: -0.005, openInterest: 290_000_000 },
   { symbol: "BNB-PERP", base: "BNB", quote: "USD", price: 592.4, change24h: 1.15, volume24h: 210_000_000, category: "perp", asset: "crypto", funding: 0.006 },
-  { symbol: "BTC-USDT", base: "BTC", quote: "USDT", price: 67428.1, change24h: 2.31, volume24h: 980_000_000, category: "spot", asset: "crypto", favorite: true },
-  { symbol: "ETH-USDT", base: "ETH", quote: "USDT", price: 3520.5, change24h: 1.85, volume24h: 540_000_000, category: "spot", asset: "crypto" },
-  { symbol: "SOL-USDT", base: "SOL", quote: "USDT", price: 168.30, change24h: -3.10, volume24h: 280_000_000, category: "spot", asset: "crypto" },
+  // BTC/ETH/SOL-USDB are the real, backend-connected spot markets (see
+  // backendMarkets.ts); USDB is the platform's internal stable quote
+  // currency, pegged 1:1 to USDT. BNB-USDT stays mock-only (no engine
+  // market registered for it).
+  { symbol: "BTC-USDB", base: "BTC", quote: "USDB", price: 67428.1, change24h: 2.31, volume24h: 980_000_000, category: "spot", asset: "crypto", favorite: true },
+  { symbol: "ETH-USDB", base: "ETH", quote: "USDB", price: 3520.5, change24h: 1.85, volume24h: 540_000_000, category: "spot", asset: "crypto" },
+  { symbol: "SOL-USDB", base: "SOL", quote: "USDB", price: 168.30, change24h: -3.10, volume24h: 280_000_000, category: "spot", asset: "crypto" },
   { symbol: "BNB-USDT", base: "BNB", quote: "USDT", price: 592.1, change24h: 1.12, volume24h: 190_000_000, category: "spot", asset: "crypto" },
   // Crypto options — BTC is the only backend-configured options underlying.
   { symbol: "BTC-OPT", base: "BTC", quote: "USD", price: 67432.5, change24h: 2.34, volume24h: 120_000_000, category: "options", asset: "crypto" },
