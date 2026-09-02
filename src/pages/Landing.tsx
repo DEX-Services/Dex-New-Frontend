@@ -195,25 +195,28 @@ export default function Landing() {
           <div className="text-center space-y-3">
             <p className="text-cyan-600 dark:text-cyan-400 text-xs md:text-sm font-semibold tracking-[0.22em] uppercase">Everything In One Place</p>
             <h2 className="text-3xl md:text-5xl font-black text-foreground">Trade Any Asset Class</h2>
+            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 lg:hidden" />
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-4">
             {[
-              { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
-              { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
-              { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
-              { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
+              { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35", glow: "bg-cyan-500" },
+              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35", glow: "bg-violet-500" },
+              { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35", glow: "bg-emerald-500" },
+              { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35", glow: "bg-amber-500" },
+              { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/35", glow: "bg-cyan-500" },
+              { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35", glow: "bg-violet-500" },
+              { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35", glow: "bg-emerald-500" },
+              { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35", glow: "bg-amber-500" },
             ].map((item) => (
-              <div key={item.title} className="group rounded-2xl border border-border bg-background/75 p-5 md:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-                <div className={`h-10 w-10 rounded-xl border flex items-center justify-center mb-4 ${item.color} group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all`}>
+              <div key={item.title} className="group relative overflow-hidden rounded-2xl border border-border bg-background/75 p-4 md:p-5 lg:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
+                {/* Category glow accent — mobile & tablet only */}
+                <div className={`pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full blur-3xl opacity-30 lg:hidden ${item.glow}`} />
+                <div className={`h-12 w-12 lg:h-10 lg:w-10 rounded-xl border flex items-center justify-center mb-3 md:mb-4 lg:mb-4 ${item.color} group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all`}>
                   <item.icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-foreground text-2xl font-semibold mb-1">{item.title}</h3>
-                <p className="text-muted-foreground text-sm">{item.sub}</p>
+                <h3 className="text-foreground text-lg md:text-xl lg:text-2xl font-semibold mb-1">{item.title}</h3>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-sm">{item.sub}</p>
               </div>
             ))}
           </div>
