@@ -89,11 +89,13 @@ export function TradePanel({
   // $79,602). Re-sync to the live price automatically UNTIL the user
   // actually edits the field themselves — editedPriceRef flips true the
   // moment they type, so a live price update never clobbers what they
-  // typed mid-edit.
+  // typed mid-edit. The guard is on `price` changing, not on it being a
+  // valid quote: when the backend market goes unavailable (price 0) the box
+  // must stop showing the stale mock seed, not keep claiming a price.
   const editedPriceRef = useRef(false);
   useEffect(() => {
     if (editedPriceRef.current) return;
-    if (price > 0) setLimitPrice(price.toFixed(2));
+    setLimitPrice(price.toFixed(2));
   }, [price]);
   // Switching symbols means the old edited price is for a different
   // instrument entirely — resume auto-following the new symbol's live

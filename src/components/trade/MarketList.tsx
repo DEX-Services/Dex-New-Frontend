@@ -147,6 +147,7 @@ export function MarketList({
         {filtered.map(m => {
           const isActive = m.symbol === activeSymbol;
           const isFav = favorites.has(m.symbol);
+          const hasPrice = m.price > 0;
           return (
             <button
               key={m.symbol}
@@ -165,12 +166,12 @@ export function MarketList({
                 </span>
                 <div className="text-left min-w-0">
                   <div className="font-semibold truncate">{m.base}</div>
-                  <div className="text-[9px] text-muted-foreground truncate">Vol {formatCompact(m.volume24h)}</div>
+                  <div className="text-[9px] text-muted-foreground truncate">Vol {hasPrice ? formatCompact(m.volume24h) : "—"}</div>
                 </div>
               </div>
-              <div className="col-span-4 text-right font-mono text-[11px]">{formatPrice(m.price)}</div>
-              <div className={cn("col-span-3 text-right font-mono text-[11px] font-semibold", m.change24h >= 0 ? "text-buy" : "text-sell")}>
-                {m.change24h >= 0 ? "+" : ""}{m.change24h.toFixed(2)}%
+              <div className="col-span-4 text-right font-mono text-[11px]">{hasPrice ? formatPrice(m.price) : "—"}</div>
+              <div className={cn("col-span-3 text-right font-mono text-[11px] font-semibold", hasPrice ? (m.change24h >= 0 ? "text-buy" : "text-sell") : "text-muted-foreground")}>
+                {hasPrice ? `${m.change24h >= 0 ? "+" : ""}${m.change24h.toFixed(2)}%` : "—"}
               </div>
             </button>
           );

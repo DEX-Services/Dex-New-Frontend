@@ -52,7 +52,10 @@ const Portfolio = () => {
 
   const positions = useMemo(() => HOLDINGS.map(h => {
     const m = markets.find(mk => mk.symbol === h.symbol);
-    const mark = m?.price ?? h.entry;
+    // Unavailable executable markets carry price 0 (see useMarkets); treat
+    // that as "no data" and keep entry as the mark so positions don't show
+    // $0 value and inflated PnL percentages.
+    const mark = m && m.price > 0 ? m.price : h.entry;
     const dir = h.side === "long" ? 1 : -1;
     const pnl = (mark - h.entry) * h.size * dir;
     const pnlPct = ((mark - h.entry) / h.entry) * 100 * dir * h.leverage;

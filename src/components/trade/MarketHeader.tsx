@@ -79,16 +79,22 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
       </div>
 
       <div className="min-w-fit">
-        <div className={cn("text-xl font-bold font-mono", positive ? "text-buy" : "text-sell")}>
-          ${formatPrice(displayedPrice)}
-        </div>
-        <div className={cn("text-[11px] font-mono flex items-center gap-1", positive ? "text-buy" : "text-sell")}>
-          {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-          {positive ? "+" : ""}{liveChange.toFixed(2)}%
-        </div>
+        {displayedPrice > 0 ? (
+          <>
+            <div className={cn("text-xl font-bold font-mono", positive ? "text-buy" : "text-sell")}>
+              ${formatPrice(displayedPrice)}
+            </div>
+            <div className={cn("text-[11px] font-mono flex items-center gap-1", positive ? "text-buy" : "text-sell")}>
+              {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {positive ? "+" : ""}{liveChange.toFixed(2)}%
+            </div>
+          </>
+        ) : (
+          <div className="text-xl font-bold font-mono text-muted-foreground">—</div>
+        )}
       </div>
 
-      <Stat label="24h Volume" value={`$${formatCompact(liveVolume)}`} />
+      <Stat label="24h Volume" value={displayedPrice > 0 ? `${formatCompact(liveVolume)}` : "—"} />
       {executable && (
         <Stat
           label="Feed"

@@ -748,8 +748,8 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
 
               {/* Spread row */}
               <div className="px-2 py-1 border-y border-border/50 flex items-center justify-between bg-muted/20 shrink-0">
-                <span className="text-primary font-bold text-sm font-mono neon-text">{formatPrice(price)}</span>
-                <span className="text-muted-foreground text-[9px]">Spread {spreadPct.toFixed(3)}%</span>
+                <span className="text-primary font-bold text-sm font-mono neon-text">{price > 0 ? formatPrice(price) : "—"}</span>
+                <span className="text-muted-foreground text-[9px]">Spread {price > 0 ? `${spreadPct.toFixed(3)}%` : "—"}</span>
               </div>
 
               {/* Bids */}

@@ -12,7 +12,11 @@ import { ArrowRight,ChevronDown,ClipboardList,Clock,Filter,Lock,MoreHorizontal,S
 import { shortAddress,wallet,useWallet } from "@/lib/useWallet";
 import { buyP2PListing,formatINR,formatUSDC,getP2PListings,getP2PPrice,parseUSDC,P2P_PAYMENT_METHODS,type P2PListing,type P2POrder } from "@/lib/p2pApi";
 
-function errorMessage(error:unknown){return error instanceof Error?error.message:"Something went wrong"}
+function errorMessage(error:unknown){if(error instanceof Error){
+	// fetch throws a bare TypeError("Failed to fetch") on network/CORS
+	// failures — meaningless raw browser text for users; explain instead.
+	if(error.name==="TypeError"&&(error.message==="Failed to fetch"||error.message==="Load failed"))return "Can't reach the P2P service right now. Please try again.";
+	return error.message}return "Something went wrong"}
 export default function P2P(){
 	const account=useWallet();const [mode,setMode]=useState<"buy"|"sell">("buy");const [price,setPrice]=useState("");const [priceDate,setPriceDate]=useState("");const [listings,setListings]=useState<P2PListing[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [payment,setPayment]=useState("All");const [amount,setAmount]=useState("");const [bankOption,setBankOption]=useState("UPI");const [postOpen,setPostOpen]=useState(false);const [selected,setSelected]=useState<P2PListing|null>(null);const [quantity,setQuantity]=useState("");const [buying,setBuying]=useState(false);const [order,setOrder]=useState<P2POrder|null>(null);
 	const usdcBalance=account.balances.find(b=>b.asset==="USDC");const totalUSDC=usdcBalance?.amount??0;const availableUSDC=usdcBalance?.available??0;
