@@ -63,7 +63,7 @@ export function WalletDialog({ open, onOpenChange, onConnected }: { open: boolea
         {w.connected ? (
           <div className="space-y-3">
             <div className="glass rounded-xl p-4 flex items-center gap-3">
-              <img src={ICONS[w.walletId!].src} alt={ICONS[w.walletId!].alt} className="h-10 w-10 rounded-lg bg-slate-900/70 p-1.5 object-contain" />
+              <img src={ICONS[w.walletId!].src} alt={ICONS[w.walletId!].alt} className="h-10 w-10 rounded-lg bg-muted/70 p-1.5 object-contain" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold">{getWalletSourceLabel(w.walletId)}</div>
                 <div className="text-xs font-mono text-muted-foreground truncate">{shortAddress(w.address)}</div>
