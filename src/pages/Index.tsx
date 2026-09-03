@@ -812,6 +812,17 @@ const Index = () => {
   // while the order entry panel below it defaulted to a stale mock value.
   const price = useLivePrice(symbol);
   const isMobile = useIsMobile();
+  // Tablets (768–1023px) also get the tabbed layout: the desktop PanelGroup
+  // crams three resizable panels into that width and hides the positions panel.
+  const [isTablet, setIsTablet] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 768px) and (max-width: 1023px)");
+    const onChange = () => setIsTablet(mql.matches);
+    mql.addEventListener("change", onChange);
+    onChange();
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
+  const useTabbedLayout = isMobile || isTablet;
   // Options execution is hidden from this delivery (plan.md 5.1): the
   // option workspace previously rendered here called generateOptionChain()
   // (fabricated contracts) while the real order-entry panel called the
@@ -980,7 +991,7 @@ const Index = () => {
         )}
 
         {/* Main panel grid — Desktop */}
-        {!isMobile && (
+        {!useTabbedLayout && (
         <PanelGroup direction="horizontal" className="flex-1 min-h-0">
 
           {/* Left — Market List */}
@@ -1044,8 +1055,8 @@ const Index = () => {
         </PanelGroup>
         )}
 
-        {/* Mobile layout — tabs */}
-        {isMobile && (
+        {/* Mobile/tablet layout — tabs */}
+        {useTabbedLayout && (
           <div className="flex-1 flex flex-col min-h-0">
             {/* Tab content */}
             <div className="flex-1 min-h-0 overflow-hidden">
