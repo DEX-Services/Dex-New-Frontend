@@ -37,7 +37,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const externalIndex = index?.fresh && index.lastPrice > 0 ? index.lastPrice : 0;
   const displayedPrice = externalIndex || livePrice;
   const liveChange = externalIndex ? (index?.changePercent ?? market.change24h) : market.change24h;
-  const liveVolume = externalIndex ? (index?.quoteVolume ?? market.volume24h) : market.volume24h;
   const positive = liveChange >= 0;
 
   // Mark/index/funding: real when the symbol is backend-registered and the
@@ -48,11 +47,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   // "Simulated"-style degrade the rest of the trade page already uses for
   // unregistered symbols.
   const hasRealTicker = !!ticker && ticker.markPrice > 0;
-  // The Price-Fetcher index is the single displayed reference price. The
-  // engine book remains executable and tick-aligned around it, while the
-  // header avoids showing a slightly different averaged book midpoint.
-  const markPrice = externalIndex || (hasRealTicker ? ticker.markPrice : livePrice);
-  const indexPrice = externalIndex || (hasRealTicker && ticker.indexPrice !== null ? ticker.indexPrice : livePrice);
   const fundingPct = hasRealTicker && ticker.fundingRatePct !== null
     ? ticker.fundingRatePct / 100
     : executable ? undefined : market.funding;
@@ -88,14 +82,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
         </div>
       </div>
 
-      <Stat label="24h Volume" value={`$${formatCompact(liveVolume)}`} />
-      {executable && (
-        <Stat
-          label="Feed"
-          value={market.updatedAt ? new Date(market.updatedAt).toLocaleTimeString("en-US", { hour12: false }) : "Unavailable"}
-          tone={market.dataStatus === "stale" ? "sell" : undefined}
-        />
-      )}
       {market.openInterest && <Stat label="Open Interest" value={`$${formatCompact(market.openInterest)}`} />}
       {fundingPct !== undefined && (
         <Stat
@@ -106,8 +92,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
       )}
       {index && <Stat label="24h High" value={`$${formatPrice(index.high)}`} />}
       {index && <Stat label="24h Low" value={`$${formatPrice(index.low)}`} />}
-      <Stat label="Mark Price" value={markPrice > 0 ? `$${formatPrice(markPrice)}` : "Unavailable"} />
-      <Stat label="Index" value={indexPrice > 0 ? `$${formatPrice(indexPrice)}` : "Unavailable"} />
 
       <div className="ml-auto flex items-center gap-2 min-w-fit">
         <Button

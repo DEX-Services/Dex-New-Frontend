@@ -79,7 +79,7 @@ function TokenSelect({
 }) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as TokenSymbol)}>
-      <SelectTrigger className="h-12 min-w-[128px] rounded-xl border border-border bg-muted/30 px-3">
+      <SelectTrigger className="h-12 w-auto shrink-0 min-w-[128px] rounded-xl border border-border bg-muted/30 px-3">
         <SelectValue asChild>
           <span className="flex items-center gap-2">
             <TokenAvatar token={TOKENS[value]} size={26} />
@@ -199,7 +199,7 @@ export function SwapDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100%_-_2rem)] max-w-[526px] gap-0 overflow-visible rounded-2xl border-glass-border bg-background/95 p-0 shadow-2xl backdrop-blur-2xl [&>button]:right-6 [&>button]:top-6">
+      <DialogContent className="w-[calc(100%_-_2rem)] max-w-[526px] min-w-0 gap-0 overflow-visible rounded-2xl border-glass-border bg-background/95 p-0 shadow-2xl backdrop-blur-2xl [&>button]:right-6 [&>button]:top-6">
         <DialogHeader className="border-b border-border px-6 py-5 pr-14">
           <DialogTitle className="flex items-center gap-2.5 text-xl">
             <ArrowUpDown className="h-5 w-5 text-primary" />
@@ -210,7 +210,7 @@ export function SwapDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="min-w-0 space-y-4 px-6 py-5">
           <section
             className={cn(
               "rounded-2xl border bg-muted/10 p-5 transition-colors",
