@@ -10,6 +10,7 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
   "BTC-USDB": { symbol: "BTC-USDB", market: "SPOT" },
   "ETH-USDB": { symbol: "ETH-USDB", market: "SPOT" },
   "SOL-USDB": { symbol: "SOL-USDB", market: "SPOT" },
+  "BNB-USDB": { symbol: "BNB-USDB", market: "SPOT" },
   "BTC-PERP": { symbol: "BTC-USDC", market: "FUTURES" },
   "ETH-PERP": { symbol: "ETH-USDC", market: "FUTURES" },
 };

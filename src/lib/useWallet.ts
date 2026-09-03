@@ -88,15 +88,19 @@ type SendTransactionParams = {
 // USDC/USDT stay listed as deposit-intake assets (a real on-chain deposit
 // lands there first, then converts to USDB — see Dex-Backend's
 // chain.Listener), not because they're still tradable quote currencies.
-const SUPPORTED_ASSETS = ["BTC", "USDB", "USDC", "USDT", "BUSD", "OUR_Token"] as const;
+const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "USDB", "USDC", "USDT", "BUSD", "OUR_Token"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	// The backend ledger stores every supported asset as a fixed-point raw
 	// integer with six fractional digits. BTC must use that same scale here:
 	// decoding it as eight decimals displayed balances 100x too small (for
-	// example, a real 0.000250 BTC appeared as 0.00000250 BTC).
+	// example, a real 0.000250 BTC appeared as 0.00000250 BTC). ETH/SOL/BNB
+	// use the same raw-unit convention (see Dex-Backend's user_balances schema).
 	BTC: 6,
+	ETH: 6,
+	SOL: 6,
+	BNB: 6,
 	USDB: 6,
 	USDC: 6,
 	USDT: 6,
