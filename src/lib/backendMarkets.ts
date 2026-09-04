@@ -2,17 +2,20 @@
 // Only pairs actually running in the matching engine get live data; everything
 // else keeps the existing mock simulation.
 //
-// Spot pairs quote in USDB, the platform's internal stable currency (pegged
-// 1:1 to USDT, no on-chain contract of its own) — see Dex-Backend's
-// chain.Listener and the matching-engine's cmd/engine/markets.go. USDT is no
-// longer a tradable quote currency.
+// Every pair — spot and futures — quotes in USDB, the platform's internal
+// stable currency (pegged 1:1 to USDT, no on-chain contract of its own) —
+// see Dex-Backend's chain.Listener and the matching-engine's
+// cmd/engine/markets.go. USDT/USDC are no longer tradable quote currencies;
+// futures collateral used to be real USDC, now converts to/settles in USDB
+// like everything else. The engine symbol for a PERP is "BASE-USDB" too —
+// distinct from the SPOT row of the same name via the (symbol, market) key.
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
   "BTC-USDB": { symbol: "BTC-USDB", market: "SPOT" },
   "ETH-USDB": { symbol: "ETH-USDB", market: "SPOT" },
   "SOL-USDB": { symbol: "SOL-USDB", market: "SPOT" },
   "BNB-USDB": { symbol: "BNB-USDB", market: "SPOT" },
-  "BTC-PERP": { symbol: "BTC-USDC", market: "FUTURES" },
-  "ETH-PERP": { symbol: "ETH-USDC", market: "FUTURES" },
+  "BTC-PERP": { symbol: "BTC-USDB", market: "FUTURES" },
+  "ETH-PERP": { symbol: "ETH-USDB", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed

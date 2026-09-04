@@ -32,10 +32,11 @@ export type Market = {
 // `price` below is only the pre-live-data seed useMarkets() starts from —
 // see useLivePrice.ts, which prefers the real feed the instant it resolves.
 export const INITIAL_MARKETS: Market[] = [
-  // Crypto — perps map to the matching engine's real *-USDC futures markets
-  // (BTC-USDC, ETH-USDC); SOL/BNB perps have real pricing but no backend
-  // futures market yet, so they trade in simulated-book mode like the
-  // forex/commodity/stock entries below.
+  // Crypto — perps map to the matching engine's real *-USDB futures markets
+  // (BTC-USDB, ETH-USDB futures — collateralized/settled in USDB, not USDC);
+  // SOL/BNB perps have real pricing but no backend futures market yet, so
+  // they trade in simulated-book mode like the forex/commodity/stock
+  // entries below.
   { symbol: "BTC-PERP", base: "BTC", quote: "USD", price: 67432.5, change24h: 2.34, volume24h: 1_240_000_000, category: "perp", asset: "crypto", trending: true, favorite: true, funding: 0.012, openInterest: 820_000_000 },
   { symbol: "ETH-PERP", base: "ETH", quote: "USD", price: 3521.8, change24h: 1.87, volume24h: 720_000_000, category: "perp", asset: "crypto", trending: true, favorite: true, funding: 0.008, openInterest: 540_000_000 },
   { symbol: "SOL-PERP", base: "SOL", quote: "USD", price: 168.42, change24h: -3.12, volume24h: 410_000_000, category: "perp", asset: "crypto", trending: true, funding: -0.005, openInterest: 290_000_000 },

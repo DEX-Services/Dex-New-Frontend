@@ -36,9 +36,13 @@ export function TradePanel({
   orders: ReturnType<typeof useOrders>;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
-  const quoteAsset = symbol.split("-")[1] || "USDC";
   const backendMarket = backendMarketFor(symbol);
   const marketMetadata = useMarketMetadata(symbol);
+  // Splitting the display symbol (e.g. "BTC-PERP") gave "PERP" as the quote
+  // asset for every futures market — marketMetadata.quoteCurrency is the
+  // backend's actual answer (now USDB for both spot and futures) and is
+  // always right, whatever the display symbol's suffix convention is.
+  const quoteAsset = marketMetadata?.quoteCurrency || symbol.split("-")[1] || "USDB";
   const walletState = useWallet();
   const [mode, setMode] = useState<MarketMode>("spot");
   const [side, setSide] = useState<Side>("buy");
