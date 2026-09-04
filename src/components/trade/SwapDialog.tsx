@@ -6,7 +6,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +39,11 @@ interface Token {
 // manually; real on-chain deposits already convert automatically (see
 // Dex-Backend's chain.Listener), this covers balances credited before that
 // migration or credited directly as USDC/USDT.
+//
+// Direction rules (mirroring the backend's swapDestinations allowlist):
+//   - USDT → USDB and USDC → USDB: allowed, no fee.
+//   - USDB → USDT and USDB → USDC: allowed, 1% conversion fee.
+//   - Direct USDT ↔ USDC is NOT offered (route through USDB instead).
 const TOKENS: Record<TokenSymbol, Token> = {
   USDC: { symbol: "USDC", name: "USD Coin", color: "#2775CA", textColor: "#fff", icon: "$" },
   USDT: { symbol: "USDT", name: "Tether", color: "#26A17B", textColor: "#fff", icon: "₮" },
@@ -46,10 +51,42 @@ const TOKENS: Record<TokenSymbol, Token> = {
 };
 const TOKEN_LIST = Object.values(TOKENS);
 
-// Fixed 1:1 test rate, matching the backend's test-only /wallet/swap endpoint
-// (swapTestPairs: any two of USDC/USDT/USDB). All three assets use 6
-// decimals, so no conversion factor is needed between any pair.
+// All three assets use 6 decimals, so the 1:1 base rate needs no conversion
+// factor between any pair.
 const SWAP_DECIMALS = 6;
+
+// Fee (in basis points of the source amount) charged on a swap OUT of USDB.
+// Swaps INTO USDB are free.
+const SWAP_FEE_BPS_OUT_OF_USDB = 100; // 1%
+
+// Destinations allowed for each source asset — must match the backend's
+// swapDestinations map in Dex-Backend's /wallet/swap handler.
+const SWAP_DESTINATIONS: Record<TokenSymbol, TokenSymbol[]> = {
+  USDT: ["USDB"],
+  USDC: ["USDB"],
+  USDB: ["USDT", "USDC"],
+};
+
+function swapFeeBps(to: TokenSymbol): number {
+  return to === "USDB" ? 0 : SWAP_FEE_BPS_OUT_OF_USDB;
+}
+
+// creditedFor computes the exact destination amount the backend will credit:
+// 1:1 base rate with the fee deducted in raw integer units (fee = floor(
+// amount × feeBps / 10000)) — identical integer math to the backend, so the
+// displayed "You get" figure can never disagree with what actually lands.
+function creditedFor(amount: string, feeBps: number): number | null {
+  if (!amount) return null;
+  let raw: bigint;
+  try {
+    raw = parseUnits(amount, SWAP_DECIMALS);
+  } catch {
+    return null;
+  }
+  if (raw <= 0n) return null;
+  const feeRaw = (raw * BigInt(feeBps)) / 10000n;
+  return Number(formatUnits(raw - feeRaw, SWAP_DECIMALS));
+}
 
 function TokenAvatar({ token, size = 32 }: { token: Token; size?: number }) {
   return (
@@ -71,10 +108,10 @@ function TokenAvatar({ token, size = 32 }: { token: Token; size?: number }) {
 }
 
 function TokenSelect({
-  value, exclude, onChange,
+  value, options, onChange,
 }: {
   value: TokenSymbol;
-  exclude: TokenSymbol;
+  options: TokenSymbol[];
   onChange: (symbol: TokenSymbol) => void;
 }) {
   return (
@@ -88,14 +125,17 @@ function TokenSelect({
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {TOKEN_LIST.filter((t) => t.symbol !== exclude).map((t) => (
-          <SelectItem key={t.symbol} value={t.symbol}>
-            <span className="flex items-center gap-2">
-              <TokenAvatar token={t} size={20} />
-              {t.symbol}
-            </span>
-          </SelectItem>
-        ))}
+        {options.map((symbol) => {
+          const t = TOKENS[symbol];
+          return (
+            <SelectItem key={t.symbol} value={t.symbol}>
+              <span className="flex items-center gap-2">
+                <TokenAvatar token={t} size={20} />
+                {t.symbol}
+              </span>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
@@ -109,7 +149,7 @@ function formatAmount(value: number, maximumFractionDigits = 4) {
 }
 
 function amountForInput(value: number) {
-  return value.toFixed(4).replace(/\.?0+$/, "");
+  return value.toFixed(SWAP_DECIMALS).replace(/\.?0+$/, "");
 }
 
 function sanitizeAmount(value: string) {
@@ -135,33 +175,48 @@ export function SwapDialog({
   const fromToken = TOKENS[fromSymbol];
   const toToken = TOKENS[toSymbol];
   const numericAmount = Number.parseFloat(amount) || 0;
-  // Fixed 1:1 test rate.
-  const outputAmount = numericAmount;
+  // 1:1 base rate with the directional fee deducted, computed with the same
+  // integer math as the backend so the preview matches the credited amount.
+  const feeBps = swapFeeBps(toSymbol);
+  const creditedAmount = creditedFor(amount, feeBps);
+  const outputAmount = creditedAmount ?? 0;
   const fromBalance = balances.find((b) => b.asset === fromToken.symbol)?.available ?? 0;
-  const insufficient = numericAmount > fromBalance;
-  const canSwap = numericAmount > 0 && !insufficient && !submitting;
+  const insufficient = creditedAmount !== null && creditedAmount <= 0 ? true : numericAmount > fromBalance;
+  const canSwap = creditedAmount !== null && creditedAmount > 0 && !insufficient && !submitting;
+
+  // Allowed choices per side, restricted to the backend's directional pair
+  // allowlist: the "From" picker lists every asset with at least one
+  // destination, and the "To" picker lists only what the chosen "From" can
+  // legally convert into.
+  const fromOptions = TOKEN_LIST.map((t) => t.symbol).filter(
+    (symbol) => SWAP_DESTINATIONS[symbol].length > 0,
+  );
+  const toOptions = SWAP_DESTINATIONS[fromSymbol];
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) setAmount("");
     onOpenChange(nextOpen);
   };
 
-  // Picking a "From" token that collides with the current "To" bumps "To" to
-  // whichever token isn't now selected on either side, and vice versa —
-  // three tokens total means there's always exactly one other candidate.
-  const otherOf = (a: TokenSymbol, b: TokenSymbol) =>
-    TOKEN_LIST.map((t) => t.symbol).find((s) => s !== a && s !== b)!;
-
+  // Picking a "From" token that has no legal route to the current "To" snaps
+  // "To" to the first allowed destination (there is always exactly one for
+  // USDT/USDC; USDB keeps the current pick when it stays legal).
   const handleFromChange = (symbol: TokenSymbol) => {
     setFromSymbol(symbol);
-    if (symbol === toSymbol) setToSymbol(otherOf(symbol, fromSymbol));
+    if (!SWAP_DESTINATIONS[symbol].includes(toSymbol)) {
+      setToSymbol(SWAP_DESTINATIONS[symbol][0]);
+    }
   };
   const handleToChange = (symbol: TokenSymbol) => {
     setToSymbol(symbol);
-    if (symbol === fromSymbol) setFromSymbol(otherOf(symbol, toSymbol));
   };
 
   const handleDirectionChange = () => {
+    // Only reversed when the reverse direction is itself a legal pair —
+    // USDT ↔ USDC has no direct route, so the button is a no-op there.
+    if (!SWAP_DESTINATIONS[toSymbol].includes(fromSymbol)) {
+      return;
+    }
     setFromSymbol(toSymbol);
     setToSymbol(fromSymbol);
     setAmount(outputAmount > 0 ? amountForInput(outputAmount) : "");
@@ -172,7 +227,7 @@ export function SwapDialog({
   };
 
   const handleSwap = async () => {
-    if (numericAmount <= 0) {
+    if (creditedAmount === null || creditedAmount <= 0) {
       toast.error("Enter a valid amount");
       return;
     }
@@ -206,7 +261,7 @@ export function SwapDialog({
             Swap
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Swap between USDC, USDT, and USDB at a fixed 1:1 test rate.
+            Swap USDT or USDC into USDB with no fee, or USDB back into USDT or USDC with a 1% conversion fee.
           </DialogDescription>
         </DialogHeader>
 
@@ -234,7 +289,7 @@ export function SwapDialog({
             </div>
 
             <div className="flex items-center gap-3">
-              <TokenSelect value={fromSymbol} exclude={toSymbol} onChange={handleFromChange} />
+              <TokenSelect value={fromSymbol} options={fromOptions} onChange={handleFromChange} />
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <input
                   type="text"
@@ -286,7 +341,7 @@ export function SwapDialog({
               To
             </div>
             <div className="flex items-center gap-3">
-              <TokenSelect value={toSymbol} exclude={fromSymbol} onChange={handleToChange} />
+              <TokenSelect value={toSymbol} options={toOptions} onChange={handleToChange} />
               <div className="min-w-0 flex-1 truncate text-right font-mono text-2xl font-bold">
                 <span className={outputAmount > 0 ? "text-foreground" : "text-muted-foreground/40"}>
                   {outputAmount > 0 ? formatAmount(outputAmount) : "0"}
@@ -297,16 +352,23 @@ export function SwapDialog({
 
           {numericAmount > 0 && (
             <div className="text-center font-mono text-[11px] text-muted-foreground">
-              1 {fromToken.symbol} ≈ 1.0000 {toToken.symbol} (fixed test rate)
+              1 {fromToken.symbol} ≈ 1.0000 {toToken.symbol}
+              {feeBps > 0 ? " (1% conversion fee)" : " (no fee)"}
             </div>
           )}
 
           <div className="space-y-3 rounded-xl border border-border bg-muted/20 px-4 py-3.5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Transaction Fees</span>
-              <span className="rounded-full bg-buy/15 px-2.5 py-1 text-xs font-semibold text-buy">
-                0 Fee
-              </span>
+              <span className="text-muted-foreground">Conversion Fee</span>
+              {feeBps > 0 ? (
+                <span className="rounded-full bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning">
+                  1% ({formatAmount(numericAmount * (feeBps / 10000))} {fromToken.symbol})
+                </span>
+              ) : (
+                <span className="rounded-full bg-buy/15 px-2.5 py-1 text-xs font-semibold text-buy">
+                  No Fee
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-between gap-4 text-sm">
               <span className="text-muted-foreground">You get</span>
