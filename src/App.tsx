@@ -29,6 +29,7 @@ import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminProfile from "./pages/AdminProfile.tsx";
 import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
+import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 import { readTheme, type ThemeMode } from "@/lib/theme";
@@ -107,6 +108,7 @@ const App = () => (
           <Route element={<AdminProtectedRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/market-makers" element={<AdminMarketMakers />} />
+            <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
           </Route>
