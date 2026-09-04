@@ -58,12 +58,17 @@ export const INITIAL_MARKETS: Market[] = [
   { symbol: "XAU-USD", base: "GOLD", quote: "USD", price: 2384.5, change24h: 0.82, volume24h: 980_000_000, category: "perp", asset: "commodity", funding: 0.0008 },
   { symbol: "XAG-USD", base: "SILVER", quote: "USD", price: 28.42, change24h: 1.24, volume24h: 220_000_000, category: "perp", asset: "commodity", funding: 0.001 },
   { symbol: "WTI-USD", base: "CrudeOIL", quote: "USD", price: 78.32, change24h: -1.42, volume24h: 540_000_000, category: "perp", asset: "commodity", funding: 0.002 },
-  // Stocks — base carries Live-Rates.com's exact case-sensitive ticker
-  // ("AAPL.us", not "AAPL") since that's the real Redis key price-fetcher
-  // writes; see useIndexPrice.ts, which now looks these up verbatim.
-  { symbol: "AAPL", base: "AAPL.us", quote: "USD", price: 215.42, change24h: 1.42, volume24h: 8_400_000_000, category: "spot", asset: "stocks", favorite: true },
-  { symbol: "TSLA", base: "TSLA.us", quote: "USD", price: 248.21, change24h: -2.12, volume24h: 6_200_000_000, category: "spot", asset: "stocks", trending: true },
-  { symbol: "NVDA", base: "NVDA.us", quote: "USD", price: 124.84, change24h: 3.42, volume24h: 12_400_000_000, category: "spot", asset: "stocks", trending: true },
+  // Stocks — futures + options only, no spot (matches forex/commodity,
+  // which are also futures-only above). base carries Live-Rates.com's exact
+  // case-sensitive ticker ("AAPL.us", not "AAPL") since that's the real
+  // Redis key price-fetcher writes; see useIndexPrice.ts, which looks these
+  // up verbatim.
+  { symbol: "AAPL-PERP", base: "AAPL.us", quote: "USD", price: 215.42, change24h: 1.42, volume24h: 8_400_000_000, category: "perp", asset: "stocks", favorite: true, funding: 0.0003 },
+  { symbol: "TSLA-PERP", base: "TSLA.us", quote: "USD", price: 248.21, change24h: -2.12, volume24h: 6_200_000_000, category: "perp", asset: "stocks", trending: true, funding: 0.0004 },
+  { symbol: "NVDA-PERP", base: "NVDA.us", quote: "USD", price: 124.84, change24h: 3.42, volume24h: 12_400_000_000, category: "perp", asset: "stocks", trending: true, funding: 0.0005 },
+  { symbol: "AAPL-OPT", base: "AAPL.us", quote: "USD", price: 215.42, change24h: 1.42, volume24h: 320_000_000, category: "options", asset: "stocks" },
+  { symbol: "TSLA-OPT", base: "TSLA.us", quote: "USD", price: 248.21, change24h: -2.12, volume24h: 260_000_000, category: "options", asset: "stocks" },
+  { symbol: "NVDA-OPT", base: "NVDA.us", quote: "USD", price: 124.84, change24h: 3.42, volume24h: 410_000_000, category: "options", asset: "stocks" },
 ];
 
 export function tickPrice(price: number, volatility = 0.0008): number {

@@ -27,7 +27,7 @@ const ASSET_TABS: { id: AssetClass | "all"; label: string; icon: MarketIcon; kin
   { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["all", "spot", "perp", "options"] },
   { id: "forex", label: "Forex", icon: DollarSign, kinds: ["all", "perp"] },
   { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["all", "perp"] },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "spot", "perp", "options"] },
+  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "perp", "options"] },
 ];
 
 const KIND_LABEL: Record<string, string> = { all: "All", spot: "Spot", perp: "Future", options: "Options" };

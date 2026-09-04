@@ -9,7 +9,7 @@ const ASSET_TABS: { id: AssetClass; label: string; icon: any; kinds: MarketKind[
   { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["spot", "perp", "options"] },
   { id: "forex", label: "Forex", icon: DollarSign, kinds: ["perp"] },
   { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["perp"] },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["spot", "perp", "options"] },
+  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["perp", "options"] },
 ];
 
 const KIND_LABEL: Record<MarketKind, string> = { spot: "Spot", perp: "Future", options: "Options" };
