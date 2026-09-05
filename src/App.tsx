@@ -19,6 +19,7 @@ import AIAgent from "./pages/AIAgent.tsx";
 import P2P from "./pages/P2P.tsx";
 import P2POrders from "./pages/P2POrders.tsx";
 import P2PAdvertiser from "./pages/P2PAdvertiser.tsx";
+import P2PWallet from "./pages/P2PWallet.tsx";
 import Token from "./pages/Token.tsx";
 import Refer from "./pages/Refer.tsx";
 import SIP from "./pages/SIP.tsx";
@@ -99,6 +100,7 @@ const App = () => (
           <Route path="/p2p" element={<P2P />} />
           <Route path="/p2p/orders" element={<P2POrders />} />
           <Route path="/p2p/advertiser" element={<P2PAdvertiser />} />
+          <Route path="/p2p/wallet" element={<P2PWallet />} />
           <Route path="/token" element={<Token />} />
           <Route path="/refer" element={<Refer />} />
           <Route path="/affiliate" element={<Affiliate />} />
