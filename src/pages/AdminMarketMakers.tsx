@@ -38,11 +38,26 @@ const EDITABLE_CONFIG: { key: string; label: string; def: string }[] = [
   { key: "requoteBps", label: "Re-quote Threshold (bps)", def: "3" },
 ];
 
+type DeskTab = "all" | "spot" | "futures" | "options";
+
+const DESK_TABS: { key: DeskTab; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "spot", label: "Spot" },
+  { key: "futures", label: "Futures" },
+  { key: "options", label: "Options" },
+];
+
+function matchesTab(desk: MarketMaker, tab: DeskTab): boolean {
+  if (tab === "all") return true;
+  return desk.market?.toUpperCase() === tab.toUpperCase();
+}
+
 export default function AdminMarketMakers() {
   const [desks, setDesks] = useState<MarketMaker[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyAll, setBusyAll] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<DeskTab>("all");
 
   const load = () =>
     listMarketMakers()
@@ -103,6 +118,21 @@ export default function AdminMarketMakers() {
           <div className="glass rounded-lg p-3 text-sm text-sell border border-sell/30">{error}</div>
         )}
 
+        <Tabs value={tab} onValueChange={(v) => setTab(v as DeskTab)}>
+          <TabsList>
+            {DESK_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key}>
+                {t.label}
+                {!loading && (
+                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                    {desks.filter((d) => matchesTab(d, t.key)).length}
+                  </span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
         {loading ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading desks…
@@ -111,9 +141,13 @@ export default function AdminMarketMakers() {
           <div className="glass rounded-xl p-10 text-center text-muted-foreground">
             No market-maker desks yet. Create one to start providing liquidity.
           </div>
+        ) : desks.filter((d) => matchesTab(d, tab)).length === 0 ? (
+          <div className="glass rounded-xl p-10 text-center text-muted-foreground">
+            No {tab === "all" ? "" : tab} desks yet.
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {desks.map((d) => (
+            {desks.filter((d) => matchesTab(d, tab)).map((d) => (
               <DeskCard key={d.id} desk={d} onChange={patch} onDeleted={remove} onError={setError} />
             ))}
           </div>
