@@ -16,6 +16,22 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
   "BNB-USDB": { symbol: "BNB-USDB", market: "SPOT" },
   "BTC-PERP": { symbol: "BTC-USDB", market: "FUTURES" },
   "ETH-PERP": { symbol: "ETH-USDB", market: "FUTURES" },
+  // Crypto perps beyond BTC/ETH — the SOL/BNB spot books double as their
+  // funding/index underlying.
+  "SOL-PERP": { symbol: "SOL-USDB", market: "FUTURES" },
+  "BNB-PERP": { symbol: "BNB-USDB", market: "FUTURES" },
+  // Non-crypto perps. The engine symbol's base is the Price-Fetcher ticker,
+  // case-preserved ("CrudeOIL", "AAPL.us"); there is no engine spot book for
+  // any of these, so their futures rows carry no funding underlying.
+  EURUSD: { symbol: "EURUSD-USDB", market: "FUTURES" },
+  GBPUSD: { symbol: "GBPUSD-USDB", market: "FUTURES" },
+  AUDUSD: { symbol: "AUDUSD-USDB", market: "FUTURES" },
+  "XAU-USD": { symbol: "GOLD-USDB", market: "FUTURES" },
+  "XAG-USD": { symbol: "SILVER-USDB", market: "FUTURES" },
+  "WTI-USD": { symbol: "CrudeOIL-USDB", market: "FUTURES" },
+  "AAPL-PERP": { symbol: "AAPL.us-USDB", market: "FUTURES" },
+  "TSLA-PERP": { symbol: "TSLA.us-USDB", market: "FUTURES" },
+  "NVDA-PERP": { symbol: "NVDA.us-USDB", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed

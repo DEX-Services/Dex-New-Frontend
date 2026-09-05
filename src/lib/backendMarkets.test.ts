@@ -11,15 +11,20 @@ describe("backendMarketFor", () => {
     // row from the SPOT entry of the same engine symbol name.
     expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-USDB", market: "FUTURES" });
     expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-USDB", market: "FUTURES" });
+    // Non-crypto perps (FX/commodities/stocks). The engine symbol's base is
+    // the Price-Fetcher ticker, case-preserved.
+    expect(backendMarketFor("EURUSD")).toEqual({ symbol: "EURUSD-USDB", market: "FUTURES" });
+    expect(backendMarketFor("XAU-USD")).toEqual({ symbol: "GOLD-USDB", market: "FUTURES" });
+    expect(backendMarketFor("WTI-USD")).toEqual({ symbol: "CrudeOIL-USDB", market: "FUTURES" });
+    expect(backendMarketFor("AAPL-PERP")).toEqual({ symbol: "AAPL.us-USDB", market: "FUTURES" });
   });
 
   it("returns null for a symbol with no backend market", () => {
     // This is the exact case that used to trigger a fake "order placed"
     // success toast in TradePanel.tsx — asserting it stays null pins the
     // contract the honest-error fix depends on.
-    expect(backendMarketFor("EURUSD")).toBeNull();
-    expect(backendMarketFor("AAPL-PERP")).toBeNull();
-    expect(backendMarketFor("SOL-PERP")).toBeNull();
+    expect(backendMarketFor("DOGE-PERP")).toBeNull();
+    expect(backendMarketFor("USDT-USDB")).toBeNull();
   });
 });
 
@@ -38,6 +43,8 @@ describe("frontendSymbolFor", () => {
     expect(frontendSymbolFor("BTC-USDB", "FUTURES")).toBe("BTC-PERP");
     expect(frontendSymbolFor("ETH-USDB", "FUTURES")).toBe("ETH-PERP");
     expect(frontendSymbolFor("SOL-USDB", "SPOT")).toBe("SOL-USDB");
+    expect(frontendSymbolFor("GOLD-USDB", "FUTURES")).toBe("XAU-USD");
+    expect(frontendSymbolFor("AAPL.us-USDB", "FUTURES")).toBe("AAPL-PERP");
   });
 
   it("falls back to the engine symbol itself when unregistered", () => {
