@@ -5,11 +5,18 @@ import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   formatUSDBAmount,
+  formatUSDBSellCapacity,
   fundP2PWallet,
+  getP2PPaymentAccounts,
   getP2PWallet,
   parseUSDBAmount,
+  P2P_PAYMENT_METHODS,
+  saveP2PPaymentAccount,
+  type P2PPaymentAccount,
+  type P2PPaymentMethod,
   type P2PWalletBalance,
 } from "@/lib/p2pApi";
 import { useWallet, wallet } from "@/lib/useWallet";
@@ -28,6 +35,12 @@ export default function P2PWallet() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accounts, setAccounts] = useState<P2PPaymentAccount[]>([]);
+  const [method, setMethod] = useState<P2PPaymentMethod>("UPI");
+  const [accountName, setAccountName] = useState("");
+  const [accountIdentifier, setAccountIdentifier] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [savingAccount, setSavingAccount] = useState(false);
 
   const regularAvailable = useMemo(
     () => balances.find((balance) => balance.asset === "USDB")?.available ?? 0,
@@ -37,8 +50,9 @@ export default function P2PWallet() {
   const load = useCallback(async () => {
     if (!userId) return;
     try {
-      const response = await getP2PWallet();
+      const [response, paymentAccounts] = await Promise.all([getP2PWallet(), getP2PPaymentAccounts()]);
       setP2PBalance(response.balance ?? response.balances?.[0] ?? emptyBalance);
+      setAccounts(paymentAccounts.accounts);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load P2P wallet");
     }
@@ -70,6 +84,23 @@ export default function P2PWallet() {
     }
   }
 
+  async function saveAccount() {
+    try {
+      setSavingAccount(true);
+      setError("");
+      await saveP2PPaymentAccount(method, accountName, accountIdentifier, instructions);
+      setSuccess(`${method} payment details saved.`);
+      setAccountName("");
+      setAccountIdentifier("");
+      setInstructions("");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save payment details");
+    } finally {
+      setSavingAccount(false);
+    }
+  }
+
   return (
     <AppShell>
       <main className="mx-auto min-h-screen max-w-5xl space-y-6 p-6">
@@ -88,7 +119,7 @@ export default function P2PWallet() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Kpi label="Balance Wallet" value={`${regularAvailable.toFixed(2)} USDB`} />
               <Kpi label="P2P Wallet Balance" value={`${formatUSDBAmount(p2pBalance.totalRaw)} USDB`} />
-              <Kpi label="Available for Sale" value={`${formatUSDBAmount(p2pBalance.availableRaw)} USDB`} />
+              <Kpi label="Available for Sale" value={`${formatUSDBSellCapacity(p2pBalance.availableRaw)} USDB`} />
               <Kpi label="Reserved in Ads" value={`${formatUSDBAmount(p2pBalance.reservedRaw)} USDB`} />
             </div>
 
@@ -120,6 +151,20 @@ export default function P2PWallet() {
                 <Button disabled={loading || Number(amount) <= 0 || Number(amount) > regularAvailable} onClick={() => void transfer()}>
                   {loading ? "Transferring…" : "Transfer to P2P Wallet"}<ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+              </div>
+            </Card>
+
+            <Card className="border-border/50 bg-card/30 p-6">
+              <div className="mb-6"><h2 className="text-lg font-semibold">Payment Accounts</h2><p className="text-sm text-muted-foreground">These details are shown only to the buyer after an order is created.</p></div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <Select value={method} onValueChange={(value) => setMethod(value as P2PPaymentMethod)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{P2P_PAYMENT_METHODS.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
+                  <Input value={accountName} onChange={event => setAccountName(event.target.value)} placeholder="Account holder name" maxLength={100} />
+                  <Input value={accountIdentifier} onChange={event => setAccountIdentifier(event.target.value)} placeholder={method === "UPI" ? "UPI ID" : "Account number or payment identifier"} maxLength={200} />
+                  <Input value={instructions} onChange={event => setInstructions(event.target.value)} placeholder="Optional payment instructions" maxLength={500} />
+                  <Button disabled={savingAccount || accountName.trim().length < 2 || accountIdentifier.trim().length < 2} onClick={() => void saveAccount()}>{savingAccount ? "Saving…" : "Save Payment Method"}</Button>
+                </div>
+                <div className="space-y-2">{accounts.length === 0 ? <p className="rounded-lg border p-4 text-sm text-muted-foreground">No payment methods configured yet.</p> : accounts.map(account => <div key={account.id} className="rounded-lg border p-4"><div className="flex justify-between gap-3"><span className="font-semibold">{account.method}</span><span className="text-sm text-muted-foreground">{account.accountName}</span></div><p className="mt-2 break-all font-mono text-sm">{account.accountIdentifier}</p>{account.instructions && <p className="mt-2 text-xs text-muted-foreground">{account.instructions}</p>}</div>)}</div>
               </div>
             </Card>
           </>

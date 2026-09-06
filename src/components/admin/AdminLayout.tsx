@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { BarChart3, LogOut, User, Zap, Waves, Wallet, LineChart } from "lucide-react";
+import { BarChart3, LogOut, User, Zap, Waves, Wallet, LineChart, Scale } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -33,6 +34,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <AdminNavLink to="/admin/market-makers" label="Market Makers" icon={Waves} />
           <AdminNavLink to="/admin/market-makers/pnl" label="MM P/L" icon={LineChart} />
           <AdminNavLink to="/admin/test-balances" label="Test Balances" icon={Wallet} />
+          <AdminNavLink to="/admin/p2p-appeals" label="P2P Appeals" icon={Scale} />
           <AdminNavLink to="/admin/profile" label="Profile" icon={User} />
         </nav>
 
@@ -74,7 +76,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function AdminNavLink({ to, label, icon: Icon, end }: { to: string; label: string; icon: any; end?: boolean }) {
+function AdminNavLink({ to, label, icon: Icon, end }: { to: string; label: string; icon: LucideIcon; end?: boolean }) {
   return (
     <NavLink
       to={to}

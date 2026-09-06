@@ -10,14 +10,45 @@ describe("PostAdsDialog USDB amount", () => {
         onOpenChange={vi.fn()}
         side="SELL"
         username="rohit"
+        price="100"
         onUsernameEstablished={vi.fn()}
         onCreated={vi.fn()}
       />,
     );
 
-    const amount = screen.getByRole("textbox");
+    const amount = screen.getByRole("textbox", { name: "USDB amount" });
     fireEvent.change(amount, { target: { value: "20.00" } });
     fireEvent.change(amount, { target: { value: "20.000" } });
     expect(amount).toHaveValue("20.00");
+
+	const maximum = screen.getByRole("textbox", { name: "Maximum order limit" });
+	fireEvent.change(maximum, { target: { value: "500.00" } });
+	fireEvent.change(maximum, { target: { value: "500.001" } });
+	expect(maximum).toHaveValue("500.00");
+  });
+
+  it("caps the maximum order limit at the total fiat value", () => {
+    render(
+      <PostAdsDialog
+        open
+        onOpenChange={vi.fn()}
+        side="SELL"
+        username="rohit"
+        price="100"
+        onUsernameEstablished={vi.fn()}
+        onCreated={vi.fn()}
+      />,
+    );
+
+    const amount = screen.getByRole("textbox", { name: "USDB amount" });
+    fireEvent.change(amount, { target: { value: "5.00" } });
+    fireEvent.blur(amount);
+    expect(screen.getByRole("textbox", { name: "Maximum order limit" })).toHaveValue("500.00");
+
+    const maximum = screen.getByRole("textbox", { name: "Maximum order limit" });
+    fireEvent.change(maximum, { target: { value: "600.00" } });
+    expect(screen.getByText("Maximum limit cannot exceed ₹500.00.")).toBeInTheDocument();
+    fireEvent.blur(maximum);
+    expect(maximum).toHaveValue("500.00");
   });
 });

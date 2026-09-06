@@ -18,6 +18,7 @@ import TradingBots from "./pages/TradingBots.tsx";
 import AIAgent from "./pages/AIAgent.tsx";
 import P2P from "./pages/P2P.tsx";
 import P2POrders from "./pages/P2POrders.tsx";
+import P2POrderDetail from "./pages/P2POrderDetail.tsx";
 import P2PAdvertiser from "./pages/P2PAdvertiser.tsx";
 import P2PWallet from "./pages/P2PWallet.tsx";
 import Token from "./pages/Token.tsx";
@@ -32,6 +33,7 @@ import AdminProfile from "./pages/AdminProfile.tsx";
 import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
+import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 import { readTheme, type ThemeMode } from "@/lib/theme";
 
@@ -99,6 +101,7 @@ const App = () => (
           <Route path="/prop" element={<PropFirm />} />
           <Route path="/p2p" element={<P2P />} />
           <Route path="/p2p/orders" element={<P2POrders />} />
+          <Route path="/p2p/orders/:orderId" element={<P2POrderDetail />} />
           <Route path="/p2p/advertiser" element={<P2PAdvertiser />} />
           <Route path="/p2p/wallet" element={<P2PWallet />} />
           <Route path="/token" element={<Token />} />
@@ -112,6 +115,7 @@ const App = () => (
             <Route path="/admin/market-makers" element={<AdminMarketMakers />} />
             <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
+            <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
           </Route>
           <Route path="*" element={<NotFound />} />
