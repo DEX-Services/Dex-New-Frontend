@@ -10,8 +10,8 @@ export type P2PAdSide = "BUY"|"SELL";
 export type P2PProfile = { username:string };
 export type P2PListing = { id:string; creatorId:string; username:string; side:P2PAdSide; asset:P2PAsset; amountRaw:string; remainingRaw:string; price:string; fiatCurrency:string; minOrderFiat:string; maxOrderFiat:string; paymentMethods:P2PPaymentMethod[]; status:"ACTIVE"|"FILLED"|"CANCELLED"; completedOrders:number; completedAmountRaw:string; completedOrders30d:number; completionRate30d:string; ratedOrders30d:number; createdAt:string; updatedAt:string };
 export type P2POrderStatus = "pending_payment"|"payment_made"|"completed"|"cancelled"|"appeal";
-export type P2POrder = { id:string; listingId:string; sellerId:string; buyerId:string; asset:P2PAsset; amountRaw:string; escrowRaw:string; price:string; fiatCurrency:string; grossAmount:string; buyerFee:string; sellerFee:string; buyerPayable:string; sellerReceivable:string; buyerFeeRaw:string; sellerFeeRaw:string; buyerCreditRaw:string; sellerDebitRaw:string; paymentMethod:P2PPaymentMethod; paymentAccountName:string; paymentAccountIdentifier:string; paymentInstructions?:string; status:P2POrderStatus; expiresAt:string; paymentMarkedAt?:string; buyerOwnAccountAttested:boolean; appealAvailableAt?:string; appealedBy?:string; appealReason?:string; appealedAt?:string; updatedAt:string; cancellationReason?:string; completedAt?:string; createdAt:string };
-export type P2PPaymentAccount={id:string;method:P2PPaymentMethod;accountName:string;accountIdentifier:string;instructions?:string;createdAt:string;updatedAt:string};
+export type P2POrder = { id:string; listingId:string; sellerId:string; buyerId:string; asset:P2PAsset; amountRaw:string; escrowRaw:string; price:string; fiatCurrency:string; grossAmount:string; buyerFee:string; sellerFee:string; buyerPayable:string; sellerReceivable:string; buyerFeeRaw:string; sellerFeeRaw:string; buyerCreditRaw:string; sellerDebitRaw:string; paymentMethod:P2PPaymentMethod; paymentAccountName:string; paymentAccountIdentifier:string; paymentBankName?:string; paymentIfscCode?:string; paymentInstructions?:string; status:P2POrderStatus; expiresAt:string; paymentMarkedAt?:string; buyerOwnAccountAttested:boolean; appealAvailableAt?:string; appealedBy?:string; appealReason?:string; appealedAt?:string; updatedAt:string; cancellationReason?:string; completedAt?:string; createdAt:string };
+export type P2PPaymentAccount={id:string;method:P2PPaymentMethod;accountName:string;accountIdentifier:string;bankName?:string;ifscCode?:string;instructions?:string;createdAt:string;updatedAt:string};
 export type P2POrderProof={id:string;fileName:string;mimeType:string;sizeBytes:number;createdAt:string};
 export type P2POrderMessage={id:string;senderId?:string;senderUsername:string;body:string;system:boolean;createdAt:string};
 export type P2POrderEvent={id:string;actorId?:string;kind:string;metadata:Record<string,unknown>;createdAt:string};
@@ -32,7 +32,7 @@ export const getMyP2PListings=()=>request<{listings:P2PListing[]}>("/p2p/my-list
 export const getP2POrders=()=>request<{orders:P2POrder[]}>("/p2p/orders");
 export const getP2POrder=(orderId:string)=>request<{order:P2POrder}>(`/p2p/order?orderId=${encodeURIComponent(orderId)}`);
 export const getP2PPaymentAccounts=()=>request<{accounts:P2PPaymentAccount[]}>("/p2p/payment-accounts");
-export const saveP2PPaymentAccount=(method:P2PPaymentMethod,accountName:string,accountIdentifier:string,instructions:string)=>request<{account:P2PPaymentAccount}>("/p2p/payment-accounts",json({method,accountName,accountIdentifier,instructions}));
+export const saveP2PPaymentAccount=(method:P2PPaymentMethod,accountName:string,accountIdentifier:string,instructions:string,bankName="",ifscCode="")=>request<{account:P2PPaymentAccount}>("/p2p/payment-accounts",json({method,accountName,accountIdentifier,instructions,bankName,ifscCode}));
 export const getP2POrderMessages=(orderId:string)=>request<{messages:P2POrderMessage[]}>(`/p2p/order/messages?orderId=${encodeURIComponent(orderId)}`);
 export const sendP2POrderMessage=(orderId:string,body:string)=>request<{message:P2POrderMessage}>("/p2p/order/messages",json({orderId,body}));
 export const getP2POrderProofs=(orderId:string)=>request<{proofs:P2POrderProof[]}>(`/p2p/order/proofs?orderId=${encodeURIComponent(orderId)}`);
@@ -57,16 +57,15 @@ export function formatP2PAmount(raw:string,maximumFractionDigits=6):string{
 	const value=BigInt(raw||"0");const whole=value/1_000_000n;const fraction=(value%1_000_000n).toString().padStart(6,"0").replace(/0+$/,"").slice(0,maximumFractionDigits);return fraction?`${whole}.${fraction}`:whole.toString();
 }
 export function parseUSDBAmount(value:string):string{
-	if(!/^\d+(\.\d{1,2})?$/.test(value)||Number(value)<=0)throw new Error("Enter a valid USDB amount with exactly 2 decimal places");
-	return parseP2PAmount(Number(value).toFixed(2),"USDB");
+	if(!/^\d+(?:\.\d{0,6})?$/.test(value)||Number(value)<=0)throw new Error("Enter a valid USDB amount with up to 6 decimal places");
+	return parseP2PAmount(value,"USDB");
 }
 export function formatUSDBAmount(raw:string):string{
-	const cents=(BigInt(raw||"0")+5_000n)/10_000n;
-	return `${cents/100n}.${(cents%100n).toString().padStart(2,"0")}`;
+	return formatP2PAmount(raw,6);
 }
 export function formatUSDBSellCapacity(raw:string):string{
-	const cents=(BigInt(raw||"0")*100n/101n)/10_000n;
-	return `${cents/100n}.${(cents%100n).toString().padStart(2,"0")}`;
+	const balance=BigInt(raw||"0");
+	return formatP2PAmount((balance-balance/101n).toString(),6);
 }
 export function effectiveP2PMaxOrderFiat(listing:Pick<P2PListing,"maxOrderFiat"|"remainingRaw"|"price">):number{
 	const remainingFiat=Number(formatUSDBAmount(listing.remainingRaw))*Number(listing.price);
@@ -74,21 +73,29 @@ export function effectiveP2PMaxOrderFiat(listing:Pick<P2PListing,"maxOrderFiat"|
 }
 export function usdbAmountFromFiat(fiatAmount:string|number,price:string|number):string{
 	const fiat=Number(fiatAmount);const unitPrice=Number(price);
-	if(!Number.isFinite(fiat)||!Number.isFinite(unitPrice)||fiat<=0||unitPrice<=0)return "0.00";
-	return (Math.floor((fiat/unitPrice)*100)/100).toFixed(2);
+	if(!Number.isFinite(fiat)||!Number.isFinite(unitPrice)||fiat<=0||unitPrice<=0)return "0";
+	return (Math.floor((fiat/unitPrice)*1_000_000)/1_000_000).toFixed(6).replace(/\.?0+$/,"");
 }
 export function grossUSDBAmountForNet(netAmount:string|number):string{
-	const net=Number(netAmount);
-	if(!Number.isFinite(net)||net<=0)return "0.00";
-	const netCents=Math.round(net*100);
-	const grossCents=Math.ceil((netCents*100-50)/99);
-	return (grossCents/100).toFixed(2);
+	const net=usdbRawOrZero(netAmount);
+	if(net<=0n)return "0";
+	return formatUSDBAmount((net+(net-1n)/99n).toString());
 }
 export function netUSDBAmountAfterBuyerFee(grossAmount:string|number):string{
-	const gross=Number(grossAmount);
-	if(!Number.isFinite(gross)||gross<=0)return "0.00";
-	const grossCents=Math.round(gross*100);
-	const netCents=Math.floor((grossCents*99+50)/100);
-	return (netCents/100).toFixed(2);
+	const gross=usdbRawOrZero(grossAmount);
+	if(gross<=0n)return "0";
+	return formatUSDBAmount((gross-gross/100n).toString());
+}
+export function usdbFeeAmount(grossAmount:string|number):string{
+	const gross=usdbRawOrZero(grossAmount);
+	return formatUSDBAmount((gross/100n).toString());
+}
+export function sellerUSDBDebitWithFee(grossAmount:string|number):string{
+	const gross=usdbRawOrZero(grossAmount);
+	return formatUSDBAmount((gross+gross/100n).toString());
+}
+function usdbRawOrZero(value:string|number):bigint{
+	const text=typeof value==="number"?value.toFixed(6).replace(/\.?0+$/,""):value;
+	try{return BigInt(parseUSDBAmount(text))}catch{return 0n}
 }
 export const formatINR=(value:string|number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(value));

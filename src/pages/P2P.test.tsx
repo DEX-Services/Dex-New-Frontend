@@ -43,8 +43,36 @@ describe("P2P page", () => {
     expect(receiveInput.value).toBe("0.99");
 
     fireEvent.change(receiveInput,{target:{value:"1.00"}});
-    expect(payInput.value).toBe("101.00");
+    expect(payInput.value).toBe("101.01");
     fireEvent.change(payInput,{target:{value:"250.00"}});
-    expect(receiveInput.value).toBe("2.48");
+    expect(receiveInput.value).toBe("2.475");
+  });
+
+  it("links the seller's INR receipt and USDB amount and explains an unusable remainder", async () => {
+    listings = [{
+      id: "listing-2", creatorId: "buyer-1", username: "DexUser215", side: "BUY", asset: "USDB",
+      amountRaw: "6050000", remainingRaw: "6050000", price: "100.00", fiatCurrency: "INR",
+      minOrderFiat: "500.00", maxOrderFiat: "605.00", paymentMethods: ["UPI"], status: "ACTIVE",
+      completedOrders: 0, completedAmountRaw: "0", completedOrders30d: 0, completionRate30d: "0.00",
+      ratedOrders30d: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }];
+    render(<MemoryRouter><P2P /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Sell USDB" }));
+    expect(await screen.findByText("DexUser215")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "SELL USDB" }).at(-1)!);
+
+    const receiveInput=screen.getByRole("textbox", { name: "You receive in INR" }) as HTMLInputElement;
+    const sellInput=screen.getByRole("textbox", { name: "You sell in USDB" }) as HTMLInputElement;
+    expect(receiveInput.value).toBe("605.00");
+    expect(sellInput.value).toBe("6.05");
+
+    fireEvent.change(sellInput,{target:{value:"5.05"}});
+    expect(receiveInput.value).toBe("505.00");
+    expect(screen.getByText(/below the ad minimum/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sell 5.05 USDB" })).toBeDisabled();
+
+    fireEvent.change(receiveInput,{target:{value:"605"}});
+    expect(sellInput.value).toBe("6.05");
+    expect(screen.getByRole("button", { name: "Sell 6.05 USDB" })).toBeEnabled();
   });
 });

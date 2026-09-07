@@ -20,6 +20,22 @@ const statusLabel: Record<P2POrder["status"], string> = {
   appeal: "In appeal",
 };
 
+function settlementLabel(order: P2POrder, bought: boolean) {
+  if (order.status === "completed") {
+    return bought
+      ? `Received ${formatUSDBAmount(order.buyerCreditRaw)} USDB`
+      : `Released ${formatUSDBAmount(order.buyerCreditRaw)} USDB`;
+  }
+  if (order.status === "cancelled") {
+    return bought
+      ? "No USDB received"
+      : `Refunded ${formatUSDBAmount(order.sellerDebitRaw)} USDB`;
+  }
+  return bought
+    ? `Pending ${formatUSDBAmount(order.buyerCreditRaw)} USDB`
+    : `Escrowed ${formatUSDBAmount(order.sellerDebitRaw)} USDB`;
+}
+
 export default function P2POrders() {
   const { userId } = useWallet();
   const [orders, setOrders] = useState<P2POrder[]>([]);
@@ -59,7 +75,7 @@ export default function P2POrders() {
             <td className="p-4">{order.paymentMethod}</td>
             <td className="p-4">{formatINR(order.grossAmount)}</td>
             <td className="p-4">{formatUSDBAmount(bought ? order.buyerFeeRaw : order.sellerFeeRaw)} USDB</td>
-            <td className="p-4">{bought ? `Receive ${formatUSDBAmount(order.buyerCreditRaw)}` : `Escrow ${formatUSDBAmount(order.sellerDebitRaw)}`} USDB</td>
+            <td className="p-4">{settlementLabel(order, bought)}</td>
             <td className="p-4"><span className={order.status === "completed" ? "text-green-600" : order.status === "cancelled" ? "text-destructive" : "text-amber-500"}>{statusLabel[order.status]}</span>{pending && <p className="text-xs text-muted-foreground">Pay before {new Date(order.expiresAt).toLocaleString()}</p>}{order.cancellationReason && <p className="text-xs text-muted-foreground">{order.cancellationReason}</p>}</td>
             <td className="p-4 text-right"><Button asChild size="sm" variant="outline"><Link to={`/p2p/orders/${order.id}`}>Open order</Link></Button></td>
           </tr>;

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { PostAdsDialog } from "./PostAdsDialog";
 
 describe("PostAdsDialog USDB amount", () => {
-  it("rejects digits beyond two decimal places", () => {
+  it("accepts up to six USDB decimal places", () => {
     render(
       <PostAdsDialog
         open
@@ -17,9 +17,10 @@ describe("PostAdsDialog USDB amount", () => {
     );
 
     const amount = screen.getByRole("textbox", { name: "USDB amount" });
-    fireEvent.change(amount, { target: { value: "20.00" } });
-    fireEvent.change(amount, { target: { value: "20.000" } });
-    expect(amount).toHaveValue("20.00");
+    fireEvent.change(amount, { target: { value: "20.000001" } });
+    expect(amount).toHaveValue("20.000001");
+    fireEvent.change(amount, { target: { value: "20.0000001" } });
+    expect(amount).toHaveValue("20.000001");
 
 	const maximum = screen.getByRole("textbox", { name: "Maximum order limit" });
 	fireEvent.change(maximum, { target: { value: "500.00" } });
@@ -41,7 +42,7 @@ describe("PostAdsDialog USDB amount", () => {
     );
 
     const amount = screen.getByRole("textbox", { name: "USDB amount" });
-    fireEvent.change(amount, { target: { value: "5.00" } });
+    fireEvent.change(amount, { target: { value: "5" } });
     fireEvent.blur(amount);
     expect(screen.getByRole("textbox", { name: "Maximum order limit" })).toHaveValue("500.00");
 

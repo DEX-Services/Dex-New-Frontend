@@ -3,21 +3,22 @@ import { effectiveP2PMaxOrderFiat, formatUSDBAmount, formatUSDBSellCapacity, gro
 
 describe("USDB P2P amount formatting", () => {
   it.each([
-    ["5000000", "5.00"],
-    ["5500000", "5.50"],
+    ["5000000", "5"],
+    ["5500000", "5.5"],
     ["10250000", "10.25"],
-    ["100000000", "100.00"],
+    ["100000001", "100.000001"],
   ])("formats %s raw as %s USDB", (raw, formatted) => {
     expect(formatUSDBAmount(raw)).toBe(formatted);
   });
 
-  it("parses a displayed two-decimal amount into raw USDB", () => {
+  it("parses a USDB amount with up to six decimal places", () => {
     expect(parseUSDBAmount("10.25")).toBe("10250000");
+    expect(parseUSDBAmount("10.123456")).toBe("10123456");
   });
 
   it("shows only the amount that can be listed after the seller fee", () => {
-    expect(formatUSDBSellCapacity("10100000")).toBe("10.00");
-    expect(formatUSDBSellCapacity("10000000")).toBe("9.90");
+    expect(formatUSDBSellCapacity("10100000")).toBe("10");
+    expect(formatUSDBSellCapacity("10000000")).toBe("9.900991");
   });
 
   it("reduces the effective upper limit when an ad has less value remaining", () => {
@@ -25,14 +26,14 @@ describe("USDB P2P amount formatting", () => {
     expect(effectiveP2PMaxOrderFiat({ maxOrderFiat: "300.00", remainingRaw: "5000000", price: "100.00" })).toBe(300);
   });
 
-  it("converts an INR investment into a two-decimal USDB quantity without overspending", () => {
-    expect(usdbAmountFromFiat("250.00", "100.00")).toBe("2.50");
-    expect(usdbAmountFromFiat("100.00", "99.00")).toBe("1.01");
+  it("converts an INR investment into a six-decimal USDB quantity without overspending", () => {
+    expect(usdbAmountFromFiat("250.00", "100.00")).toBe("2.5");
+    expect(usdbAmountFromFiat("100.00", "99.00")).toBe("1.010101");
   });
 
   it("calculates the gross quantity needed for a desired net USDB receipt", () => {
-    expect(grossUSDBAmountForNet("1.00")).toBe("1.01");
-    expect(grossUSDBAmountForNet("4.95")).toBe("5.00");
-    expect(netUSDBAmountAfterBuyerFee("3.50")).toBe("3.47");
+    expect(grossUSDBAmountForNet("1.00")).toBe("1.010101");
+    expect(grossUSDBAmountForNet("4.95")).toBe("4.999999");
+    expect(netUSDBAmountAfterBuyerFee("3.50")).toBe("3.465");
   });
 });
