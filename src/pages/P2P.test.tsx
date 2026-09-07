@@ -7,6 +7,7 @@ describe("P2P page", () => {
   let listings: object[];
 
   beforeEach(() => {
+    Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
     listings = [];
     vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
@@ -48,6 +49,27 @@ describe("P2P page", () => {
     expect(receiveInput.value).toBe("2.475");
   });
 
+  it("accepts an INR amount in Quick Trade and opens the matching buy offer", async () => {
+    listings = [{
+      id: "listing-quick", creatorId: "seller-1", username: "QuickSeller", side: "SELL", asset: "USDB",
+      amountRaw: "5000000", remainingRaw: "5000000", price: "100.00", fiatCurrency: "INR",
+      minOrderFiat: "100.00", maxOrderFiat: "350.00", paymentMethods: ["UPI"], status: "ACTIVE",
+      completedOrders: 0, completedAmountRaw: "0", completedOrders30d: 0, completionRate30d: "0.00",
+      ratedOrders30d: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    }];
+    render(<MemoryRouter><P2P /></MemoryRouter>);
+    expect(await screen.findByText("QuickSeller")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Quick trade INR amount" }), { target: { value: "250" } });
+    expect(screen.getByRole("textbox", { name: "Quick trade USDB amount" })).toHaveValue("2.5");
+    const proceed=screen.getByRole("button", { name: /Proceed to Buy/ });
+    expect(proceed).toBeEnabled();
+    fireEvent.click(proceed);
+
+    expect(screen.getByRole("textbox", { name: "You pay in INR" })).toHaveValue("250.00");
+    expect(screen.getByRole("textbox", { name: "You receive in USDB" })).toHaveValue("2.475");
+  });
+
   it("links the seller's INR receipt and USDB amount and explains an unusable remainder", async () => {
     listings = [{
       id: "listing-2", creatorId: "buyer-1", username: "DexUser215", side: "BUY", asset: "USDB",
@@ -59,7 +81,11 @@ describe("P2P page", () => {
     render(<MemoryRouter><P2P /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Sell USDB" }));
     expect(await screen.findByText("DexUser215")).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole("button", { name: "SELL USDB" }).at(-1)!);
+    fireEvent.change(screen.getByRole("textbox", { name: "Quick trade USDB amount" }), { target: { value: "6.05" } });
+    expect(screen.getByRole("textbox", { name: "Quick trade INR amount" })).toHaveValue("605.00");
+    const proceed=screen.getByRole("button", { name: /Proceed to Sell/ });
+    expect(proceed).toBeEnabled();
+    fireEvent.click(proceed);
 
     const receiveInput=screen.getByRole("textbox", { name: "You receive in INR" }) as HTMLInputElement;
     const sellInput=screen.getByRole("textbox", { name: "You sell in USDB" }) as HTMLInputElement;

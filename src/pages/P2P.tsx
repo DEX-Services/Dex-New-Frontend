@@ -13,6 +13,7 @@ import { effectiveP2PMaxOrderFiat,formatINR,formatUSDBAmount,getP2PListings,getP
 
 const message=(error:unknown)=>error instanceof Error?error.message:"Something went wrong";
 const validUSDBInput=(value:string)=>/^\d*(?:\.\d{0,6})?$/.test(value);
+const validFiatInput=(value:string)=>/^\d*(?:\.\d{0,2})?$/.test(value);
 
 export default function P2P(){
 	const {userId}=useWallet();
@@ -24,6 +25,8 @@ export default function P2P(){
 	const [error,setError]=useState("");
 	const [payment,setPayment]=useState("All");
 	const [amount,setAmountState]=useState("");
+	const [quickUSDB,setQuickUSDB]=useState("");
+	const [quickINR,setQuickINR]=useState("");
 	const [selected,setSelected]=useState<P2PListing|null>(null);
 	const [quantity,setQuantityState]=useState("0");
 	const [selectedPayment,setSelectedPayment]=useState<P2PPaymentMethod>("UPI");
@@ -31,15 +34,17 @@ export default function P2P(){
 	const [order,setOrder]=useState<P2POrder|null>(null);
 	const setAmount=(value:string)=>{if(validUSDBInput(value))setAmountState(value)};
 	const setQuantity=(value:string)=>{if(validUSDBInput(value))setQuantityState(value)};
+	function updateQuickUSDB(value:string){if(!validUSDBInput(value))return;setQuickUSDB(value);setQuickINR(value&&Number(price)>0?(Number(value)*Number(price)).toFixed(2):"")}
+	function updateQuickINR(value:string){if(!validFiatInput(value))return;setQuickINR(value);setQuickUSDB(value&&Number(price)>0?usdbAmountFromFiat(value,price):"")}
 
 	const load=useCallback(async()=>{try{setLoading(true);setError("");const [{price:today},{listings:ads}]=await Promise.all([getP2PPrice("USDB"),getP2PListings()]);setPrice(today.price);setPriceDate(today.priceDate);setListings(ads)}catch(e){setError(message(e))}finally{setLoading(false)}},[]);
 	useEffect(()=>{void load()},[load]);
 	const wantedSide=action==="BUY"?"SELL":"BUY";
 	const visible=useMemo(()=>listings.filter(ad=>{const requested=Number(amount||0);const fiat=requested*Number(ad.price);return ad.side===wantedSide&&(payment==="All"||ad.paymentMethods.includes(payment as P2PPaymentMethod))&&(!requested||(Number(formatUSDBAmount(ad.remainingRaw))>=requested&&fiat>=Number(ad.minOrderFiat)&&fiat<=effectiveP2PMaxOrderFiat(ad)))}),[listings,wantedSide,payment,amount]);
 	const total=visible.reduce((sum,ad)=>sum+Number(formatUSDBAmount(ad.remainingRaw)),0);
-	function open(ad:P2PListing){const unitPrice=Number(ad.price);const remaining=Number(formatUSDBAmount(ad.remainingRaw));const minimum=Math.ceil((Number(ad.minOrderFiat)/unitPrice)*1_000_000)/1_000_000;let initial=Math.min(minimum,remaining);if(remaining>initial&&(remaining-initial)*unitPrice<Number(ad.minOrderFiat))initial=remaining;setSelected(ad);setQuantity(String(initial));setSelectedPayment(ad.paymentMethods[0]);setOrder(null);setError("")}
+	function open(ad:P2PListing,requestedQuantity?:string){const unitPrice=Number(ad.price);const remaining=Number(formatUSDBAmount(ad.remainingRaw));const minimum=Math.ceil((Number(ad.minOrderFiat)/unitPrice)*1_000_000)/1_000_000;let initial=requestedQuantity?Number(requestedQuantity):Math.min(minimum,remaining);if(!requestedQuantity&&remaining>initial&&(remaining-initial)*unitPrice<Number(ad.minOrderFiat))initial=remaining;setSelected(ad);setQuantity(String(initial));setSelectedPayment(ad.paymentMethods[0]);setOrder(null);setError("")}
 	async function take(){if(!selected)return;try{setActing(true);setError("");setOrder((await takeP2PListing(selected.id,parseUSDBAmount(quantity),selectedPayment)).order);await load()}catch(e){setError(message(e))}finally{setActing(false)}}
-	const match=visible.find(ad=>ad.creatorId!==userId&&Number(amount)>0);
+	const match=visible.find(ad=>{const requested=Number(quickUSDB);const remaining=Number(formatUSDBAmount(ad.remainingRaw));const fiat=requested*Number(ad.price);const remainingAfter=remaining-requested;return ad.creatorId!==userId&&requested>0&&requested<=remaining&&fiat>=Number(ad.minOrderFiat)&&fiat<=effectiveP2PMaxOrderFiat(ad)&&(remainingAfter<=0||remainingAfter*Number(ad.price)>=Number(ad.minOrderFiat))});
 
 	return <AppShell><div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background p-6"><div className="mx-auto max-w-7xl">
 		<div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"><div><h1 className="mb-2 text-4xl font-bold tracking-tight">{action==="BUY"?"Buy":"Sell"} USDB</h1><p className="text-muted-foreground">Trade USDB securely with authenticated P2P users in your local currency.</p></div><div className="flex flex-wrap items-center gap-2"><Button asChild variant="ghost" className="h-10 gap-2 text-primary"><Link to="/p2p/orders"><ClipboardList className="h-4 w-4"/>Orders</Link></Button><Button asChild variant="ghost"><Link to="/p2p/advertiser">My Ads</Link></Button><Button asChild variant="ghost"><Link to="/p2p/wallet"><Wallet className="mr-2 h-4 w-4"/>P2P Wallet</Link></Button></div></div>
@@ -48,7 +53,15 @@ export default function P2P(){
 			<div className="flex items-center gap-2"><Badge variant="secondary"><Users className="mr-1 h-3 w-3"/>P2P advertisers</Badge><Button variant="ghost" size="sm"><Filter className="mr-1 h-4 w-4"/>Filter</Button></div>
 			<Card className="overflow-hidden border-border/50 bg-card/20"><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-sm"><thead><tr className="border-b bg-muted/20"><th className="px-4 py-3 text-left">Advertiser</th><th className="px-4 py-3 text-center">Available / Limits</th><th className="px-4 py-3 text-center">Payment Methods</th><th className="px-4 py-3 text-center">Option</th></tr></thead><tbody>{loading?<tr><td colSpan={4} className="p-8 text-center text-muted-foreground">Loading database listings…</td></tr>:visible.length===0?<tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No matching USDB ads found.</td></tr>:visible.map(ad=>{const own=userId===ad.creatorId;return <tr key={ad.id} className="border-b last:border-0"><td className="px-4 py-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-primary-foreground">{ad.username.slice(0,2).toUpperCase()}</div><div><div className="flex items-center gap-2 font-semibold">{ad.username}<Shield className="h-3 w-3 text-primary"/></div><div className="text-xs text-muted-foreground">{ad.ratedOrders30d>0?`${ad.completedOrders30d} trades · ${Number(ad.completionRate30d).toFixed(2)}% completion`:"New advertiser"}</div></div></div></td><td className="px-4 py-4 text-center"><div className="font-semibold">{formatUSDBAmount(ad.remainingRaw)} USDB</div><div className="mt-1 text-xs text-muted-foreground">Limits {formatINR(ad.minOrderFiat)} – {formatINR(effectiveP2PMaxOrderFiat(ad))}</div></td><td className="px-4 py-4 text-center"><div className="flex flex-wrap justify-center gap-1">{ad.paymentMethods.map(method=><Badge key={method} variant="secondary">{method}</Badge>)}</div></td><td className="px-4 py-4 text-center">{own?<Badge variant="outline">Your ad</Badge>:<Button size="sm" onClick={()=>open(ad)} className={ad.side==="SELL"?"bg-buy text-buy-foreground":"bg-red-500 text-white"}>{ad.side==="SELL"?"BUY USDB":"SELL USDB"}</Button>}</td></tr>})}</tbody></table></div></Card>{error&&<div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 		</div><div className="space-y-6"><Card className="border-border/50 bg-card/30 p-6"><span className="text-sm font-medium text-muted-foreground">Today’s Price</span><div className="mt-4 flex items-baseline gap-2"><span className="text-3xl font-bold">{price?formatINR(price):"Unavailable"}</span><span className="text-sm text-muted-foreground">/USDB</span></div><p className="pt-2 text-xs text-muted-foreground">Database price for {priceDate||"today"}</p></Card>
-			<Card className="border-border/50 bg-card/30 p-6"><h3 className="mb-4 flex items-center gap-2 font-semibold"><TrendingUp className="h-4 w-4 text-primary"/>Quick Trade</h3><Input value={amount} onChange={event=>setAmount(event.target.value)} placeholder="0 USDB"/><div className="my-4 rounded-lg bg-muted/20 p-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Available across ads</span><span>{Number(total.toFixed(6))} USDB</span></div></div><Button disabled={!match} onClick={()=>match&&open(match)} className={`w-full ${action==="BUY"?"bg-buy text-buy-foreground":"bg-red-500 text-white"}`}>{action==="BUY"?"Proceed to Buy":"Proceed to Sell"}<ArrowRight className="ml-2 h-4 w-4"/></Button></Card>
+			<Card className="border-border/50 bg-card/30 p-6">
+				<h3 className="mb-4 flex items-center gap-2 font-semibold"><TrendingUp className="h-4 w-4 text-primary"/>Quick Trade</h3>
+				<div className="space-y-3">
+					<div className="relative"><Input aria-label="Quick trade USDB amount" inputMode="decimal" className="pr-20" value={quickUSDB} onChange={event=>updateQuickUSDB(event.target.value)} placeholder="0"/><span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold">USDB</span></div>
+					<div className="relative"><Input aria-label="Quick trade INR amount" inputMode="decimal" className="pr-20" value={quickINR} onChange={event=>updateQuickINR(event.target.value)} placeholder="0"/><span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold">INR</span></div>
+				</div>
+				<div className="my-4 rounded-lg bg-muted/20 p-3 text-sm"><div className="flex justify-between"><span className="text-muted-foreground">Available across ads</span><span>{Number(total.toFixed(6))} USDB</span></div></div>
+				<Button disabled={!match} onClick={()=>match&&open(match,quickUSDB)} className={`w-full ${action==="BUY"?"bg-buy text-buy-foreground":"bg-red-500 text-white"}`}>{action==="BUY"?"Proceed to Buy":"Proceed to Sell"}<ArrowRight className="ml-2 h-4 w-4"/></Button>
+			</Card>
 			{/* <Card className="border-border/50 bg-card/30 p-6"><h3 className="mb-4 font-semibold">Trust & Safety</h3><div className="space-y-3"><Safety icon={Lock} title="Escrow Protection" text="Seller USDB is held until release"/><Safety icon={Shield} title="Authenticated Users" text="Every ad has a permanent P2P username"/><Safety icon={Clock} title="Controlled Release" text="USDB moves only after payment confirmation"/></div></Card> */}
 			{/* <MarketSnapshot listings={listings}/> */}
 			</div></div>
@@ -148,7 +161,7 @@ function TradeDialogView({ad,quantity,fiatInput,receiveInput,payment,setPayment,
 						<label className="mb-2 block text-xs font-semibold uppercase text-muted-foreground">You receive</label>
 						<div className="flex gap-2"><Input aria-label="You receive in USDB" inputMode="decimal" value={receiveInput} onChange={event=>updateNetUSDB(event.target.value)} onBlur={normalizeNetUSDB}/><span className="flex min-w-20 items-center justify-center rounded-md bg-muted/30 px-3">USDB</span></div>
 					</div>
-					<p className="text-xs text-muted-foreground">USDB received is shown after the 1% buyer fee. Order value must be within {formatINR(ad.minOrderFiat)} – {formatINR(effectiveMaximum)}.</p>
+					{/* <p className="text-xs text-muted-foreground">USDB received is shown after the 1% buyer fee. Order value must be within {formatINR(ad.minOrderFiat)} – {formatINR(effectiveMaximum)}.</p> */}
 				</div>:<div className="space-y-4">
 					<div>
 						<label className="mb-2 block text-xs font-semibold uppercase text-muted-foreground">You receive</label>
