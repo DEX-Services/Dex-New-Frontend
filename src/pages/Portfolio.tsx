@@ -65,18 +65,18 @@ const Portfolio = () => {
   const totalFrozen = FROZEN_AMOUNT.reduce((sum, item) => sum + item.value, 0);
   const dbBalances = useMemo(() => {
     const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
-    // USDB is the tradable balance every market actually settles in; USDC/
+    // BIUSD is the tradable balance every market actually settles in; USDC/
     // USDT are shown too since a real deposit briefly exists in one of
-    // those before the chain listener converts it to USDB (see useWallet.ts).
-    const usdb = amountFor("USDB");
+    // those before the chain listener converts it to BIUSD (see useWallet.ts).
+    const biusd = amountFor("BIUSD");
     const usdc = amountFor("USDC");
     const usdt = amountFor("USDT");
     const busd = amountFor("BUSD");
     const ourToken = amountFor("OUR_Token");
 
     return {
-      totalFunds: usdb + usdc + usdt + busd + ourToken,
-      USDB: usdb,
+      totalFunds: biusd + usdc + usdt + busd + ourToken,
+      BIUSD: biusd,
       USDC: usdc,
       USDT: usdt,
       BUSD: busd,
@@ -109,8 +109,8 @@ const Portfolio = () => {
 
         {/* Key stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="USDB + USDC + USDT + BUSD + OUR Token" icon={DollarSign} highlight />
-          <StatCard label="USDB" value={formatTokenAmount(dbBalances.USDB)} sub="Tradable Balance" icon={Wallet} />
+          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BIUSD + USDC + USDT + BUSD + OUR Token" icon={DollarSign} highlight />
+          <StatCard label="BIUSD" value={formatTokenAmount(dbBalances.BIUSD)} sub="Tradable Balance" icon={Wallet} />
           <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Available Balance" icon={Wallet} />
           <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Available Balance" icon={Wallet} />
           <StatCard label="BUSD" value={formatTokenAmount(dbBalances.BUSD)} sub="Available Balance" icon={Wallet} />

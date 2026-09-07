@@ -140,7 +140,7 @@ export function TransferDialog({
                     {mode === "deposit" && network === "Avalanche Fuji" ? (
                       <SelectItem value="USDC">USDC</SelectItem>
                     ) : mode === "withdraw" ? (
-                      // USDB has no on-chain contract (it's the platform's
+                      // BIUSD has no on-chain contract (it's the platform's
                       // internal 1:1-pegged trading currency, see
                       // useWallet.ts) — nothing to withdraw it as. Only
                       // assets with a real withdrawal path (currently USDC)

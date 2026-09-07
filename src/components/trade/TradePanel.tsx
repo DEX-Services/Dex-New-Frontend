@@ -40,9 +40,9 @@ export function TradePanel({
   const marketMetadata = useMarketMetadata(symbol);
   // Splitting the display symbol (e.g. "BTC-PERP") gave "PERP" as the quote
   // asset for every futures market — marketMetadata.quoteCurrency is the
-  // backend's actual answer (now USDB for both spot and futures) and is
+  // backend's actual answer (now BIUSD for both spot and futures) and is
   // always right, whatever the display symbol's suffix convention is.
-  const quoteAsset = marketMetadata?.quoteCurrency || symbol.split("-")[1] || "USDB";
+  const quoteAsset = marketMetadata?.quoteCurrency || symbol.split("-")[1] || "BIUSD";
   const walletState = useWallet();
   const [mode, setMode] = useState<MarketMode>("spot");
   const [side, setSide] = useState<Side>("buy");
@@ -260,7 +260,7 @@ export function TradePanel({
       // Match the options-mode pattern above: an honest "not available"
       // error, not a fabricated fill.
       toast.error(`${symbol} isn't available to trade yet`, {
-        description: "This market isn't live on the exchange yet — try BTC-USDB, ETH-USDB, SOL-USDB, BTC-PERP, or ETH-PERP.",
+        description: "This market isn't live on the exchange yet — try BTC-BIUSD, ETH-BIUSD, SOL-BIUSD, BTC-PERP, or ETH-PERP.",
       });
       return;
     }

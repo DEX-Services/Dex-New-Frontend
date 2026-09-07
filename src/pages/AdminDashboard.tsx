@@ -54,7 +54,7 @@ export default function AdminDashboard() {
           <Stat label="Open Sessions" value={formatNumber(data?.openSessions)} icon={Clock} />
           <Stat label="Ledger Entries" value={formatNumber(data?.totalLedgerEntries)} icon={Database} />
           <Stat label="Pending Withdrawals" value={formatNumber(data?.pendingWithdrawals)} icon={Wallet} tone={data?.pendingWithdrawals ? "sell" : undefined} />
-          <Stat label="P2P Fee Wallet" value={`${formatUSDBRaw(data?.p2pFeeWalletRaw)} USDB`} icon={Wallet} tone="buy" />
+          <Stat label="P2P Fee Wallet" value={`${formatBIUSDRaw(data?.p2pFeeWalletRaw)} BIUSD`} icon={Wallet} tone="buy" />
         </div>
 
         <div className="grid lg:grid-cols-3 gap-5">
@@ -217,7 +217,7 @@ function formatCompactRaw(value?: string) {
   return n.toLocaleString();
 }
 
-function formatUSDBRaw(value?: string) {
+function formatBIUSDRaw(value?: string) {
   const raw = BigInt(value || "0");
   const whole = raw / 1_000_000n;
   const cents = (raw % 1_000_000n) / 10_000n;

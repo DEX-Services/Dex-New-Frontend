@@ -23,7 +23,7 @@ import { swapAssets } from "@/lib/authApi";
 import { wallet, useWallet } from "@/lib/useWallet";
 import { cn } from "@/lib/utils";
 
-type TokenSymbol = "USDC" | "USDT" | "USDB";
+type TokenSymbol = "USDC" | "USDT" | "BIUSD";
 
 interface Token {
   symbol: TokenSymbol;
@@ -33,21 +33,21 @@ interface Token {
   icon: string;
 }
 
-// USDB is the platform's internal stable quote currency (pegged 1:1 to
+// BIUSD is the platform's internal stable quote currency (pegged 1:1 to
 // USDT, no on-chain contract of its own) — every market trades against it.
-// This swap lets a user move deposit-intake USDC/USDT into tradable USDB
+// This swap lets a user move deposit-intake USDC/USDT into tradable BIUSD
 // manually; real on-chain deposits already convert automatically (see
 // Dex-Backend's chain.Listener), this covers balances credited before that
 // migration or credited directly as USDC/USDT.
 //
 // Direction rules (mirroring the backend's swapDestinations allowlist):
-//   - USDT → USDB and USDC → USDB: allowed, no fee.
-//   - USDB → USDT and USDB → USDC: allowed, 1% conversion fee.
-//   - Direct USDT ↔ USDC is NOT offered (route through USDB instead).
+//   - USDT → BIUSD and USDC → BIUSD: allowed, no fee.
+//   - BIUSD → USDT and BIUSD → USDC: allowed, 1% conversion fee.
+//   - Direct USDT ↔ USDC is NOT offered (route through BIUSD instead).
 const TOKENS: Record<TokenSymbol, Token> = {
   USDC: { symbol: "USDC", name: "USD Coin", color: "#2775CA", textColor: "#fff", icon: "$" },
   USDT: { symbol: "USDT", name: "Tether", color: "#26A17B", textColor: "#fff", icon: "₮" },
-  USDB: { symbol: "USDB", name: "BitDx USD", color: "#7C5CFC", textColor: "#fff", icon: "B" },
+  BIUSD: { symbol: "BIUSD", name: "BitDx USD", color: "#7C5CFC", textColor: "#fff", icon: "B" },
 };
 const TOKEN_LIST = Object.values(TOKENS);
 
@@ -55,20 +55,20 @@ const TOKEN_LIST = Object.values(TOKENS);
 // factor between any pair.
 const SWAP_DECIMALS = 6;
 
-// Fee (in basis points of the source amount) charged on a swap OUT of USDB.
-// Swaps INTO USDB are free.
-const SWAP_FEE_BPS_OUT_OF_USDB = 100; // 1%
+// Fee (in basis points of the source amount) charged on a swap OUT of BIUSD.
+// Swaps INTO BIUSD are free.
+const SWAP_FEE_BPS_OUT_OF_BIUSD = 100; // 1%
 
 // Destinations allowed for each source asset — must match the backend's
 // swapDestinations map in Dex-Backend's /wallet/swap handler.
 const SWAP_DESTINATIONS: Record<TokenSymbol, TokenSymbol[]> = {
-  USDT: ["USDB"],
-  USDC: ["USDB"],
-  USDB: ["USDT", "USDC"],
+  USDT: ["BIUSD"],
+  USDC: ["BIUSD"],
+  BIUSD: ["USDT", "USDC"],
 };
 
 function swapFeeBps(to: TokenSymbol): number {
-  return to === "USDB" ? 0 : SWAP_FEE_BPS_OUT_OF_USDB;
+  return to === "BIUSD" ? 0 : SWAP_FEE_BPS_OUT_OF_BIUSD;
 }
 
 // creditedFor computes the exact destination amount the backend will credit:
@@ -167,7 +167,7 @@ export function SwapDialog({
   onOpenChange: (value: boolean) => void;
 }) {
   const [fromSymbol, setFromSymbol] = useState<TokenSymbol>("USDC");
-  const [toSymbol, setToSymbol] = useState<TokenSymbol>("USDB");
+  const [toSymbol, setToSymbol] = useState<TokenSymbol>("BIUSD");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { balances } = useWallet();
@@ -200,7 +200,7 @@ export function SwapDialog({
 
   // Picking a "From" token that has no legal route to the current "To" snaps
   // "To" to the first allowed destination (there is always exactly one for
-  // USDT/USDC; USDB keeps the current pick when it stays legal).
+  // USDT/USDC; BIUSD keeps the current pick when it stays legal).
   const handleFromChange = (symbol: TokenSymbol) => {
     setFromSymbol(symbol);
     if (!SWAP_DESTINATIONS[symbol].includes(toSymbol)) {
@@ -261,7 +261,7 @@ export function SwapDialog({
             Swap
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Swap USDT or USDC into USDB with no fee, or USDB back into USDT or USDC with a 1% conversion fee.
+            Swap USDT or USDC into BIUSD with no fee, or BIUSD back into USDT or USDC with a 1% conversion fee.
           </DialogDescription>
         </DialogHeader>
 
