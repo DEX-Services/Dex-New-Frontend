@@ -44,7 +44,7 @@ export type WalletBalanceResponse = {
     USDC: string;
     USDT: string;
     BUSD: string;
-    OUR_Token: string;
+    BI: string;
   };
   locked: {
     BTC: string;
@@ -52,7 +52,7 @@ export type WalletBalanceResponse = {
     USDC: string;
     USDT: string;
     BUSD: string;
-    OUR_Token: string;
+    BI: string;
   };
   withdrawalLocked?: {
     BTC: string;
@@ -60,7 +60,7 @@ export type WalletBalanceResponse = {
     USDC: string;
     USDT: string;
     BUSD: string;
-    OUR_Token: string;
+    BI: string;
   };
   token: string;
   amount: string;

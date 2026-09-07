@@ -12,7 +12,7 @@ import {
   type AdminUser, type AdjustBalanceDirection, type AdjustBalanceResult,
 } from "@/lib/adminApi";
 
-const ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSD", "USDC", "USDT", "BUSD", "OUR_Token"];
+const ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSD", "USDC", "USDT", "BUSD", "BI"];
 
 // user_balances stores every asset as a raw integer scaled by 1e6 (see
 // balanceRawScale in AdminServer.toRawUnits, and the same convention in
