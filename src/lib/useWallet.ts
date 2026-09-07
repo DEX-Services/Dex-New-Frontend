@@ -88,7 +88,7 @@ type SendTransactionParams = {
 // USDC/USDT stay listed as deposit-intake assets (a real on-chain deposit
 // lands there first, then converts to BIUSD — see Dex-Backend's
 // chain.Listener), not because they're still tradable quote currencies.
-const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSD", "USDC", "USDT", "BUSD", "BI"] as const;
+const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSD", "USDC", "USDT", "BI"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
@@ -104,7 +104,6 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	BIUSD: 6,
 	USDC: 6,
 	USDT: 6,
-	BUSD: 6,
 	BI: 6,
 };
 
