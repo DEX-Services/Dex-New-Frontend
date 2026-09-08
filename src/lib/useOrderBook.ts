@@ -23,10 +23,36 @@ export function useOrderBook(symbol: string, market: string, levels = 20) {
 
   useEffect(() => {
     refresh();
+    // The order/trade event stream can fire many times per second (the MM
+    // requotes its whole ladder on every 1s index publication). Re-GETting
+    // /depth on EVERY event was the trade page's single largest HTTP cost
+    // (~24 KB/s of book snapshots). Coalescing to at most one refresh per
+    // 500ms keeps the book visually live — the UI can't render faster than
+    // the eye reads anyway — while cutting depth traffic by ~an order of
+    // magnitude under active markets.
+    let inFlight = false;
+    let pending = false;
+    const schedule = () => {
+      if (inFlight) {
+        pending = true;
+        return;
+      }
+      inFlight = true;
+      window.setTimeout(() => {
+        refresh();
+        inFlight = false;
+        if (pending) {
+          pending = false;
+          schedule();
+        }
+      }, 500);
+    };
     const unsub = wsClient.subscribe((evt: WSEvent) => {
-      if (evt.symbol === symbol && evt.market === market) refresh();
+      if (evt.symbol === symbol && evt.market === market) schedule();
     });
-    return unsub;
+    return () => {
+      unsub();
+    };
   }, [symbol, market, refresh]);
 
   return { bids, asks };

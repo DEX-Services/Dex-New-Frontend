@@ -14,15 +14,35 @@ export type WSFunding = {
   rate: string;
   payment: string;
 };
+export type WSTicker = {
+  symbol: string;
+  market: string;
+  bestBid: string;
+  bestAsk: string;
+  midPrice: string;
+  markPrice: string;
+  indexPrice?: string;
+  spread: string;
+  fundingRatePct?: string;
+  makerFeePct?: string;
+  takerFeePct?: string;
+  maintenanceMarginRatePct?: string;
+  change24hPct?: string;
+  volume24h?: string;
+  has24hData?: boolean;
+};
 
 export type WSEvent = {
-  type: string; // ORDER_OPEN | ORDER_PARTIALLY_FILLED | ORDER_FILLED | ORDER_CANCELLED | ORDER_REJECTED | TRADE | FUNDING | LIQUIDATION | ...
+  type: string; // ORDER_OPEN | ORDER_PARTIALLY_FILLED | ORDER_FILLED | ORDER_CANCELLED | ORDER_REJECTED | TRADE | FUNDING | TICKER | ...
   symbol: string;
   market: string;
   sequenceNumber: number;
   order?: WSOrder;
   trade?: WSTrade;
   funding?: WSFunding;
+  // Present only on type === "TICKER": the engine's 1s all-symbols snapshot.
+  tickers?: WSTicker[];
+  timestamp?: number;
 };
 
 type Listener = (evt: WSEvent) => void;
@@ -43,6 +63,10 @@ class WSClient {
   private listeners = new Set<Listener>();
   private gapListeners = new Set<GapListener>();
   private statusListeners = new Set<StatusListener>();
+  /** Latest engine ticker per "symbol|market", updated by 1s TICKER frames.
+   *  Shared store so every hook reads one copy instead of polling HTTP. */
+  private tickers = new Map<string, WSTicker>();
+  private tickListeners = new Set<(tickers: Map<string, WSTicker>) => void>();
 
   private reconnectDelay = BASE_RECONNECT_DELAY;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -106,6 +130,16 @@ class WSClient {
         evt = JSON.parse(e.data);
       } catch {
         return; // ignore malformed frame
+      }
+      if (evt.type === "TICKER" && Array.isArray(evt.tickers)) {
+        // Periodic snapshot frame: merge into the shared store and notify.
+        // Deliberately NOT sequence-checked — it carries no per-symbol
+        // sequence number, and a late frame is still fresh market data.
+        for (const t of evt.tickers) {
+          if (t.symbol && t.market) this.tickers.set(`${t.symbol}|${t.market}`, t);
+        }
+        this.tickListeners.forEach((l) => l(this.tickers));
+        return;
       }
       this.checkSequence(evt);
       this.listeners.forEach((l) => l(evt));
@@ -192,6 +226,26 @@ class WSClient {
     };
   }
 
+  /** Latest ticker snapshot per "symbol|market" (may be empty before the
+   *  first TICKER frame arrives). */
+  getTickers(): Map<string, WSTicker> {
+    return this.tickers;
+  }
+
+  /** Subscribe to 1s all-symbols ticker snapshots. The listener fires
+   *  immediately with the current store, then on every TICKER frame. */
+  subscribeTickers(listener: (tickers: Map<string, WSTicker>) => void) {
+    this.wantConnection = true;
+    this.bindOnline();
+    this.tickListeners.add(listener);
+    this.connect();
+    listener(this.tickers);
+    return () => {
+      this.tickListeners.delete(listener);
+      this.maybeShutdown();
+    };
+  }
+
   /** Subscribe to sequence-gap notifications (stream needs a resync). */
   onGap(listener: GapListener) {
     this.gapListeners.add(listener);
@@ -208,7 +262,7 @@ class WSClient {
   /** Tear the connection down once nothing is listening, so an unmounted app
    *  doesn't keep a socket (and reconnect loop) alive forever. */
   private maybeShutdown() {
-    if (this.listeners.size > 0) return;
+    if (this.listeners.size > 0 || this.tickListeners.size > 0) return;
     this.wantConnection = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

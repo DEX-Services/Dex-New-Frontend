@@ -190,6 +190,16 @@ export function getMarketSummary(symbol: string, market: string) {
   return req<MarketSummaryResponse>(`/market-summary?${params}`);
 }
 
+/**
+ * All registered symbols' summaries in ONE batched request — the engine's
+ * /market-summary returns every book when called without params. This is the
+ * fallback path for the market list; the primary path is the WS TICKER
+ * stream (see useMarkets), which needs no HTTP at all.
+ */
+export function getAllMarketSummaries() {
+  return req<MarketSummaryResponse[]>(`/market-summary`);
+}
+
 export type MarketMetadata = {
   displaySymbol: string;
   symbol: string;
