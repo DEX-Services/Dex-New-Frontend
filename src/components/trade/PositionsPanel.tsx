@@ -223,6 +223,29 @@ export function PositionsPanel({
     // or funding payment refetches immediately, so a position typically
     // updates within milliseconds of the fill instead of waiting up to 5s.
     const interval = setInterval(fetchPositions, 5000);
+    // WS-triggered refetches are coalesced to at most one per 750ms with a
+    // trailing call. The engine's market-maker desks replace their whole
+    // ladder every second, producing a constant stream of FUTURES fill
+    // events visible to every client (see the account-scoping note below);
+    // fetching on EVERY event amplified that storm into a same-rate
+    // getPositions() burst. The throttle keeps fill->display latency under
+    // a second while bounding this panel to ~1.3 requests/s worst case.
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+    let refetchPending = false;
+    const throttledRefetch = () => {
+      if (refetchTimer) {
+        refetchPending = true;
+        return;
+      }
+      fetchPositions();
+      refetchTimer = setTimeout(() => {
+        refetchTimer = null;
+        if (refetchPending) {
+          refetchPending = false;
+          throttledRefetch();
+        }
+      }, 750);
+    };
     const unsubWs = wsClient.subscribe((evt: WSEvent) => {
       // The order-fill stream is a symbol-wide broadcast, not scoped to
       // this account (the engine doesn't tag WS events with an account ID
@@ -235,11 +258,12 @@ export function PositionsPanel({
         (evt.type === "ORDER_FILLED" || evt.type === "ORDER_PARTIALLY_FILLED") &&
         evt.market === "FUTURES";
       const isOwnFunding = evt.type === "FUNDING" && evt.funding?.accountId === account;
-      if (isFillOnFuturesSymbol || isOwnFunding) fetchPositions();
+      if (isFillOnFuturesSymbol || isOwnFunding) throttledRefetch();
     });
     return () => {
       cancelled = true;
       clearInterval(interval);
+      if (refetchTimer) clearTimeout(refetchTimer);
       unsubWs();
     };
   }, [account]);
