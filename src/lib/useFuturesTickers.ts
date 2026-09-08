@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getTicker } from "./apiClient";
 import { registeredFuturesSymbols } from "./backendMarkets";
 import type { Ticker } from "./useTicker";
+import { wsClient, WSEvent } from "./wsClient";
 
 // Batch version of useTicker for every backend-registered FUTURES symbol at
 // once — used by PositionsPanel, which needs a mark price + MMR per
@@ -11,8 +12,14 @@ import type { Ticker } from "./useTicker";
 // This replaces a hardcoded MAINTENANCE_MARGIN_RATE map in backendMarkets.ts
 // that was the only source for the liquidation-price preview and could
 // silently drift from the real symbol_configs value.
+//
+// Live price updates (mid/mark) are driven by the engine's WS TRADE stream,
+// same as useMarkets — the instant a trade prints, not up to BASE_POLL_MS
+// late, and at zero extra request cost per symbol. REST polling below is now
+// a slow backfill for the fields a trade event can't supply (funding rate,
+// MMR, bid/ask spread, index price) and for symbols with no recent trades.
 
-const BASE_POLL_MS = 5000;
+const BASE_POLL_MS = 15000;
 const MAX_POLL_MS = 120000;
 
 function toTicker(res: Awaited<ReturnType<typeof getTicker>>): Ticker {
@@ -86,10 +93,31 @@ export function useFuturesTickers(): Record<string, Ticker> {
     };
 
     void pollAll();
+
+    // symbols is keyed by engine symbol (e.g. "BTC-USDC"), which is exactly
+    // what WSTrade.symbol carries — no frontend<->engine symbol translation
+    // needed here, unlike useMarkets (which is keyed by the display symbol).
+    const tracked = new Set(symbols.map((s) => s.symbol));
+    const unsubWs = wsClient.subscribe((evt: WSEvent) => {
+      if (evt.type !== "TRADE" || !evt.trade || !tracked.has(evt.trade.symbol)) return;
+      const price = Number(evt.trade.price);
+      if (!Number.isFinite(price) || price <= 0) return;
+      if (cancelled) return;
+      setTickers((prev) => {
+        const existing = prev[evt.trade!.symbol];
+        // Don't fabricate a whole Ticker from a bare trade print before the
+        // first REST poll has ever resolved — wait for that to seed the
+        // other fields (funding rate, MMR, spread) at least once.
+        if (!existing) return prev;
+        return { ...prev, [evt.trade!.symbol]: { ...existing, midPrice: price, markPrice: price } };
+      });
+    });
+
     return () => {
       cancelled = true;
       mountedRef.current = false;
       if (timer) clearTimeout(timer);
+      unsubWs();
     };
   }, []);
 
