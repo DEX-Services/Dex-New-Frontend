@@ -12,7 +12,7 @@ import type { Ticker } from "./useTicker";
 // that was the only source for the liquidation-price preview and could
 // silently drift from the real symbol_configs value.
 
-const BASE_POLL_MS = 15000;
+const BASE_POLL_MS = 5000;
 const MAX_POLL_MS = 120000;
 
 function toTicker(res: Awaited<ReturnType<typeof getTicker>>): Ticker {

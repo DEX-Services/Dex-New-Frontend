@@ -8,7 +8,7 @@ let listeners: Set<(m: Market[]) => void> = new Set();
 let markets: Market[] = INITIAL_MARKETS.map(m => ({ ...m }));
 let simulationInterval: ReturnType<typeof setInterval> | null = null;
 let summaryTimer: ReturnType<typeof setTimeout> | null = null;
-const SUMMARY_BASE_MS = 15000;
+const SUMMARY_BASE_MS = 5000;
 const SUMMARY_MAX_MS = 120000;
 let summaryDelay = SUMMARY_BASE_MS;
 
