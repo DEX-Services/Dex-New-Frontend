@@ -1,4 +1,14 @@
-export type WSOrder = { id: string; status: string; filled: string };
+export type WSOrder = {
+  id: string;
+  status: string;
+  filled: string;
+  // Owning account, present on events from engines new enough to serialize
+  // the full order. Lets consumers ignore other accounts' churn (the MM
+  // desks generate a constant stream of fills visible to every client)
+  // without any server round-trip. Optional so a legacy engine payload
+  // still type-checks; consumers must treat "absent" as "unknown".
+  accountId?: string;
+};
 export type WSTrade = {
   id: string;
   symbol: string;
@@ -58,6 +68,13 @@ const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
 const MAX_RECONNECT_DELAY = 30_000;
 const BASE_RECONNECT_DELAY = 1_000;
 
+/** Server control frame: declare which "symbol|market" streams this
+ *  connection wants, so the hub stops broadcasting every market's churn to
+ *  every client. Unsubscribing is deliberately unsupported by the server —
+ *  wants only ever accumulate over a tab's lifetime, which matches how the
+ *  UI actually behaves (markets get visited, rarely "unvisited"). */
+type ServerSubscribeFrame = { action: "subscribe"; streams: string[] };
+
 class WSClient {
   private socket: WebSocket | null = null;
   private listeners = new Set<Listener>();
@@ -67,6 +84,12 @@ class WSClient {
    *  Shared store so every hook reads one copy instead of polling HTTP. */
   private tickers = new Map<string, WSTicker>();
   private tickListeners = new Set<(tickers: Map<string, WSTicker>) => void>();
+  /** "symbol|market" streams this tab has declared interest in, sent to the
+   *  engine as subscribe control frames and re-sent after every reconnect.
+   *  Hooks call wantStreams() whenever their market set changes; wants only
+   *  accumulate over a tab's lifetime, matching how the UI behaves (markets
+   *  get visited, rarely "unvisited"). */
+  private wantedStreams = new Set<string>();
 
   private reconnectDelay = BASE_RECONNECT_DELAY;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -120,6 +143,9 @@ class WSClient {
         return;
       }
       this.reconnectDelay = BASE_RECONNECT_DELAY; // reset backoff on success
+      // Subscription state lives server-side per connection, so every fresh
+      // socket must re-declare what this tab wants.
+      this.sendWants(socket);
       this.setStatus("open");
     };
 
@@ -226,6 +252,38 @@ class WSClient {
     };
   }
 
+  /** Declare interest in additional "symbol|market" streams so the hub can
+   *  stop broadcasting every market's churn to this connection. Fire-and-
+   *  forget and additive-only: a failed/lost control frame degrades to the
+   *  old full-broadcast behavior, and hooks re-declare on every reconnect
+   *  via onopen. Calling with already-wanted streams is a no-op. */
+  wantStreams(streams: string[]) {
+    let added = false;
+    for (const s of streams) {
+      const key = s.toUpperCase();
+      if (key && !this.wantedStreams.has(key)) {
+        this.wantedStreams.add(key);
+        added = true;
+      }
+    }
+    if (added && this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendWants(this.socket);
+    }
+  }
+
+  /** Tell the engine which streams this connection wants. Fire-and-forget:
+   *  worst case the server keeps sending unfiltered frames and hooks filter
+   *  locally, exactly as they did before this protocol existed. */
+  private sendWants(socket: WebSocket) {
+    if (this.wantedStreams.size === 0) return;
+    try {
+      const frame: ServerSubscribeFrame = { action: "subscribe", streams: Array.from(this.wantedStreams) };
+      socket.send(JSON.stringify(frame));
+    } catch {
+      /* a failed control frame must never break the socket */
+    }
+  }
+
   /** Latest ticker snapshot per "symbol|market" (may be empty before the
    *  first TICKER frame arrives). */
   getTickers(): Map<string, WSTicker> {
@@ -270,6 +328,7 @@ class WSClient {
     }
     this.reconnectDelay = BASE_RECONNECT_DELAY;
     this.lastSeq.clear();
+    this.wantedStreams.clear();
     if (this.socket) {
       const s = this.socket;
       this.socket = null;

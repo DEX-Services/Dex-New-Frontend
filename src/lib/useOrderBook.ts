@@ -23,6 +23,9 @@ export function useOrderBook(symbol: string, market: string, levels = 20) {
 
   useEffect(() => {
     refresh();
+    // Subscription filtering: tell the hub this tab only needs events for the
+    // market on screen. Additive and re-declared on reconnect by wsClient.
+    if (symbol && market) wsClient.wantStreams([`${symbol}|${market}`]);
     // The order/trade event stream can fire many times per second (the MM
     // requotes its whole ladder on every 1s index publication). Re-GETting
     // /depth on EVERY event was the trade page's single largest HTTP cost

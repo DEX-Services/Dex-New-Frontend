@@ -247,18 +247,18 @@ export function PositionsPanel({
       }, 750);
     };
     const unsubWs = wsClient.subscribe((evt: WSEvent) => {
-      // The order-fill stream is a symbol-wide broadcast, not scoped to
-      // this account (the engine doesn't tag WS events with an account ID
-      // for order fills — only FUNDING carries accountId) — so this can
-      // trigger on someone else's fill too. That's a harmless extra
-      // getPositions() call (still correctly account-scoped server-side),
-      // not a correctness issue, and it's the best signal available without
-      // adding a new backend event type just for this.
-      const isFillOnFuturesSymbol =
+      // Order events carry the owning account (models.Order serializes
+      // accountId), so refetch only on this account's FUTURES fills — the
+      // MM desks' constant fill churn on other accounts no longer triggers
+      // anything. When accountId is absent (older engine), fall back to any
+      // FUTURES fill rather than miss own fills; the throttle bounds the
+      // cost either way, and the fetch itself is account-scoped server-side.
+      const ownFill =
         (evt.type === "ORDER_FILLED" || evt.type === "ORDER_PARTIALLY_FILLED") &&
-        evt.market === "FUTURES";
+        evt.market === "FUTURES" &&
+        (!evt.order?.accountId || evt.order.accountId === account);
       const isOwnFunding = evt.type === "FUNDING" && evt.funding?.accountId === account;
-      if (isFillOnFuturesSymbol || isOwnFunding) throttledRefetch();
+      if (ownFill || isOwnFunding) throttledRefetch();
     });
     return () => {
       cancelled = true;

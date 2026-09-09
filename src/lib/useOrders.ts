@@ -32,6 +32,28 @@ export function useOrders(account: string) {
     setOrders(Array.from(ordersRef.current.values()));
   }, []);
 
+  // Refetch coalescing: at most one getOrders() per 750ms with a trailing
+  // call. Before this, the WS effect called refetch() on EVERY order event we
+  // didn't already have — and the stream broadcasts all accounts' MM churn
+  // (~9 events/s), so a user with the trade page open re-pulled their whole
+  // order list nearly continuously.
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refetchPending = useRef(false);
+  const throttledRefetch = useCallback(() => {
+    if (refetchTimer.current) {
+      refetchPending.current = true;
+      return;
+    }
+    void refetch();
+    refetchTimer.current = setTimeout(() => {
+      refetchTimer.current = null;
+      if (refetchPending.current) {
+        refetchPending.current = false;
+        throttledRefetch();
+      }
+    }, 750);
+  }, [refetch]);
+
   const applySnapshot = useCallback(
     (list: OpenOrder[]) => {
       // A full refetch is the source of truth: rebuild the map from it, but keep
@@ -68,6 +90,11 @@ export function useOrders(account: string) {
     const unsub = wsClient.subscribe((evt: WSEvent) => {
       if (!evt.order) return;
       const o = evt.order;
+      // Account scoping: ignore events belonging to other accounts (the
+      // engine tags orders with accountId; the MM desks' churn then never
+      // reaches this hook at all). If accountId is absent (older engine),
+      // fall through — can't distinguish, so keep the old behavior.
+      if (o.accountId && o.accountId !== account) return;
       const map = ordersRef.current;
       if (TERMINAL.has(o.status)) {
         if (map.delete(o.id)) publish();
@@ -78,24 +105,34 @@ export function useOrders(account: string) {
         map.set(o.id, { ...existing, filled: o.filled, status: o.status });
       } else {
         // We learned about an order we didn't have (e.g. placed on another
-        // device/tab). We only have partial fields from the event; refetch to
-        // fill in the rest authoritatively rather than render a half-order.
-        void refetch();
+        // device/tab). We only have partial fields from the event; refetch
+        // to fill in the rest authoritatively rather than render a
+        // half-order. Coalesced so a burst still costs one request.
+        throttledRefetch();
         return;
       }
       publish();
     });
     return unsub;
-  }, [publish, refetch]);
+  }, [publish, refetch, throttledRefetch, account]);
+
+  // Subscription filtering: request the streams this account actively trades
+  // on (initial load + as orders are observed), so the hub can stop fanning
+  // out all markets' churn to this tab. Additive-only and re-sent on
+  // reconnect by wsClient itself.
+  useEffect(() => {
+    const streams = Array.from(ordersRef.current.values()).map((o) => `${o.symbol}|${o.market}`);
+    if (streams.length > 0) wsClient.wantStreams(streams);
+  }, [orders]);
 
   // A sequence gap means we dropped WS events and our local view may be stale:
-  // resync from the authoritative HTTP endpoint.
+  // resync from the authoritative HTTP endpoint (throttled like the rest).
   useEffect(() => {
     const unsub = wsClient.onGap(() => {
-      void refetch();
+      throttledRefetch();
     });
     return unsub;
-  }, [refetch]);
+  }, [throttledRefetch]);
 
   const place = useCallback(
     async (p: Omit<SubmitOrderParams, "account">) => {
