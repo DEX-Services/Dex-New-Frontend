@@ -68,3 +68,5 @@ pids/
 .turbo/
 dist-ssr/
 .claude/
+# Vite dep-optimizer temp files
+vite.config.ts.timestamp-*.mjs
