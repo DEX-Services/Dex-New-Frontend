@@ -53,12 +53,18 @@ export function TradePanel({
   const baseBalance = walletState.balances.find((b) => b.asset === baseAsset)?.available ?? 0;
   // Buys spend quote currency; spot sells spend the purchased base asset.
   const BALANCE = isSpotSell ? baseBalance : quoteBalance;
+  // Real per-instrument options fee from the engine's /option-chain
+  // response (symbol_configs, market=OPTIONS) — previously a hardcoded
+  // 0.001 literal disconnected from actual fee configuration. Defaults to
+  // that same 0.001 (0.1%) until the chain has loaded once, so there's no
+  // flash of a $0 fee before the first fetch resolves.
+  const [optionsTakerFeePct, setOptionsTakerFeePct] = useState(0.1);
   // A spot buy's fee-inclusive engine reservation (orderValue * (1 +
   // feeRate); see submit.go) means the max quote spendable at 100% is
   // BALANCE / (1 + feeRate), not BALANCE itself. Computed here, ahead of
   // sizeInput's own state, so the displayed size box and the actual order
   // math (sizeUsd below) never disagree.
-  const feeRate = isOptions ? 0.001 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
+  const feeRate = isOptions ? optionsTakerFeePct / 100 : Number(marketMetadata?.takerFeePct ?? 0) / 100;
   const maxSpendable = isSpotBuy ? BALANCE / (1 + feeRate) : BALANCE;
   const leverageInputRef = useRef<HTMLInputElement>(null);
   const sizeInputRef = useRef<HTMLInputElement>(null);
@@ -147,7 +153,12 @@ export function TradePanel({
     if (!backendOptions) return;
     let cancelled = false;
     getOptionChain(backendOptions.symbol)
-      .then((res) => { if (!cancelled) setChain(res.chain); })
+      .then((res) => {
+        if (cancelled) return;
+        setChain(res.chain);
+        const pct = Number(res.takerFeePct);
+        if (Number.isFinite(pct) && pct >= 0) setOptionsTakerFeePct(pct);
+      })
       .catch(() => { if (!cancelled) setChain([]); });
     return () => { cancelled = true; };
   }, [mode, baseAsset]);
@@ -214,7 +225,24 @@ export function TradePanel({
     ? side === "buy" ? parseFloat(chainMatch.ask) : parseFloat(chainMatch.bid)
     : modeledPremium;
   const optionPriceType = chainMatch ? (side === "buy" ? "Ask" : "Bid") : "Est.";
-  const contracts = sizePct / 10;
+  // Contracts sized off the dollar amount the user actually dialed in via
+  // the shared Size box/slider (sizeUsd, same one spot/futures use) divided
+  // by the per-contract cost — previously `sizePct / 10`, a flat formula
+  // giving 0.1-10 contracts regardless of account balance, option price, or
+  // strike, completely disconnected from what the user could actually
+  // afford or what the engine would actually require.
+  //
+  // Buyer's per-contract cost is the premium itself (optionPrice). Writer
+  // (seller) collateral is approximated here as the full cash-secured
+  // strike*1 — the same conservative worst case the engine used before the
+  // margin-floor model (risk.shortOptionMargin) landed. The floor model can
+  // only *reduce* the writer's real requirement from that number depending
+  // on live spot/premium the frontend doesn't replicate exactly, so sizing
+  // off the conservative floor here never lets the size box promise more
+  // contracts than the account can actually afford — it can only be
+  // pleasantly surprised that less margin was actually locked.
+  const perContractCost = side === "buy" ? optionPrice : strikeNum;
+  const contracts = perContractCost > 0 ? sizeUsd / perContractCost : 0;
   const optionTotal = optionPrice * contracts;
 
   const handleSubmit = async (confirmedMarketOrder = false) => {
@@ -677,7 +705,9 @@ export function TradePanel({
         <div>
           <div className="flex justify-between text-xs text-muted-foreground mb-1">
             <span>Size</span>
-            <span className="font-mono">{positionSize.toFixed(quantityDecimals)} {baseAsset}</span>
+            <span className="font-mono">
+              {isOptions ? `${contracts.toFixed(2)} contracts` : `${positionSize.toFixed(quantityDecimals)} ${baseAsset}`}
+            </span>
           </div>
           <div className="flex gap-1 mb-1">
             <Input

@@ -16,6 +16,7 @@ import {
   Info,
   LineChart,
   RefreshCcw,
+  Scale,
   Settings2,
   SlidersHorizontal,
   Snowflake,
@@ -36,7 +37,7 @@ import {
   type BotTemplate,
 } from "@/lib/botsApi";
 
-type BotCategory = "All" | "Spot" | "Futures";
+type BotCategory = "All" | "Spot" | "Futures" | "Options";
 
 // Fallback template metadata (title/desc/icon) used if the templates API is
 // unreachable, so the page still renders. The API is the source of truth for
@@ -65,6 +66,7 @@ const TEMPLATE_ICONS: Record<string, LucideIcon> = {
   spot_algo: Settings2,
   futures_twap: BarChart3,
   futures_vp: SlidersHorizontal,
+  options_market_maker: Scale,
 };
 
 export default function TradingBots() {
@@ -175,7 +177,7 @@ export default function TradingBots() {
           <section className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex gap-6">
-                {(["All", "Spot", "Futures"] as const).map((item) => (
+                {(["All", "Spot", "Futures", "Options"] as const).map((item) => (
                   <button
                     key={item}
                     onClick={() => setCategory(item)}

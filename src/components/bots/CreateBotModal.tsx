@@ -32,7 +32,13 @@ export function CreateBotModal({
 
   if (!template) return null;
 
-  const market: BotMarket = template.category === "Spot" ? "SPOT" : "FUTURES";
+  // Previously a hardcoded binary (Spot -> SPOT, else -> FUTURES), which
+  // silently mis-submitted any Options-category template as FUTURES — the
+  // backend's validateMarketStrategy then rejected it outright (an
+  // "options_" strategy key requires market OPTIONS), so no Options template
+  // could ever actually be created from this modal.
+  const market: BotMarket =
+    template.category === "Spot" ? "SPOT" : template.category === "Options" ? "OPTIONS" : "FUTURES";
 
   const submit = async () => {
     setError(null);

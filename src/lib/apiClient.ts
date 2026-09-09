@@ -422,6 +422,10 @@ export type OptionChainResponse = {
   underlying: string;
   spot: string;
   chain: OptionChainEntry[];
+  // Real per-instrument fee from the engine's symbol_configs (market=OPTIONS),
+  // same percentage-string convention as MarketMetadata.makerFeePct/takerFeePct.
+  makerFeePct: string;
+  takerFeePct: string;
 };
 
 export function getOptionChain(underlying: string) {
