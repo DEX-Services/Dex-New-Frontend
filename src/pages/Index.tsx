@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MarketList } from "@/components/trade/MarketList";
 import { TradingChart } from "@/components/trade/TradingChart";
@@ -12,11 +12,12 @@ import { cn } from "@/lib/utils";
 import { PanelGroup, Panel, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { Calculator, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, BarChart2, BookOpen, ArrowLeftRight, List, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { generateOptionChain, formatCompact, formatPrice, OptionContract } from "@/lib/mockData";
-import { backendMarketFor } from "@/lib/backendMarkets";
+import { formatPrice } from "@/lib/mockData";
+import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
 import { useOrders } from "@/lib/useOrders";
 import { useAccount } from "@/lib/account";
+import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
 
 // ─── Default sizes ────────────────────────────────────────────────────────────
 const DEFAULT_COL_SIZES = [14, 66, 20];
@@ -131,9 +132,9 @@ function DraggableCard({
 interface OptionWorkspaceProps {
   symbol: string;
   price: number;
-  contracts: OptionContract[];
-  selectedOption: OptionContract | null;
-  onSelectOption: (contract: OptionContract) => void;
+  contracts: OptionChainEntry[];
+  selectedOption: OptionChainEntry | null;
+  onSelectOption: (contract: OptionChainEntry) => void;
 }
 
 function OptionWorkspace({ symbol, price, contracts, selectedOption, onSelectOption }: OptionWorkspaceProps) {
@@ -167,24 +168,29 @@ function OptionChainTable({
   selectedOption,
   onSelectOption,
 }: {
-  contracts: OptionContract[];
+  contracts: OptionChainEntry[];
   underlyingPrice: number;
-  selectedOption: OptionContract | null;
-  onSelectOption: (contract: OptionContract) => void;
+  selectedOption: OptionChainEntry | null;
+  onSelectOption: (contract: OptionChainEntry) => void;
 }) {
-  const lastUpdated = contracts[0]?.updatedAt
-    ? new Date(contracts[0].updatedAt).toLocaleTimeString("en-US", { hour12: false })
-    : "--:--:--";
-  const expiries = Array.from(new Set(contracts.map(contract => contract.expiry)));
+  const [lastUpdated, setLastUpdated] = useState(() => new Date().toLocaleTimeString("en-US", { hour12: false }));
+  useEffect(() => {
+    setLastUpdated(new Date().toLocaleTimeString("en-US", { hour12: false }));
+  }, [contracts]);
+  // Expiry is an RFC3339 timestamp from the backend chain — group/sort by
+  // it directly, display the date portion (e.g. "2025-01-15").
+  const expiries = Array.from(new Set(contracts.map(contract => contract.expiry))).sort();
   const rows = expiries.flatMap(expiry => {
-    const byStrike = new Map<number, { call?: OptionContract; put?: OptionContract }>();
+    const byStrike = new Map<number, { call?: OptionChainEntry; put?: OptionChainEntry }>();
 
     contracts
       .filter(contract => contract.expiry === expiry)
       .forEach(contract => {
-        const pair = byStrike.get(contract.strike) ?? {};
-        pair[contract.type] = contract;
-        byStrike.set(contract.strike, pair);
+        const strikeNum = parseFloat(contract.strike);
+        const pair = byStrike.get(strikeNum) ?? {};
+        if (contract.optionType === "CALL") pair.call = contract;
+        else pair.put = contract;
+        byStrike.set(strikeNum, pair);
       });
 
     return Array.from(byStrike.entries())
@@ -197,14 +203,11 @@ function OptionChainTable({
     return underlyingPrice >= row.strike && underlyingPrice < next.strike;
   });
 
-  const contractButtonClass = (contract?: OptionContract) => cn(
+  const contractKey = (contract?: OptionChainEntry) => contract && `${contract.symbol}`;
+  const contractButtonClass = (contract?: OptionChainEntry) => cn(
     "grid grid-cols-[0.85fr_0.8fr_0.85fr_0.95fr_0.85fr] gap-2 rounded-md px-2 py-1.5 text-left transition-colors",
     contract ? "hover:bg-muted/40" : "pointer-events-none opacity-30",
-    contract && selectedOption?.id === contract.id && "bg-primary/15 ring-1 ring-primary/40"
-  );
-  const changeClass = (contract?: OptionContract) => cn(
-    "text-right font-mono text-[10px]",
-    !contract ? "text-muted-foreground" : contract.change24h >= 0 ? "text-buy" : "text-sell"
+    contract && selectedOption?.symbol === contract.symbol && "bg-primary/15 ring-1 ring-primary/40"
   );
 
   return (
@@ -221,6 +224,11 @@ function OptionChainTable({
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden text-[10px]">
+        {contracts.length === 0 ? (
+          <div className="flex h-full items-center justify-center px-4 py-10 text-center text-xs text-muted-foreground">
+            No live option contracts for this underlying yet.
+          </div>
+        ) : (
         <div>
           <div className="grid grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] items-center border-b border-border/50 bg-muted/20 px-3 py-2 text-xs font-bold uppercase">
             <span className="text-buy">Calls</span>
@@ -229,19 +237,19 @@ function OptionChainTable({
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_82px_minmax(0,1fr)] gap-2 border-b border-border/50 px-3 py-1.5 text-[9px] uppercase text-muted-foreground">
             <div className="grid grid-cols-[0.85fr_0.8fr_0.85fr_0.95fr_0.85fr] gap-2">
-              <span className="text-right">Open</span>
               <span className="text-right">Delta</span>
+              <span className="text-right">IV</span>
               <span className="text-right">Bid</span>
-              <span className="text-right">Mark</span>
+              <span className="text-right">Mid</span>
               <span className="text-right">Ask</span>
             </div>
             <span className="text-center">Exp</span>
             <div className="grid grid-cols-[0.85fr_0.95fr_0.85fr_0.8fr_0.85fr] gap-2">
               <span className="text-right">Ask</span>
-              <span className="text-right">Mark</span>
+              <span className="text-right">Mid</span>
               <span className="text-right">Bid</span>
+              <span className="text-right">IV</span>
               <span className="text-right">Delta</span>
-              <span className="text-right">Open</span>
             </div>
           </div>
 
@@ -259,18 +267,16 @@ function OptionChainTable({
                     onClick={() => call && onSelectOption(call)}
                     className={contractButtonClass(call)}
                   >
-                    <span className="text-right font-mono text-muted-foreground">{call ? formatCompact(call.openInterest) : "--"}</span>
                     <span className="text-right font-mono text-muted-foreground">{call ? call.delta.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-buy">{call ? call.bid.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-primary">{call ? call.mark.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-sell">{call ? call.ask.toFixed(2) : "--"}</span>
-                    <span className="col-span-2 text-[9px] text-muted-foreground">IV {call ? call.iv.toFixed(1) : "--"}%</span>
-                    <span className={cn("col-span-3", changeClass(call))}>{call ? `${call.change24h >= 0 ? "+" : ""}${call.change24h.toFixed(2)}%` : "--"}</span>
+                    <span className="text-right font-mono text-muted-foreground">{call ? `${call.iv.toFixed(1)}%` : "--"}</span>
+                    <span className="text-right font-mono text-buy">{call ? parseFloat(call.bid).toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-primary">{call ? parseFloat(call.mid).toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-sell">{call ? parseFloat(call.ask).toFixed(2) : "--"}</span>
                   </button>
 
                   <div className="flex flex-col items-center justify-center rounded-md bg-muted/35 px-2 text-center">
                     <span className="font-mono text-sm font-bold">{formatPrice(row.strike)}</span>
-                    <span className="text-[10px] text-muted-foreground">{row.expiry}</span>
+                    <span className="text-[10px] text-muted-foreground">{row.expiry.slice(0, 10)}</span>
                   </div>
 
                   <button
@@ -279,13 +285,11 @@ function OptionChainTable({
                     onClick={() => put && onSelectOption(put)}
                     className={contractButtonClass(put)}
                   >
-                    <span className="text-right font-mono text-sell">{put ? put.ask.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-primary">{put ? put.mark.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-buy">{put ? put.bid.toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-sell">{put ? parseFloat(put.ask).toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-primary">{put ? parseFloat(put.mid).toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-buy">{put ? parseFloat(put.bid).toFixed(2) : "--"}</span>
+                    <span className="text-right font-mono text-muted-foreground">{put ? `${put.iv.toFixed(1)}%` : "--"}</span>
                     <span className="text-right font-mono text-muted-foreground">{put ? put.delta.toFixed(2) : "--"}</span>
-                    <span className="text-right font-mono text-muted-foreground">{put ? formatCompact(put.openInterest) : "--"}</span>
-                    <span className="col-span-2 text-[9px] text-muted-foreground">IV {put ? put.iv.toFixed(1) : "--"}%</span>
-                    <span className={cn("col-span-3", changeClass(put))}>{put ? `${put.change24h >= 0 ? "+" : ""}${put.change24h.toFixed(2)}%` : "--"}</span>
                   </button>
                 </div>
                 {index === priceLineIndex && (
@@ -300,6 +304,7 @@ function OptionChainTable({
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
@@ -587,7 +592,7 @@ function ResultRow({ label, value, valueClass }: { label: string; value: string;
 interface RightColumnProps {
   symbol: string;
   price: number;
-  selectedOption?: OptionContract | null;
+  selectedOption?: OptionChainEntry | null;
   onTradeModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
 }
@@ -812,24 +817,37 @@ const Index = () => {
   // while the order entry panel below it defaulted to a stale mock value.
   const price = useLivePrice(symbol);
   const isMobile = useIsMobile();
-  // Options execution is hidden from this delivery (plan.md 5.1): the
-  // option workspace previously rendered here called generateOptionChain()
-  // (fabricated contracts) while the real order-entry panel called the
-  // backend's actual option chain — two disagreeing sources for "the"
-  // option chain. optionLayoutActive is now hardcoded false so neither the
-  // mock chain nor the OptionWorkspace UI can activate; the underlying
-  // market-category/tradeMode plumbing is left in place, unused, so this is
-  // a one-line, easily-revertible gate rather than a structural rewrite,
-  // per plan.md 5.1 item 3 ("preserve the existing code without extending
-  // it; revisit with a dedicated options specification").
+  // Options were previously hidden (plan.md 5.1) because the visible option
+  // workspace called generateOptionChain() (fabricated contracts) while the
+  // real order-entry panel called the backend's actual option chain — two
+  // disagreeing sources for "the" option chain. Both sides now read the
+  // same source: the backend's real /option-chain, fetched below and
+  // threaded through to both OptionWorkspace and TradePanel. The layout
+  // only activates for markets the backend actually has an options chain
+  // for (baseAsset resolves via backendOptionsMarketFor) — e.g. BTC-OPT —
+  // not the other options rows in mockData that have no backend chain.
   const isOptionsMarket = market?.category === "options";
+  const baseAsset = market?.base ?? symbol.split("-")[0] ?? "";
+  const backendOptions = backendOptionsMarketFor(baseAsset);
   const [tradeMode, setTradeMode] = useState<MarketMode>("spot");
-  const optionLayoutActive = false;
-  const optionContracts = useMemo(
-    () => optionLayoutActive ? generateOptionChain(symbol, price) : [],
-    [optionLayoutActive, symbol, price]
-  );
-  const [selectedOption, setSelectedOption] = useState<OptionContract | null>(null);
+  const optionLayoutActive = isOptionsMarket && !!backendOptions;
+  const [optionContracts, setOptionContracts] = useState<OptionChainEntry[]>([]);
+  useEffect(() => {
+    if (!optionLayoutActive || !backendOptions) {
+      setOptionContracts([]);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      getOptionChain(backendOptions.symbol)
+        .then((res) => { if (!cancelled) setOptionContracts(res.chain); })
+        .catch(() => { if (!cancelled) setOptionContracts([]); });
+    };
+    load();
+    const interval = setInterval(load, 10_000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [optionLayoutActive, backendOptions?.symbol]);
+  const [selectedOption, setSelectedOption] = useState<OptionChainEntry | null>(null);
 
   const [slots, setSlots] = useState<[PanelId, PanelId, PanelId]>(["marketList", "chart", "positions"]);
   const leftPanelSizeRef = useRef(DEFAULT_COL_SIZES[0]);
@@ -859,9 +877,14 @@ const Index = () => {
     }
 
     setSelectedOption(current => {
+      const calls = optionContracts.filter(c => c.optionType === "CALL");
       const next = current
-        ? optionContracts.find(contract => contract.id === current.id)
-        : optionContracts.find(contract => contract.type === "call" && Math.abs(contract.strike - price) === Math.min(...optionContracts.filter(c => c.type === "call").map(c => Math.abs(c.strike - price))));
+        ? optionContracts.find(contract => contract.symbol === current.symbol)
+        : calls.length > 0
+          ? calls.reduce((closest, c) =>
+              Math.abs(parseFloat(c.strike) - price) < Math.abs(parseFloat(closest.strike) - price) ? c : closest
+            )
+          : undefined;
       return next ?? optionContracts[0] ?? null;
     });
   }, [optionLayoutActive, optionContracts, price]);

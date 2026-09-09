@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { formatPrice, OptionContract } from "@/lib/mockData";
+import { formatPrice } from "@/lib/mockData";
 import { TrendingUp, TrendingDown, Info, Zap, Shield, Calculator, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ export function TradePanel({
 }: {
   symbol: string;
   price: number;
-  selectedOption?: OptionContract | null;
+  selectedOption?: OptionChainEntry | null;
   onModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
 }) {
@@ -110,15 +110,17 @@ export function TradePanel({
   const [chain, setChain] = useState<OptionChainEntry[]>([]);
   const editedStrikeRef = useRef(false);
 
-  // Options trading is hidden from this delivery (plan.md 5.1) — the
-  // Options tab above is disabled, so this effect is intentionally a no-op
-  // rather than force-switching into a mode the UI no longer allows
-  // selecting. Index.tsx also no longer activates the options layout or
-  // passes a selectedOption, so selectedOption is expected to always be
-  // undefined here; this guard just keeps the two in agreement even if that
-  // assumption is ever violated by a future caller.
+  // A contract picked from Index.tsx's option-chain table drives the entry
+  // form directly: switch into Options mode and prefill strike/type/side so
+  // clicking a bid/ask cell in the chain is a one-click way to start that
+  // order, rather than requiring the user to re-enter the same strike here.
   useEffect(() => {
     if (!selectedOption) return;
+    setMode("options");
+    onModeChange?.("options");
+    setOptType(selectedOption.optionType === "CALL" ? "call" : "put");
+    editedStrikeRef.current = true;
+    setStrike(selectedOption.strike);
   }, [selectedOption]);
 
   // Same staleness bug as limitPrice: the initial useState only reads
@@ -200,21 +202,18 @@ export function TradePanel({
   const intrinsic = optType === "call" ? Math.max(0, price - strikeNum) : Math.max(0, strikeNum - price);
   const timeValue = price * 0.02 * Math.sqrt(days / 30);
   const modeledPremium = intrinsic + timeValue;
+  // chainMatch is the single source of truth for "the" contract at the
+  // current strike/type — it comes from the same getOptionChain() fetch
+  // that populates Index.tsx's chain table (via selectedOption above), so
+  // there's no separate selectedOption-vs-chain reconciliation needed.
   const chainMatch = chain.find(
     (c) => c.optionType === optType.toUpperCase() && Math.abs(parseFloat(c.strike) - strikeNum) < 0.000001
   );
-  const selectedOptionMatches =
-    selectedOption &&
-    selectedOption.type === optType &&
-    selectedOption.expiry === expiry &&
-    Math.abs(selectedOption.strike - strikeNum) < 0.000001;
-  const activeOption = selectedOptionMatches ? selectedOption : null;
+  const activeOption = chainMatch ?? null;
   const optionPrice = chainMatch
     ? side === "buy" ? parseFloat(chainMatch.ask) : parseFloat(chainMatch.bid)
-    : activeOption
-      ? side === "buy" ? activeOption.ask : activeOption.bid
-      : modeledPremium;
-  const optionPriceType = chainMatch || activeOption ? (side === "buy" ? "Ask" : "Bid") : "Est.";
+    : modeledPremium;
+  const optionPriceType = chainMatch ? (side === "buy" ? "Ask" : "Bid") : "Est.";
   const contracts = sizePct / 10;
   const optionTotal = optionPrice * contracts;
 
@@ -436,16 +435,19 @@ export function TradePanel({
           <TabsList className="grid grid-cols-3 h-8 bg-muted/30 w-full rounded-lg p-0.5">
             <TabsTrigger value="spot" className="h-7 text-xs font-semibold rounded-md">Spot</TabsTrigger>
             <TabsTrigger value="futures" className="h-7 text-xs font-semibold rounded-md">Futures</TabsTrigger>
-            {/* Options execution is hidden from this delivery (plan.md 5.1):
-                the visible option workspace generated fake contracts via
-                generateOptionChain() while order entry used a separate real
-                backend chain — two disagreeing sources of "the" option
-                chain. Disabled here (not removed) so the mode/order-entry
-                code underneath doesn't need to change; Index.tsx also never
-                activates the options layout or passes a selectedOption, so
-                this tab is unreachable in practice as well as disabled. */}
-            <TabsTrigger value="options" disabled className="h-7 text-xs font-semibold rounded-md opacity-50 cursor-not-allowed" title="Options trading is coming soon">
-              Options <span className="ml-1 text-[9px] text-muted-foreground">soon</span>
+            {/* Options execution: order entry and Index.tsx's chain table
+                both read the same backend source (getOptionChain) now, so
+                the two-sources-of-truth problem that justified hiding this
+                tab (plan.md 5.1) no longer applies. Only enabled for
+                underlyings the backend actually has an option chain for
+                (backendOptionsMarketFor) — currently BTC. */}
+            <TabsTrigger
+              value="options"
+              disabled={!backendOptionsMarketFor(baseAsset)}
+              className="h-7 text-xs font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              title={backendOptionsMarketFor(baseAsset) ? undefined : "Options aren't available for this underlying yet"}
+            >
+              Options
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -753,7 +755,7 @@ export function TradePanel({
             <Row label={`${optionPriceType} price`} value={`$${optionPrice.toFixed(2)}`} valueClass="text-primary" />
             {activeOption && (
               <>
-                <Row label="Bid / Ask" value={`$${activeOption.bid.toFixed(2)} / $${activeOption.ask.toFixed(2)}`} />
+                <Row label="Bid / Ask" value={`$${parseFloat(activeOption.bid).toFixed(2)} / $${parseFloat(activeOption.ask).toFixed(2)}`} />
                 <Row label="IV" value={`${activeOption.iv.toFixed(1)}%`} />
               </>
             )}
