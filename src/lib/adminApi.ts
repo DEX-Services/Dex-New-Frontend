@@ -19,6 +19,27 @@ async function adminReq<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** A market the matching engine is currently refusing orders on. A settlement
+ *  failure halts a symbol for every account trading it, so this is an outage,
+ *  not a per-user problem. */
+export type HaltedSymbol = {
+  symbol: string;
+  market: string;
+  reason: string;
+  note: string;
+};
+
+export function listHaltedSymbols() {
+  return adminReq<{ halted: HaltedSymbol[] }>("/admin/halted");
+}
+
+export function resumeSymbol(symbol: string, market: string) {
+  return adminReq<{ symbol: string; market: string; status: string }>("/admin/resume", {
+    method: "POST",
+    body: JSON.stringify({ symbol, market }),
+  });
+}
+
 export type AdminTokenTotal = {
   token: string;
   amount: string;
