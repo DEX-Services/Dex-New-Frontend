@@ -32,28 +32,6 @@ export function useOrders(account: string) {
     setOrders(Array.from(ordersRef.current.values()));
   }, []);
 
-  // Refetch coalescing: at most one getOrders() per 750ms with a trailing
-  // call. Before this, the WS effect called refetch() on EVERY order event we
-  // didn't already have — and the stream broadcasts all accounts' MM churn
-  // (~9 events/s), so a user with the trade page open re-pulled their whole
-  // order list nearly continuously.
-  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refetchPending = useRef(false);
-  const throttledRefetch = useCallback(() => {
-    if (refetchTimer.current) {
-      refetchPending.current = true;
-      return;
-    }
-    void refetch();
-    refetchTimer.current = setTimeout(() => {
-      refetchTimer.current = null;
-      if (refetchPending.current) {
-        refetchPending.current = false;
-        throttledRefetch();
-      }
-    }, 750);
-  }, [refetch]);
-
   const applySnapshot = useCallback(
     (list: OpenOrder[]) => {
       // A full refetch is the source of truth: rebuild the map from it, but keep
@@ -77,6 +55,28 @@ export function useOrders(account: string) {
         /* leave last-known state in place on failure */
       });
   }, [account, applySnapshot]);
+
+  // Refetch coalescing: at most one getOrders() per 750ms with a trailing
+  // call. Before this, the WS effect called refetch() on EVERY order event we
+  // didn't already have — and the stream broadcasts all accounts' MM churn
+  // (~9 events/s), so a user with the trade page open re-pulled their whole
+  // order list nearly continuously.
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refetchPending = useRef(false);
+  const throttledRefetch = useCallback(() => {
+    if (refetchTimer.current) {
+      refetchPending.current = true;
+      return;
+    }
+    void refetch();
+    refetchTimer.current = setTimeout(() => {
+      refetchTimer.current = null;
+      if (refetchPending.current) {
+        refetchPending.current = false;
+        throttledRefetch();
+      }
+    }, 750);
+  }, [refetch]);
 
   // Initial load + reload when the account changes.
   useEffect(() => {

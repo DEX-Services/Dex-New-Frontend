@@ -32,6 +32,7 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminProfile from "./pages/AdminProfile.tsx";
 import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
+import AdminSpreadControl from "./pages/AdminSpreadControl.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
@@ -114,6 +115,7 @@ const App = () => (
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/market-makers" element={<AdminMarketMakers />} />
             <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
+            <Route path="/admin/market-makers/spread" element={<AdminSpreadControl />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
             <Route path="/admin/profile" element={<AdminProfile />} />

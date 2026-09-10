@@ -595,13 +595,22 @@ interface RightColumnProps {
   selectedOption?: OptionChainEntry | null;
   onTradeModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
+  optionLayoutActive?: boolean;
 }
 
-function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders }: RightColumnProps) {
+function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders, optionLayoutActive }: RightColumnProps) {
   const [obOpen, setObOpen] = useState(true);
   const [tab, setTab] = useState<"book" | "trades">("book");
   const orderBookPanelRef = useRef<ImperativePanelHandle>(null);
-  const backendMarket = backendMarketFor(symbol);
+  // In options mode the order book/trades are for the SELECTED CONTRACT
+  // (its own OPTIONS-market symbol), not the underlying spot/futures pair —
+  // backendMarketFor("BTC-BIUSD") would resolve fine but shows the wrong
+  // market's book entirely. Fall through to the selected contract's own
+  // instrument symbol so the book reflects what the user is actually
+  // trading; with nothing selected yet there's simply nothing to show.
+  const backendMarket = optionLayoutActive
+    ? (selectedOption ? { symbol: selectedOption.symbol, market: "OPTIONS" } : null)
+    : backendMarketFor(symbol);
 
   const toggleOrderBook = useCallback(() => {
     const panel = orderBookPanelRef.current;
@@ -723,8 +732,14 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders 
         >
           {!backendMarket ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-1 py-10 text-center text-xs text-muted-foreground">
-              <span className="text-sm font-semibold text-foreground">Trading not available</span>
-              <span>This market isn't live on the exchange yet.</span>
+              <span className="text-sm font-semibold text-foreground">
+                {optionLayoutActive ? "Select a contract" : "Trading not available"}
+              </span>
+              <span>
+                {optionLayoutActive
+                  ? "Pick a strike from the option chain to see its order book."
+                  : "This market isn't live on the exchange yet."}
+              </span>
             </div>
           ) : tab === "book" ? (
             <div className="flex-1 flex flex-col text-[10px] font-mono overflow-hidden min-h-0">
@@ -1061,6 +1076,7 @@ const Index = () => {
               selectedOption={selectedOption}
               onTradeModeChange={setTradeMode}
               orders={orders}
+              optionLayoutActive={optionLayoutActive}
             />
           </Panel>
 
