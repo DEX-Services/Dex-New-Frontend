@@ -22,15 +22,26 @@ import { Link } from "react-router-dom";
 
 type MarketIcon = ComponentType<{ className?: string }>;
 
-const ASSET_TABS: { id: AssetClass | "all"; label: string; icon: MarketIcon; kinds: (MarketKind | "all")[] }[] = [
+// comingSoon: crypto-only for the current launch (2026-09-11 product
+// decision) — see MarketList.tsx's identical flag for the full explanation
+// of what's disabled-not-deleted underneath these tabs.
+const ASSET_TABS: { id: AssetClass | "all"; label: string; icon: MarketIcon; kinds: (MarketKind | "all")[]; comingSoon?: boolean }[] = [
   { id: "all", label: "All", icon: Flame, kinds: ["all"] },
   { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["all", "spot", "perp", "options"] },
-  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["all", "perp"] },
-  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["all", "perp"] },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "perp", "options"] },
+  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["all", "perp"], comingSoon: true },
+  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["all", "perp"], comingSoon: true },
+  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "perp", "options"], comingSoon: true },
 ];
 
 const KIND_LABEL: Record<string, string> = { all: "All", spot: "Spot", perp: "Future", options: "Options" };
+
+// Options trading is DISABLED (2026-09-11 product decision: crypto
+// spot/futures only for the current launch) — see MarketList.tsx's identical
+// flag and matching-engine/cmd/engine/markets.go's optionsEnabled for the
+// backend-side gate. Options is a MarketKind under the Crypto asset class,
+// not its own asset class, so it needs its own set here alongside
+// comingSoonAssets below.
+const COMING_SOON_KINDS = new Set<MarketKind>(["options"]);
 
 const Markets = () => {
   const { markets, loading, error } = useMarketIndexes();
@@ -39,13 +50,25 @@ const Markets = () => {
   const [kind, setKind] = useState<MarketKind | "all">("all");
   const activeAsset = ASSET_TABS.find((item) => item.id === asset)!;
 
+  const comingSoonAssets = useMemo(
+    () => new Set(ASSET_TABS.filter((item) => item.comingSoon).map((item) => item.id)),
+    []
+  );
+
   const filtered = useMemo(() => {
-    let list = markets;
+    // Coming-soon asset classes AND kinds are excluded everywhere, including
+    // "All" — Price-Fetcher no longer prices non-crypto instruments
+    // (DefaultInstruments is empty) and options order submission is rejected
+    // engine-side, so these would otherwise show as permanently
+    // "unavailable"/tradable-looking rather than being cleanly absent.
+    let list = markets.filter(
+      (market) => !comingSoonAssets.has(market.asset) && !COMING_SOON_KINDS.has(market.category)
+    );
     if (asset !== "all") list = list.filter((market) => market.asset === asset);
     if (kind !== "all") list = list.filter((market) => market.category === kind);
     if (query) list = list.filter((market) => market.symbol.toLowerCase().includes(query.toLowerCase()));
     return list;
-  }, [markets, query, asset, kind]);
+  }, [markets, query, asset, kind, comingSoonAssets]);
 
   // Spot, futures, and options rows can share one underlying index. Count and
   // rank each Price-Fetcher feed once so BTC volume is not triple-counted.
@@ -128,13 +151,18 @@ const Markets = () => {
                     key={item.id}
                     onClick={() => { setAsset(item.id); setKind("all"); }}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all",
+                      "relative px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all",
                       asset === item.id
                         ? "bg-primary/15 text-primary border border-primary/30"
                         : "text-muted-foreground hover:bg-muted/40",
                     )}
                   >
                     <item.icon className="h-3.5 w-3.5" /> {item.label}
+                    {item.comingSoon && (
+                      <span className="px-1.5 py-px rounded-full bg-warning/15 text-warning text-[9px] font-bold leading-none">
+                        Soon
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -142,27 +170,45 @@ const Markets = () => {
             <SearchBox query={query} setQuery={setQuery} className="hidden md:flex min-w-52" />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-none">
-              {activeAsset.kinds.map((marketKind) => (
-                <button
-                  key={marketKind}
-                  onClick={() => setKind(marketKind)}
-                  className={cn(
-                    "px-2.5 py-1 rounded text-[11px] font-medium transition-colors",
-                    kind === marketKind
-                      ? "bg-primary/15 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                  )}
-                >
-                  {KIND_LABEL[marketKind]}
-                </button>
-              ))}
+          {!activeAsset.comingSoon && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap scrollbar-none">
+                {activeAsset.kinds.map((marketKind) => (
+                  <button
+                    key={marketKind}
+                    onClick={() => setKind(marketKind)}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-[11px] font-medium transition-colors",
+                      kind === marketKind
+                        ? "bg-primary/15 text-primary border border-primary/30"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    )}
+                  >
+                    {KIND_LABEL[marketKind]}
+                    {marketKind !== "all" && COMING_SOON_KINDS.has(marketKind as MarketKind) && (
+                      <span className="ml-1 text-warning text-[9px] font-bold">Soon</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <SearchBox query={query} setQuery={setQuery} className="md:hidden w-full sm:w-[165px] shrink-0" />
             </div>
-            <SearchBox query={query} setQuery={setQuery} className="md:hidden w-full sm:w-[165px] shrink-0" />
-          </div>
+          )}
         </div>
 
+        {activeAsset.comingSoon || (kind !== "all" && COMING_SOON_KINDS.has(kind as MarketKind)) ? (
+          <div className="glass rounded-xl p-12 flex flex-col items-center justify-center gap-2 text-center">
+            <activeAsset.icon className="h-8 w-8 text-muted-foreground/50" />
+            <div className="text-sm font-semibold text-foreground">
+              {activeAsset.comingSoon ? activeAsset.label : KIND_LABEL[kind]} — Coming Soon
+            </div>
+            <div className="text-xs text-muted-foreground max-w-sm">
+              {activeAsset.comingSoon
+                ? `${activeAsset.label} trading isn't live on the exchange yet. Check back soon, or trade Crypto today.`
+                : `${KIND_LABEL[kind]} trading isn't live on the exchange yet. Check back soon, or trade Spot/Futures today.`}
+            </div>
+          </div>
+        ) : (
         <div className="glass rounded-xl overflow-hidden">
           <div className="overflow-x-auto scrollbar-none">
             <table className="w-full text-sm min-w-[700px]">
@@ -220,6 +266,7 @@ const Markets = () => {
             </table>
           </div>
         </div>
+        )}
       </div>
     </AppShell>
   );

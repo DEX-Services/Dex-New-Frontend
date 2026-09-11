@@ -21,16 +21,26 @@ export type Market = {
   updatedAt?: number;
 };
 
-// Every market below has a REAL live price backing it — the hosted
-// price-fetcher (https://price-fetcher-api.onrender.com/healthz) only
-// tracks BTC/ETH/SOL/BNB (crypto), EURUSD/GBPUSD/AUDUSD (forex),
-// GOLD/SILVER/CrudeOIL (commodity), and AAPL.us/TSLA.us/NVDA.us (stocks).
-// Symbols that previously appeared here with no real price source at all
-// (HYPE, ARB, AVAX, DOGE, LINK, MATIC, TIA, SUI, PEPE, USDJPY, WTI/NG,
-// AAPL/TSLA/NVDA "-PERP"/"-OPT" variants, ETH-OPT) have been removed
-// rather than left showing a frozen/fabricated number next to real ones.
-// `price` below is only the pre-live-data seed useMarkets() starts from —
-// see useLivePrice.ts, which prefers the real feed the instant it resolves.
+// Every crypto market below has a REAL live price backing it via the hosted
+// price-fetcher (https://price-fetcher-api.onrender.com/healthz), which
+// tracks BTC/ETH/SOL/BNB. Symbols that previously appeared here with no real
+// price source at all (HYPE, ARB, AVAX, DOGE, LINK, MATIC, TIA, SUI, PEPE,
+// USDJPY, WTI/NG, AAPL/TSLA/NVDA "-PERP"/"-OPT" variants, ETH-OPT) have been
+// removed rather than left showing a frozen/fabricated number next to real
+// ones. `price` below is only the pre-live-data seed useMarkets() starts
+// from — see useLivePrice.ts, which prefers the real feed the instant it
+// resolves.
+//
+// The forex/commodity/stocks entries below are DISABLED as of 2026-09-11
+// (product decision: crypto-only for the current launch) — Price-Fetcher's
+// DefaultInstruments is now empty, so EURUSD/GBPUSD/AUDUSD, GOLD/SILVER/
+// CrudeOIL, and AAPL.us/TSLA.us/NVDA.us no longer have a real price behind
+// them at all. Left here (not deleted) purely as static seed data — every UI
+// surface that would otherwise show them (MarketList.tsx, Markets.tsx) gates
+// those asset classes behind a "Coming Soon" placeholder instead of
+// rendering these rows. See matching-engine/cmd/engine/markets.go's
+// disabledMarkets for the full list of what would need to come back
+// together for these to be real again.
 export const INITIAL_MARKETS: Market[] = [
   // Crypto — perps map to the matching engine's real *-BIUSD futures markets
   // (BTC/ETH/SOL/BNB-BIUSD futures — collateralized/settled in BIUSD, not

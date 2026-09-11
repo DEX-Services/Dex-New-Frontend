@@ -5,14 +5,29 @@ import { Star, Search, ChevronLeft, ChevronRight, Bitcoin, DollarSign, Droplet, 
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
-const ASSET_TABS: { id: AssetClass; label: string; icon: any; kinds: MarketKind[] }[] = [
+// comingSoon marks an asset class as not yet tradable (2026-09-11 product
+// decision: crypto-only for the current launch). The tab still renders so
+// people know it's on the roadmap, but selecting it shows a "Coming Soon"
+// placeholder instead of the market rows — nothing behind it is deleted,
+// see backendMarkets.ts, matching-engine/cmd/engine/markets.go's
+// disabledMarkets, and Price-Fetcher's DefaultInstruments for where the
+// underlying implementation still lives.
+const ASSET_TABS: { id: AssetClass; label: string; icon: any; kinds: MarketKind[]; comingSoon?: boolean }[] = [
   { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["spot", "perp", "options"] },
-  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["perp"] },
-  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["perp"] },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["perp", "options"] },
+  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["perp"], comingSoon: true },
+  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["perp"], comingSoon: true },
+  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["perp", "options"], comingSoon: true },
 ];
 
 const KIND_LABEL: Record<MarketKind, string> = { spot: "Spot", perp: "Future", options: "Options" };
+
+// Options trading is DISABLED (2026-09-11 product decision: crypto
+// spot/futures only for the current launch) — same "Coming Soon" treatment
+// as the forex/commodity/stocks asset classes above, but at the MarketKind
+// level since Options is a sub-tab under Crypto, not its own asset class.
+// See matching-engine/cmd/engine/markets.go's optionsEnabled flag for the
+// backend-side gate; nothing here is deleted.
+const COMING_SOON_KINDS = new Set<MarketKind>(["options"]);
 
 export function MarketList({
   activeSymbol,
@@ -99,7 +114,7 @@ export function MarketList({
               key={a.id}
               onClick={() => { setAsset(a.id); setKind(a.kinds[0]); }}
               className={cn(
-                "flex flex-col items-center justify-center py-1.5 rounded text-[9px] font-semibold transition-all gap-0.5",
+                "relative flex flex-col items-center justify-center py-1.5 rounded text-[9px] font-semibold transition-all gap-0.5",
                 asset === a.id
                   ? "bg-primary/15 text-primary border border-primary/30"
                   : "text-muted-foreground hover:bg-muted/40"
@@ -107,33 +122,60 @@ export function MarketList({
             >
               <a.icon className="h-3 w-3" />
               {a.label}
+              {a.comingSoon && (
+                <span className="absolute -top-1 -right-1 px-1 py-px rounded-full bg-warning/90 text-warning-foreground text-[6px] font-bold leading-none">
+                  SOON
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Sub-tabs (kinds) */}
-        <div className="flex items-center gap-1 flex-wrap">
-          <button
-            onClick={() => setKind("fav")}
-            className={cn(
-              "px-2 py-0.5 text-[10px] rounded transition-colors",
-              kind === "fav" ? "bg-warning/20 text-warning" : "text-muted-foreground hover:text-warning"
-            )}
-            title="Favorites"
-          >★</button>
-          {activeAsset.kinds.map(k => (
+        {/* Sub-tabs (kinds) — hidden for a coming-soon asset class, there's
+            nothing tradable to filter by kind yet. */}
+        {!activeAsset.comingSoon && (
+          <div className="flex items-center gap-1 flex-wrap">
             <button
-              key={k}
-              onClick={() => setKind(k)}
+              onClick={() => setKind("fav")}
               className={cn(
                 "px-2 py-0.5 text-[10px] rounded transition-colors",
-                kind === k ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                kind === "fav" ? "bg-warning/20 text-warning" : "text-muted-foreground hover:text-warning"
               )}
-            >{KIND_LABEL[k]}</button>
-          ))}
-        </div>
+              title="Favorites"
+            >★</button>
+            {activeAsset.kinds.map(k => (
+              <button
+                key={k}
+                onClick={() => setKind(k)}
+                className={cn(
+                  "relative px-2 py-0.5 text-[10px] rounded transition-colors",
+                  kind === k ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {KIND_LABEL[k]}
+                {COMING_SOON_KINDS.has(k) && (
+                  <span className="ml-1 text-warning text-[8px] font-bold">•SOON</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {activeAsset.comingSoon || (kind !== "fav" && COMING_SOON_KINDS.has(kind)) ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+          <activeAsset.icon className="h-6 w-6 text-muted-foreground/50" />
+          <div className="text-xs font-semibold text-foreground">
+            {activeAsset.comingSoon ? activeAsset.label : KIND_LABEL[kind as MarketKind]} — Coming Soon
+          </div>
+          <div className="text-[10px] text-muted-foreground leading-relaxed">
+            {activeAsset.comingSoon
+              ? `${activeAsset.label} trading isn't live on the exchange yet. Trade Crypto in the meantime.`
+              : `${KIND_LABEL[kind as MarketKind]} trading isn't live on the exchange yet. Trade Spot or Futures in the meantime.`}
+          </div>
+        </div>
+      ) : (
+        <>
       <div className="grid grid-cols-12 gap-1 px-3 py-1.5 text-[10px] text-muted-foreground border-b border-border/50">
         <div className="col-span-7">Pair</div>
         <div className="col-span-5 text-right">Price</div>
@@ -171,6 +213,8 @@ export function MarketList({
           );
         })}
       </div>
+      </>
+      )}
     </div>
   );
 }

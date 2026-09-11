@@ -11,12 +11,6 @@ describe("backendMarketFor", () => {
     // row from the SPOT entry of the same engine symbol name.
     expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSD", market: "FUTURES" });
     expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSD", market: "FUTURES" });
-    // Non-crypto perps (FX/commodities/stocks). The engine symbol's base is
-    // the Price-Fetcher ticker, case-preserved.
-    expect(backendMarketFor("EURUSD")).toEqual({ symbol: "EURUSD-BIUSD", market: "FUTURES" });
-    expect(backendMarketFor("XAU-USD")).toEqual({ symbol: "GOLD-BIUSD", market: "FUTURES" });
-    expect(backendMarketFor("WTI-USD")).toEqual({ symbol: "CrudeOIL-BIUSD", market: "FUTURES" });
-    expect(backendMarketFor("AAPL-PERP")).toEqual({ symbol: "AAPL.us-BIUSD", market: "FUTURES" });
   });
 
   it("returns null for a symbol with no backend market", () => {
@@ -25,6 +19,18 @@ describe("backendMarketFor", () => {
     // contract the honest-error fix depends on.
     expect(backendMarketFor("DOGE-PERP")).toBeNull();
     expect(backendMarketFor("USDT-BIUSD")).toBeNull();
+  });
+
+  it("returns null for non-crypto perps (disabled 2026-09-11 — crypto-only launch)", () => {
+    // FX/commodities/stocks are commented out of REGISTERED, not deleted —
+    // see that map's own comment for how to bring one back. Pinning null
+    // here (rather than just removing these cases) means a future
+    // uncomment-without-testing mistake shows up as a failing "still
+    // disabled" assertion instead of silently doing nothing.
+    expect(backendMarketFor("EURUSD")).toBeNull();
+    expect(backendMarketFor("XAU-USD")).toBeNull();
+    expect(backendMarketFor("WTI-USD")).toBeNull();
+    expect(backendMarketFor("AAPL-PERP")).toBeNull();
   });
 });
 
@@ -36,6 +42,12 @@ describe("registeredFuturesSymbols", () => {
     // No SPOT entries should leak in.
     expect(futures.every((f) => f.market === "FUTURES")).toBe(true);
   });
+
+  it("is crypto-only while forex/commodities/stocks stay disabled", () => {
+    // 4 crypto perps (BTC, ETH, SOL, BNB) — the 9 non-crypto rows are
+    // commented out of REGISTERED, see backendMarkets.ts.
+    expect(registeredFuturesSymbols()).toHaveLength(4);
+  });
 });
 
 describe("frontendSymbolFor", () => {
@@ -43,12 +55,14 @@ describe("frontendSymbolFor", () => {
     expect(frontendSymbolFor("BTC-BIUSD", "FUTURES")).toBe("BTC-PERP");
     expect(frontendSymbolFor("ETH-BIUSD", "FUTURES")).toBe("ETH-PERP");
     expect(frontendSymbolFor("SOL-BIUSD", "SPOT")).toBe("SOL-BIUSD");
-    expect(frontendSymbolFor("GOLD-BIUSD", "FUTURES")).toBe("XAU-USD");
-    expect(frontendSymbolFor("AAPL.us-BIUSD", "FUTURES")).toBe("AAPL-PERP");
   });
 
   it("falls back to the engine symbol itself when unregistered", () => {
     expect(frontendSymbolFor("DOGE-BIUSD", "SPOT")).toBe("DOGE-BIUSD");
+    // GOLD/AAPL.us are disabled (commented out of REGISTERED) — falls back
+    // to the raw engine symbol, same as any other unregistered pair.
+    expect(frontendSymbolFor("GOLD-BIUSD", "FUTURES")).toBe("GOLD-BIUSD");
+    expect(frontendSymbolFor("AAPL.us-BIUSD", "FUTURES")).toBe("AAPL.us-BIUSD");
   });
 });
 

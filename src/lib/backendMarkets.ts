@@ -20,18 +20,28 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
   // funding/index underlying.
   "SOL-PERP": { symbol: "SOL-BIUSD", market: "FUTURES" },
   "BNB-PERP": { symbol: "BNB-BIUSD", market: "FUTURES" },
+
+  // Forex majors, commodities, and US stocks are DISABLED (2026-09-11 product
+  // decision: crypto-only for the current launch) — matching-engine no
+  // longer registers any of these (see cmd/engine/markets.go's
+  // disabledMarkets), so leaving them "REGISTERED" here would make the trade
+  // page believe a live order book exists where the engine has none. Not
+  // deleted: uncomment together with matching-engine's disabledMarkets,
+  // seed.go's commented rows, and Price-Fetcher's DefaultInstruments to
+  // bring any of these back.
+  //
   // Non-crypto perps. The engine symbol's base is the Price-Fetcher ticker,
   // case-preserved ("CrudeOIL", "AAPL.us"); there is no engine spot book for
   // any of these, so their futures rows carry no funding underlying.
-  EURUSD: { symbol: "EURUSD-BIUSD", market: "FUTURES" },
-  GBPUSD: { symbol: "GBPUSD-BIUSD", market: "FUTURES" },
-  AUDUSD: { symbol: "AUDUSD-BIUSD", market: "FUTURES" },
-  "XAU-USD": { symbol: "GOLD-BIUSD", market: "FUTURES" },
-  "XAG-USD": { symbol: "SILVER-BIUSD", market: "FUTURES" },
-  "WTI-USD": { symbol: "CrudeOIL-BIUSD", market: "FUTURES" },
-  "AAPL-PERP": { symbol: "AAPL.us-BIUSD", market: "FUTURES" },
-  "TSLA-PERP": { symbol: "TSLA.us-BIUSD", market: "FUTURES" },
-  "NVDA-PERP": { symbol: "NVDA.us-BIUSD", market: "FUTURES" },
+  // EURUSD: { symbol: "EURUSD-BIUSD", market: "FUTURES" },
+  // GBPUSD: { symbol: "GBPUSD-BIUSD", market: "FUTURES" },
+  // AUDUSD: { symbol: "AUDUSD-BIUSD", market: "FUTURES" },
+  // "XAU-USD": { symbol: "GOLD-BIUSD", market: "FUTURES" },
+  // "XAG-USD": { symbol: "SILVER-BIUSD", market: "FUTURES" },
+  // "WTI-USD": { symbol: "CrudeOIL-BIUSD", market: "FUTURES" },
+  // "AAPL-PERP": { symbol: "AAPL.us-BIUSD", market: "FUTURES" },
+  // "TSLA-PERP": { symbol: "TSLA.us-BIUSD", market: "FUTURES" },
+  // "NVDA-PERP": { symbol: "NVDA.us-BIUSD", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed

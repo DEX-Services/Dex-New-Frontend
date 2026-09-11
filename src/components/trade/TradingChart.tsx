@@ -9,31 +9,38 @@ function marketFor(symbol: string) {
 
 function toTradingViewSymbol(symbol: string): string {
   const market = marketFor(symbol);
-  const asset = market?.asset;
+  // const asset = market?.asset;
   const base = (market?.base ?? symbol.split("-")[0]).toUpperCase();
 
-  if (asset === "forex") return `FX:${symbol}`;
-  if (asset === "stocks") {
-    // market.base carries price-fetcher's exact Redis key casing
-    // ("AAPL.us") for the index-price lookup elsewhere — TradingView's own
-    // resolver wants the bare uppercase ticker, so strip the ".us" suffix
-    // rather than reuse the upper-cased `base` above (which would send the
-    // nonsensical "NASDAQ:AAPL.US").
-    const ticker = (market?.base ?? symbol).replace(/\.us$/i, "").toUpperCase();
-    return `NASDAQ:${ticker}`;
-  }
-  if (asset === "commodity") {
-    // Keyed against mockData.ts's `base` values (upper-cased above) — only
-    // GOLD, SILVER, and CrudeOIL are currently real (backed by
-    // price-fetcher's Live-Rates.com feed); WTI-USD's base is "CrudeOIL",
-    // not "OIL".
-    const commodityMap: Record<string, string> = {
-      GOLD: "TVC:GOLD",
-      SILVER: "TVC:SILVER",
-      CRUDEOIL: "TVC:USOIL",
-    };
-    return commodityMap[base] ?? `TVC:${base}`;
-  }
+  // Forex/commodity/stocks charting is DISABLED along with the rest of those
+  // asset classes (2026-09-11 product decision: crypto-only for now — see
+  // MarketList.tsx's comingSoon flag). MarketList/Markets.tsx no longer let a
+  // user select one of these symbols, so this branch is unreachable in
+  // practice; commented out rather than deleted so re-enabling those asset
+  // classes also restores their charts with no rework here.
+  //
+  // if (asset === "forex") return `FX:${symbol}`;
+  // if (asset === "stocks") {
+  //   // market.base carries price-fetcher's exact Redis key casing
+  //   // ("AAPL.us") for the index-price lookup elsewhere — TradingView's own
+  //   // resolver wants the bare uppercase ticker, so strip the ".us" suffix
+  //   // rather than reuse the upper-cased `base` above (which would send the
+  //   // nonsensical "NASDAQ:AAPL.US").
+  //   const ticker = (market?.base ?? symbol).replace(/\.us$/i, "").toUpperCase();
+  //   return `NASDAQ:${ticker}`;
+  // }
+  // if (asset === "commodity") {
+  //   // Keyed against mockData.ts's `base` values (upper-cased above) — only
+  //   // GOLD, SILVER, and CrudeOIL are currently real (backed by
+  //   // price-fetcher's Live-Rates.com feed); WTI-USD's base is "CrudeOIL",
+  //   // not "OIL".
+  //   const commodityMap: Record<string, string> = {
+  //     GOLD: "TVC:GOLD",
+  //     SILVER: "TVC:SILVER",
+  //     CRUDEOIL: "TVC:USOIL",
+  //   };
+  //   return commodityMap[base] ?? `TVC:${base}`;
+  // }
   // crypto (perp/spot/options) -> Binance live price feed on TradingView,
   // using the {BASE}USD pair (e.g. BINANCE:BTCUSD).
   return `BINANCE:${base}USD`;
