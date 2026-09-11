@@ -463,17 +463,17 @@ export function TradePanel({
           <TabsList className="grid grid-cols-3 h-8 bg-muted/30 w-full rounded-lg p-0.5">
             <TabsTrigger value="spot" className="h-7 text-xs font-semibold rounded-md">Spot</TabsTrigger>
             <TabsTrigger value="futures" className="h-7 text-xs font-semibold rounded-md">Futures</TabsTrigger>
-            {/* Options execution: order entry and Index.tsx's chain table
-                both read the same backend source (getOptionChain) now, so
-                the two-sources-of-truth problem that justified hiding this
-                tab (plan.md 5.1) no longer applies. Only enabled for
-                underlyings the backend actually has an option chain for
-                (backendOptionsMarketFor) — currently BTC. */}
+            {/* Options trading is DISABLED (product decision: crypto
+                spot/futures only for now) — the engine's /option-chain and
+                /spread routes are unregistered, and /order rejects OPTIONS
+                orders outright, so this tab is always disabled regardless
+                of underlying. Not removed: re-enabling is restoring the
+                backendOptionsMarketFor(baseAsset) check this replaced. */}
             <TabsTrigger
               value="options"
-              disabled={!backendOptionsMarketFor(baseAsset)}
+              disabled
               className="h-7 text-xs font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-              title={backendOptionsMarketFor(baseAsset) ? undefined : "Options aren't available for this underlying yet"}
+              title="Options trading isn't live on the exchange yet"
             >
               Options
             </TabsTrigger>
