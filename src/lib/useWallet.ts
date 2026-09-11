@@ -83,12 +83,12 @@ type SendTransactionParams = {
   data?: string;
 };
 
-// BIUSD is the platform's internal stable quote currency (pegged 1:1 to
+// BIUSDB is the platform's internal stable quote currency (pegged 1:1 to
 // USDT, no on-chain contract of its own) — every market trades against it.
 // USDC/USDT stay listed as deposit-intake assets (a real on-chain deposit
-// lands there first, then converts to BIUSD — see Dex-Backend's
+// lands there first, then converts to BIUSDB — see Dex-Backend's
 // chain.Listener), not because they're still tradable quote currencies.
-const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSD", "USDC", "USDT", "BI"] as const;
+const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "BIUSDB", "USDC", "USDT", "BI"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
@@ -101,7 +101,7 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	ETH: 6,
 	SOL: 6,
 	BNB: 6,
-	BIUSD: 6,
+	BIUSDB: 6,
 	USDC: 6,
 	USDT: 6,
 	BI: 6,

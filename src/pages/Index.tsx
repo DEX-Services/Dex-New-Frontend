@@ -604,7 +604,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
   const orderBookPanelRef = useRef<ImperativePanelHandle>(null);
   // In options mode the order book/trades are for the SELECTED CONTRACT
   // (its own OPTIONS-market symbol), not the underlying spot/futures pair —
-  // backendMarketFor("BTC-BIUSD") would resolve fine but shows the wrong
+  // backendMarketFor("BTC-BIUSDB") would resolve fine but shows the wrong
   // market's book entirely. Fall through to the selected contract's own
   // instrument symbol so the book reflects what the user is actually
   // trading; with nothing selected yet there's simply nothing to show.
@@ -818,7 +818,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const Index = () => {
-  const [symbol, setSymbol] = useState("BTC-BIUSD");
+  const [symbol, setSymbol] = useState("BTC-BIUSDB");
   const [collapsed, setCollapsed] = useState(false);
   const account = useAccount();
   const orders = useOrders(account);

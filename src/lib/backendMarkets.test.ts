@@ -3,14 +3,14 @@ import { backendMarketFor, backendOptionsMarketFor, frontendSymbolFor, registere
 
 describe("backendMarketFor", () => {
   it("resolves all currently-registered symbols", () => {
-    expect(backendMarketFor("BTC-BIUSD")).toEqual({ symbol: "BTC-BIUSD", market: "SPOT" });
-    expect(backendMarketFor("ETH-BIUSD")).toEqual({ symbol: "ETH-BIUSD", market: "SPOT" });
-    expect(backendMarketFor("SOL-BIUSD")).toEqual({ symbol: "SOL-BIUSD", market: "SPOT" });
-    expect(backendMarketFor("BNB-BIUSD")).toEqual({ symbol: "BNB-BIUSD", market: "SPOT" });
-    // Futures collateralize/settle in BIUSD too — a distinct (symbol, market)
+    expect(backendMarketFor("BTC-BIUSDB")).toEqual({ symbol: "BTC-BIUSDB", market: "SPOT" });
+    expect(backendMarketFor("ETH-BIUSDB")).toEqual({ symbol: "ETH-BIUSDB", market: "SPOT" });
+    expect(backendMarketFor("SOL-BIUSDB")).toEqual({ symbol: "SOL-BIUSDB", market: "SPOT" });
+    expect(backendMarketFor("BNB-BIUSDB")).toEqual({ symbol: "BNB-BIUSDB", market: "SPOT" });
+    // Futures collateralize/settle in BIUSDB too — a distinct (symbol, market)
     // row from the SPOT entry of the same engine symbol name.
-    expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSD", market: "FUTURES" });
-    expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSD", market: "FUTURES" });
+    expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSDB", market: "FUTURES" });
   });
 
   it("returns null for a symbol with no backend market", () => {
@@ -18,7 +18,7 @@ describe("backendMarketFor", () => {
     // success toast in TradePanel.tsx — asserting it stays null pins the
     // contract the honest-error fix depends on.
     expect(backendMarketFor("DOGE-PERP")).toBeNull();
-    expect(backendMarketFor("USDT-BIUSD")).toBeNull();
+    expect(backendMarketFor("USDT-BIUSDB")).toBeNull();
   });
 
   it("returns null for non-crypto perps (disabled 2026-09-11 — crypto-only launch)", () => {
@@ -37,8 +37,8 @@ describe("backendMarketFor", () => {
 describe("registeredFuturesSymbols", () => {
   it("returns only FUTURES entries, in engine-symbol form", () => {
     const futures = registeredFuturesSymbols();
-    expect(futures).toContainEqual({ symbol: "BTC-BIUSD", market: "FUTURES" });
-    expect(futures).toContainEqual({ symbol: "ETH-BIUSD", market: "FUTURES" });
+    expect(futures).toContainEqual({ symbol: "BTC-BIUSDB", market: "FUTURES" });
+    expect(futures).toContainEqual({ symbol: "ETH-BIUSDB", market: "FUTURES" });
     // No SPOT entries should leak in.
     expect(futures.every((f) => f.market === "FUTURES")).toBe(true);
   });
@@ -52,23 +52,23 @@ describe("registeredFuturesSymbols", () => {
 
 describe("frontendSymbolFor", () => {
   it("is the inverse of backendMarketFor for registered symbols", () => {
-    expect(frontendSymbolFor("BTC-BIUSD", "FUTURES")).toBe("BTC-PERP");
-    expect(frontendSymbolFor("ETH-BIUSD", "FUTURES")).toBe("ETH-PERP");
-    expect(frontendSymbolFor("SOL-BIUSD", "SPOT")).toBe("SOL-BIUSD");
+    expect(frontendSymbolFor("BTC-BIUSDB", "FUTURES")).toBe("BTC-PERP");
+    expect(frontendSymbolFor("ETH-BIUSDB", "FUTURES")).toBe("ETH-PERP");
+    expect(frontendSymbolFor("SOL-BIUSDB", "SPOT")).toBe("SOL-BIUSDB");
   });
 
   it("falls back to the engine symbol itself when unregistered", () => {
-    expect(frontendSymbolFor("DOGE-BIUSD", "SPOT")).toBe("DOGE-BIUSD");
+    expect(frontendSymbolFor("DOGE-BIUSDB", "SPOT")).toBe("DOGE-BIUSDB");
     // GOLD/AAPL.us are disabled (commented out of REGISTERED) — falls back
     // to the raw engine symbol, same as any other unregistered pair.
-    expect(frontendSymbolFor("GOLD-BIUSD", "FUTURES")).toBe("GOLD-BIUSD");
-    expect(frontendSymbolFor("AAPL.us-BIUSD", "FUTURES")).toBe("AAPL.us-BIUSD");
+    expect(frontendSymbolFor("GOLD-BIUSDB", "FUTURES")).toBe("GOLD-BIUSDB");
+    expect(frontendSymbolFor("AAPL.us-BIUSDB", "FUTURES")).toBe("AAPL.us-BIUSDB");
   });
 });
 
 describe("backendOptionsMarketFor", () => {
   it("resolves the configured underlying for BTC", () => {
-    expect(backendOptionsMarketFor("BTC")).toEqual({ symbol: "BTC-BIUSD", market: "OPTIONS" });
+    expect(backendOptionsMarketFor("BTC")).toEqual({ symbol: "BTC-BIUSDB", market: "OPTIONS" });
   });
 
   it("returns null for an asset with no options underlying configured", () => {
