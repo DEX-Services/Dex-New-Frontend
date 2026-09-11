@@ -1,10 +1,20 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { INITIAL_MARKETS } from "@/lib/mockData";
 import { createBinanceDatafeed } from "@/lib/binanceDatafeed";
+import { createBI2XDatafeed } from "@/lib/bi2xDatafeed";
 import { readTheme, type ThemeMode } from "@/lib/theme";
 
 function marketFor(symbol: string) {
   return INITIAL_MARKETS.find(m => m.symbol === symbol);
+}
+
+// BI2X isn't a Binance ticker (see backendMarkets.ts's comment on this pair)
+// — it needs its own datafeed (bi2xDatafeed.ts, backed by the BI2X feed's
+// TradingView UDF endpoints via Dex-Backend's CORS-avoiding proxy) instead
+// of createBinanceDatafeed(), which would otherwise silently query Binance
+// for a "BI2XUSDT" pair that doesn't exist there.
+function isBI2X(symbol: string): boolean {
+  return (marketFor(symbol)?.base ?? symbol.split("-")[0]).toUpperCase() === "BI2X";
 }
 
 function toTradingViewSymbol(symbol: string): string {
@@ -204,12 +214,13 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
     };
 
     if (isCrypto) {
+      const isBi2x = isBI2X(symbol);
       loadAdvancedChartingLibrary().then(() => {
         if (cancelled || !window.TradingView) return;
         widgetRef.current = new window.TradingView.widget({
           ...commonOptions,
-          symbol: base,
-          datafeed: createBinanceDatafeed(),
+          symbol: isBi2x ? "BI2X" : base,
+          datafeed: isBi2x ? createBI2XDatafeed() : createBinanceDatafeed(),
           library_path: "/charting_library/",
           studies_overrides: {},
         });
