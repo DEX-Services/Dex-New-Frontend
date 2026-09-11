@@ -10,7 +10,7 @@ import { useLivePrice } from "@/lib/useLivePrice";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { PanelGroup, Panel, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
-import { Calculator, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, BarChart2, BookOpen, ArrowLeftRight, List, Plus, Trash2 } from "lucide-react";
+import { Calculator, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, BarChart2, BookOpen, ArrowLeftRight, List, Plus, Trash2, LineChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/mockData";
 import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
@@ -128,6 +128,23 @@ function DraggableCard({
 
 // ─── Right Column ─────────────────────────────────────────────────────────────
 // Fully self-contained Trade + OrderBook column with smooth collapse animation.
+
+// Shown in the chart panel while the user is browsing a coming-soon
+// MarketList tab (Forex, Commodity, Stocks, or Options) — there's no symbol
+// to chart, so the panel goes blank with an explicit message instead of
+// silently leaving the last crypto symbol's chart on screen, which would
+// look like clicking the tab did nothing.
+function ChartComingSoon() {
+  return (
+    <div className="glass h-full rounded-xl flex flex-col items-center justify-center gap-2 text-center px-6">
+      <LineChart className="h-8 w-8 text-muted-foreground/40" />
+      <span className="text-sm font-semibold text-foreground">Chart not available</span>
+      <span className="text-xs text-muted-foreground max-w-xs">
+        This market isn't live on the exchange yet. Select a Crypto pair to see its chart.
+      </span>
+    </div>
+  );
+}
 
 interface OptionWorkspaceProps {
   symbol: string;
@@ -596,9 +613,14 @@ interface RightColumnProps {
   onTradeModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
   optionLayoutActive?: boolean;
+  // True while the user is browsing a coming-soon MarketList tab (Forex,
+  // Commodity, Stocks, or Options) — there's nothing tradable selected, so
+  // the trade panel is disabled rather than silently still offering to
+  // trade whatever crypto symbol was last active.
+  disabled?: boolean;
 }
 
-function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders, optionLayoutActive }: RightColumnProps) {
+function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders, optionLayoutActive, disabled }: RightColumnProps) {
   const [obOpen, setObOpen] = useState(true);
   const [tab, setTab] = useState<"book" | "trades">("book");
   const orderBookPanelRef = useRef<ImperativePanelHandle>(null);
@@ -608,9 +630,11 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
   // market's book entirely. Fall through to the selected contract's own
   // instrument symbol so the book reflects what the user is actually
   // trading; with nothing selected yet there's simply nothing to show.
-  const backendMarket = optionLayoutActive
-    ? (selectedOption ? { symbol: selectedOption.symbol, market: "OPTIONS" } : null)
-    : backendMarketFor(symbol);
+  const backendMarket = disabled
+    ? null
+    : optionLayoutActive
+      ? (selectedOption ? { symbol: selectedOption.symbol, market: "OPTIONS" } : null)
+      : backendMarketFor(symbol);
 
   const toggleOrderBook = useCallback(() => {
     const panel = orderBookPanelRef.current;
@@ -642,16 +666,23 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
 
       {/* ── Trade Panel ── always present, expands when OB collapses ── */}
       <Panel defaultSize={60} minSize={32}>
-        <div className="glass h-full min-h-0 rounded-xl flex flex-col">
-          <div className="flex-1 overflow-y-auto min-h-0">
-            <TradePanel
-              symbol={symbol}
-              price={price}
-              selectedOption={selectedOption}
-              onModeChange={onTradeModeChange}
-              orders={orders}
-            />
-          </div>
+        <div className="glass h-full min-h-0 rounded-xl flex flex-col relative">
+          {disabled ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+              <span className="text-sm font-semibold text-foreground">Trading not available</span>
+              <span className="text-xs text-muted-foreground">This market isn't live on the exchange yet.</span>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <TradePanel
+                symbol={symbol}
+                price={price}
+                selectedOption={selectedOption}
+                onModeChange={onTradeModeChange}
+                orders={orders}
+              />
+            </div>
+          )}
         </div>
       </Panel>
 
@@ -820,6 +851,13 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
 const Index = () => {
   const [symbol, setSymbol] = useState("BTC-BIUSDB");
   const [collapsed, setCollapsed] = useState(false);
+  // True while the user is browsing a coming-soon tab/kind in MarketList
+  // (Forex, Commodity, Stocks, or Options) — independent of `symbol`, since
+  // there's nothing to select there and symbol never changes. Blanks the
+  // chart and disables the trade panel so browsing one of these tabs
+  // visibly does something instead of silently leaving the last crypto
+  // symbol's chart/panel exactly as they were.
+  const [browsingComingSoon, setBrowsingComingSoon] = useState(false);
   const account = useAccount();
   const orders = useOrders(account);
   const market = useMarket(symbol);
@@ -976,8 +1014,17 @@ const Index = () => {
   function renderContent(id: PanelId) {
     switch (id) {
       case "marketList":
-        return <MarketList activeSymbol={symbol} onSelect={setSymbol} collapsed={collapsed} onToggleCollapse={() => setCollapsed(c => !c)} />;
+        return (
+          <MarketList
+            activeSymbol={symbol}
+            onSelect={setSymbol}
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed(c => !c)}
+            onComingSoonChange={setBrowsingComingSoon}
+          />
+        );
       case "chart":
+        if (browsingComingSoon) return <ChartComingSoon />;
         return optionLayoutActive ? (
           <OptionWorkspace
             symbol={symbol}
@@ -1077,6 +1124,7 @@ const Index = () => {
               onTradeModeChange={setTradeMode}
               orders={orders}
               optionLayoutActive={optionLayoutActive}
+              disabled={browsingComingSoon}
             />
           </Panel>
 
@@ -1090,12 +1138,20 @@ const Index = () => {
             <div className="flex-1 min-h-0 overflow-hidden">
               {mobileTab === "markets" && (
                 <div className="h-full glass rounded-xl overflow-hidden">
-                  <MarketList activeSymbol={symbol} onSelect={(s) => { setSymbol(s); setMobileTab("chart"); }} collapsed={false} onToggleCollapse={() => {}} />
+                  <MarketList
+                    activeSymbol={symbol}
+                    onSelect={(s) => { setSymbol(s); setMobileTab("chart"); }}
+                    collapsed={false}
+                    onToggleCollapse={() => {}}
+                    onComingSoonChange={setBrowsingComingSoon}
+                  />
                 </div>
               )}
               {mobileTab === "chart" && (
                 <div className="h-full glass rounded-xl overflow-hidden">
-                  {optionLayoutActive ? (
+                  {browsingComingSoon ? (
+                    <ChartComingSoon />
+                  ) : optionLayoutActive ? (
                     <OptionWorkspace
                       symbol={symbol}
                       price={price}
@@ -1116,6 +1172,8 @@ const Index = () => {
                     selectedOption={selectedOption}
                     onTradeModeChange={setTradeMode}
                     orders={orders}
+                    optionLayoutActive={optionLayoutActive}
+                    disabled={browsingComingSoon}
                   />
                 </div>
               )}

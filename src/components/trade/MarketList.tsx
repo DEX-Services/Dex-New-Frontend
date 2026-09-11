@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice, AssetClass, MarketKind } from "@/lib/mockData";
 import { Star, Search, ChevronLeft, ChevronRight, Bitcoin, DollarSign, Droplet, Briefcase } from "lucide-react";
@@ -34,11 +34,17 @@ export function MarketList({
   onSelect,
   collapsed,
   onToggleCollapse,
+  onComingSoonChange,
 }: {
   activeSymbol: string;
   onSelect: (s: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  // Fires whenever the tab/kind the user is currently BROWSING (not
+  // necessarily trading) is a coming-soon one, so the trade page can blank
+  // its chart and disable the trade panel to match — browsing Forex should
+  // visibly do something even though there's nothing to select yet.
+  onComingSoonChange?: (comingSoon: boolean) => void;
 }) {
   const markets = useMarkets();
   const [asset, setAsset] = useState<AssetClass>("crypto");
@@ -47,6 +53,11 @@ export function MarketList({
   const [favorites, setFavorites] = useState<Set<string>>(new Set(markets.filter(m => m.favorite).map(m => m.symbol)));
 
   const activeAsset = ASSET_TABS.find(a => a.id === asset)!;
+  const viewingComingSoon = activeAsset.comingSoon || (kind !== "fav" && COMING_SOON_KINDS.has(kind));
+
+  useEffect(() => {
+    onComingSoonChange?.(viewingComingSoon);
+  }, [viewingComingSoon, onComingSoonChange]);
 
   const filtered = useMemo(() => {
     let list = markets.filter(m => m.asset === asset);
@@ -162,7 +173,7 @@ export function MarketList({
         )}
       </div>
 
-      {activeAsset.comingSoon || (kind !== "fav" && COMING_SOON_KINDS.has(kind)) ? (
+      {viewingComingSoon ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
           <activeAsset.icon className="h-6 w-6 text-muted-foreground/50" />
           <div className="text-xs font-semibold text-foreground">
