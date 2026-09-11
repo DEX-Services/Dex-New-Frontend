@@ -10,24 +10,34 @@
 // like everything else. The engine symbol for a PERP is "BASE-BIUSDB" too —
 // distinct from the SPOT row of the same name via the (symbol, market) key.
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
+  // --- SPOT: BI2X and BTC only (2026-09-12 market-list restructure) ---
   "BTC-BIUSDB": { symbol: "BTC-BIUSDB", market: "SPOT" },
-  "ETH-BIUSDB": { symbol: "ETH-BIUSDB", market: "SPOT" },
-  "SOL-BIUSDB": { symbol: "SOL-BIUSDB", market: "SPOT" },
-  "BNB-BIUSDB": { symbol: "BNB-BIUSDB", market: "SPOT" },
-  "BTC-PERP": { symbol: "BTC-BIUSDB", market: "FUTURES" },
-  "ETH-PERP": { symbol: "ETH-BIUSDB", market: "FUTURES" },
-  // Crypto perps beyond BTC/ETH — the SOL/BNB spot books double as their
-  // funding/index underlying.
-  "SOL-PERP": { symbol: "SOL-BIUSDB", market: "FUTURES" },
-  "BNB-PERP": { symbol: "BNB-BIUSDB", market: "FUTURES" },
-  // BI2X: not a Binance-tracked asset like the crypto pairs above — its
-  // index price is meant to come from a separate data-feed API (link
-  // pending as of 2026-09-12, see Price-Fetcher's config.go). The engine
-  // registration and order submission work today regardless; only the
-  // market-maker's automated quoting is blocked until that feed lands, since
-  // it correctly refuses to quote on a stale/missing index price.
+  // BI2X: not a Binance-tracked asset like BTC — its index price comes from
+  // the dedicated BI2X data feed (Price-Fetcher's bitdxfeed client).
   "BI2X-BIUSDB": { symbol: "BI2X-BIUSDB", market: "SPOT" },
+
+  // --- FUTURES: BI2X, BTC, ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, XRP ---
+  "BTC-PERP": { symbol: "BTC-BIUSDB", market: "FUTURES" },
   "BI2X-PERP": { symbol: "BI2X-BIUSDB", market: "FUTURES" },
+  // ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, and XRP are FUTURES-ONLY — none has
+  // a SPOT row above (unlike BTC/BI2X), so each is priced directly off
+  // Price-Fetcher's Binance feed with no spot funding/index underlying (see
+  // matching-engine's seed.go — underlying_symbol is empty for all eight).
+  // All are real Binance <ASSET>USDT tickers.
+  "ETH-PERP": { symbol: "ETH-BIUSDB", market: "FUTURES" },
+  "AVAX-PERP": { symbol: "AVAX-BIUSDB", market: "FUTURES" },
+  "LINK-PERP": { symbol: "LINK-BIUSDB", market: "FUTURES" },
+  "SOL-PERP": { symbol: "SOL-BIUSDB", market: "FUTURES" },
+  "DOGE-PERP": { symbol: "DOGE-BIUSDB", market: "FUTURES" },
+  "TAO-PERP": { symbol: "TAO-BIUSDB", market: "FUTURES" },
+  "ADA-PERP": { symbol: "ADA-BIUSDB", market: "FUTURES" },
+  "XRP-PERP": { symbol: "XRP-BIUSDB", market: "FUTURES" },
+
+  // BNB (was SPOT+FUTURES) was REMOVED entirely per the 2026-09-12
+  // restructure, not just disabled — no BNB-BIUSDB or BNB-PERP entry exists
+  // anywhere in this map any more. ETH-BIUSDB (spot) and SOL-BIUSDB (spot)
+  // were also removed; both assets remain tradable, but futures-only now
+  // (see ETH-PERP/SOL-PERP above).
 
   // Forex majors, commodities, and US stocks are DISABLED (2026-09-11 product
   // decision: crypto-only for the current launch) — matching-engine no

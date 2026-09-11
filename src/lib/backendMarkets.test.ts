@@ -2,27 +2,45 @@ import { describe, it, expect } from "vitest";
 import { backendMarketFor, backendOptionsMarketFor, frontendSymbolFor, registeredFuturesSymbols } from "./backendMarkets";
 
 describe("backendMarketFor", () => {
-  it("resolves all currently-registered symbols", () => {
+  it("resolves all currently-registered SPOT symbols (BI2X and BTC only)", () => {
     expect(backendMarketFor("BTC-BIUSDB")).toEqual({ symbol: "BTC-BIUSDB", market: "SPOT" });
-    expect(backendMarketFor("ETH-BIUSDB")).toEqual({ symbol: "ETH-BIUSDB", market: "SPOT" });
-    expect(backendMarketFor("SOL-BIUSDB")).toEqual({ symbol: "SOL-BIUSDB", market: "SPOT" });
-    expect(backendMarketFor("BNB-BIUSDB")).toEqual({ symbol: "BNB-BIUSDB", market: "SPOT" });
-    // Futures collateralize/settle in BIUSDB too — a distinct (symbol, market)
-    // row from the SPOT entry of the same engine symbol name.
-    expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSDB", market: "FUTURES" });
-    expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSDB", market: "FUTURES" });
-    // BI2X (added 2026-09-12): registered like any other spot/futures pair
-    // even though its index-price feed isn't wired up yet — see
-    // backendMarkets.ts's own comment on this entry.
     expect(backendMarketFor("BI2X-BIUSDB")).toEqual({ symbol: "BI2X-BIUSDB", market: "SPOT" });
+  });
+
+  it("resolves all currently-registered FUTURES symbols", () => {
+    // Futures collateralize/settle in BIUSDB too — a distinct (symbol, market)
+    // row from any SPOT entry of the same engine symbol name.
+    expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSDB", market: "FUTURES" });
     expect(backendMarketFor("BI2X-PERP")).toEqual({ symbol: "BI2X-BIUSDB", market: "FUTURES" });
+    // ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, XRP: futures-only (2026-09-12
+    // restructure) — no SPOT counterpart, but still real registered markets.
+    expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("AVAX-PERP")).toEqual({ symbol: "AVAX-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("LINK-PERP")).toEqual({ symbol: "LINK-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("SOL-PERP")).toEqual({ symbol: "SOL-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("DOGE-PERP")).toEqual({ symbol: "DOGE-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("TAO-PERP")).toEqual({ symbol: "TAO-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("ADA-PERP")).toEqual({ symbol: "ADA-BIUSDB", market: "FUTURES" });
+    expect(backendMarketFor("XRP-PERP")).toEqual({ symbol: "XRP-BIUSDB", market: "FUTURES" });
+  });
+
+  it("returns null for BNB and for ETH-BIUSDB/SOL-BIUSDB spot (removed 2026-09-12)", () => {
+    // BNB was SPOT+FUTURES before the restructure and is now removed
+    // entirely — neither entry should exist any more.
+    expect(backendMarketFor("BNB-BIUSDB")).toBeNull();
+    expect(backendMarketFor("BNB-PERP")).toBeNull();
+    // ETH and SOL are still tradable (see the FUTURES case above) but their
+    // SPOT rows were removed — the bare BASE-BIUSDB symbol must resolve to
+    // nothing now, even though ETH-PERP/SOL-PERP still do.
+    expect(backendMarketFor("ETH-BIUSDB")).toBeNull();
+    expect(backendMarketFor("SOL-BIUSDB")).toBeNull();
   });
 
   it("returns null for a symbol with no backend market", () => {
     // This is the exact case that used to trigger a fake "order placed"
     // success toast in TradePanel.tsx — asserting it stays null pins the
     // contract the honest-error fix depends on.
-    expect(backendMarketFor("DOGE-PERP")).toBeNull();
+    expect(backendMarketFor("SHIB-PERP")).toBeNull();
     expect(backendMarketFor("USDT-BIUSDB")).toBeNull();
   });
 
@@ -48,10 +66,14 @@ describe("registeredFuturesSymbols", () => {
     expect(futures.every((f) => f.market === "FUTURES")).toBe(true);
   });
 
-  it("is crypto-only while forex/commodities/stocks stay disabled", () => {
-    // 5 crypto perps (BTC, ETH, SOL, BNB, BI2X) — the 9 non-crypto rows are
-    // commented out of REGISTERED, see backendMarkets.ts.
-    expect(registeredFuturesSymbols()).toHaveLength(5);
+  it("matches the 2026-09-12 restructured market list exactly", () => {
+    // BI2X, BTC, ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, XRP — 10 total.
+    // BNB is fully removed (was in this list before the restructure).
+    const futures = registeredFuturesSymbols();
+    expect(futures).toHaveLength(10);
+    const bases = futures.map((f) => f.symbol.split("-")[0]).sort();
+    expect(bases).toEqual(["ADA", "AVAX", "BI2X", "BTC", "DOGE", "ETH", "LINK", "SOL", "TAO", "XRP"]);
+    expect(bases).not.toContain("BNB");
   });
 });
 
@@ -59,11 +81,16 @@ describe("frontendSymbolFor", () => {
   it("is the inverse of backendMarketFor for registered symbols", () => {
     expect(frontendSymbolFor("BTC-BIUSDB", "FUTURES")).toBe("BTC-PERP");
     expect(frontendSymbolFor("ETH-BIUSDB", "FUTURES")).toBe("ETH-PERP");
-    expect(frontendSymbolFor("SOL-BIUSDB", "SPOT")).toBe("SOL-BIUSDB");
+    expect(frontendSymbolFor("BTC-BIUSDB", "SPOT")).toBe("BTC-BIUSDB");
   });
 
   it("falls back to the engine symbol itself when unregistered", () => {
-    expect(frontendSymbolFor("DOGE-BIUSDB", "SPOT")).toBe("DOGE-BIUSDB");
+    // SHIB was never registered at all.
+    expect(frontendSymbolFor("SHIB-BIUSDB", "SPOT")).toBe("SHIB-BIUSDB");
+    // SOL-BIUSDB SPOT was removed 2026-09-12 (SOL is futures-only now) —
+    // falls back to the raw engine symbol, same as any other unregistered
+    // (symbol, market) pair, even though SOL-PERP/FUTURES still resolves.
+    expect(frontendSymbolFor("SOL-BIUSDB", "SPOT")).toBe("SOL-BIUSDB");
     // GOLD/AAPL.us are disabled (commented out of REGISTERED) — falls back
     // to the raw engine symbol, same as any other unregistered pair.
     expect(frontendSymbolFor("GOLD-BIUSDB", "FUTURES")).toBe("GOLD-BIUSDB");
