@@ -49,6 +49,15 @@ export const INITIAL_MARKETS: Market[] = [
   { symbol: "ETH-PERP", base: "ETH", quote: "BIUSDB", price: 3521.8, change24h: 1.87, volume24h: 720_000_000, category: "perp", asset: "crypto", trending: true, favorite: true, funding: 0.008, openInterest: 540_000_000 },
   { symbol: "SOL-PERP", base: "SOL", quote: "BIUSDB", price: 168.42, change24h: -3.12, volume24h: 410_000_000, category: "perp", asset: "crypto", trending: true, funding: -0.005, openInterest: 290_000_000 },
   { symbol: "BNB-PERP", base: "BNB", quote: "BIUSDB", price: 592.4, change24h: 1.15, volume24h: 210_000_000, category: "perp", asset: "crypto", funding: 0.006 },
+  // BI2X (added 2026-09-12): a real engine spot+futures pair like the ones
+  // above, but its base is NOT a Binance ticker — there's no live index feed
+  // behind it yet (a separate data-feed API is pending, see
+  // Price-Fetcher's config.go and backendMarkets.ts's comment on this pair).
+  // price/change24h/volume24h here are placeholder seed values only, same
+  // role INITIAL_MARKETS plays for every row — useMarketIndexes.ts replaces
+  // them with the real feed the moment one exists, exactly like it already
+  // does for BTC/ETH/SOL/BNB.
+  { symbol: "BI2X-PERP", base: "BI2X", quote: "BIUSDB", price: 100, change24h: 0, volume24h: 0, category: "perp", asset: "crypto", funding: 0 },
   // BTC/ETH/SOL/BNB-BIUSDB are the real, backend-connected spot markets (see
   // backendMarkets.ts); BIUSDB is the platform's internal stable quote
   // currency, pegged 1:1 to USDT.
@@ -56,6 +65,7 @@ export const INITIAL_MARKETS: Market[] = [
   { symbol: "ETH-BIUSDB", base: "ETH", quote: "BIUSDB", price: 3520.5, change24h: 1.85, volume24h: 540_000_000, category: "spot", asset: "crypto" },
   { symbol: "SOL-BIUSDB", base: "SOL", quote: "BIUSDB", price: 168.30, change24h: -3.10, volume24h: 280_000_000, category: "spot", asset: "crypto" },
   { symbol: "BNB-BIUSDB", base: "BNB", quote: "BIUSDB", price: 592.1, change24h: 1.12, volume24h: 190_000_000, category: "spot", asset: "crypto" },
+  { symbol: "BI2X-BIUSDB", base: "BI2X", quote: "BIUSDB", price: 100, change24h: 0, volume24h: 0, category: "spot", asset: "crypto" },
   // Crypto options — BTC is the only backend-configured options underlying.
   { symbol: "BTC-OPT", base: "BTC", quote: "USD", price: 67432.5, change24h: 2.34, volume24h: 120_000_000, category: "options", asset: "crypto" },
   // Forex (futures only) — real engine markets (BASE-BIUSDB/FUTURES); base is

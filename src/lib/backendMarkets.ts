@@ -20,6 +20,14 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
   // funding/index underlying.
   "SOL-PERP": { symbol: "SOL-BIUSDB", market: "FUTURES" },
   "BNB-PERP": { symbol: "BNB-BIUSDB", market: "FUTURES" },
+  // BI2X: not a Binance-tracked asset like the crypto pairs above — its
+  // index price is meant to come from a separate data-feed API (link
+  // pending as of 2026-09-12, see Price-Fetcher's config.go). The engine
+  // registration and order submission work today regardless; only the
+  // market-maker's automated quoting is blocked until that feed lands, since
+  // it correctly refuses to quote on a stale/missing index price.
+  "BI2X-BIUSDB": { symbol: "BI2X-BIUSDB", market: "SPOT" },
+  "BI2X-PERP": { symbol: "BI2X-BIUSDB", market: "FUTURES" },
 
   // Forex majors, commodities, and US stocks are DISABLED (2026-09-11 product
   // decision: crypto-only for the current launch) — matching-engine no

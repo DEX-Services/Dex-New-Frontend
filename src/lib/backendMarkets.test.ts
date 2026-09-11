@@ -11,6 +11,11 @@ describe("backendMarketFor", () => {
     // row from the SPOT entry of the same engine symbol name.
     expect(backendMarketFor("BTC-PERP")).toEqual({ symbol: "BTC-BIUSDB", market: "FUTURES" });
     expect(backendMarketFor("ETH-PERP")).toEqual({ symbol: "ETH-BIUSDB", market: "FUTURES" });
+    // BI2X (added 2026-09-12): registered like any other spot/futures pair
+    // even though its index-price feed isn't wired up yet — see
+    // backendMarkets.ts's own comment on this entry.
+    expect(backendMarketFor("BI2X-BIUSDB")).toEqual({ symbol: "BI2X-BIUSDB", market: "SPOT" });
+    expect(backendMarketFor("BI2X-PERP")).toEqual({ symbol: "BI2X-BIUSDB", market: "FUTURES" });
   });
 
   it("returns null for a symbol with no backend market", () => {
@@ -44,9 +49,9 @@ describe("registeredFuturesSymbols", () => {
   });
 
   it("is crypto-only while forex/commodities/stocks stay disabled", () => {
-    // 4 crypto perps (BTC, ETH, SOL, BNB) — the 9 non-crypto rows are
+    // 5 crypto perps (BTC, ETH, SOL, BNB, BI2X) — the 9 non-crypto rows are
     // commented out of REGISTERED, see backendMarkets.ts.
-    expect(registeredFuturesSymbols()).toHaveLength(4);
+    expect(registeredFuturesSymbols()).toHaveLength(5);
   });
 });
 
