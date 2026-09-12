@@ -152,3 +152,51 @@ export function adjustUserBalance(
     body: JSON.stringify({ userId, asset, amount, direction }),
   });
 }
+
+// Fee config: the platform's base fee rates (spot/futures maker+taker, P2P,
+// swap, liquidation) — see FEE-TIER-SYSTEM-PLAN.md. Keys match
+// feeconfig.ValidKeys() on the backend exactly.
+export const FEE_CONFIG_KEYS = [
+  "spot.maker",
+  "spot.taker",
+  "futures.maker",
+  "futures.taker",
+  "p2p.buyer",
+  "p2p.seller",
+  "swap.in",
+  "swap.out",
+  "liquidation",
+] as const;
+export type FeeConfigKey = (typeof FEE_CONFIG_KEYS)[number];
+
+export function getAdminFeeRates() {
+  return adminReq<{ rates: Record<string, string> }>("/admin/fees");
+}
+
+// Rejected by the backend outside [0, 0.05] for ordinary fees and
+// [0, 0.10] for "liquidation" (see feeconfig.RateBounds) — the UI should
+// mirror that bound so a mistaken edit is caught before the request round
+// trip, not just after.
+export function setAdminFeeRate(key: FeeConfigKey, rate: string) {
+  return adminReq<{ status: string; key: string; rate: string }>("/admin/fees/set", {
+    method: "POST",
+    body: JSON.stringify({ key, rate }),
+  });
+}
+
+export type AdminFeeSubscription = {
+  ID: number;
+  UserID: string;
+  Tier: number;
+  DiscountPct: string;
+  BI2XPriceSnapshot: string;
+  BI2XAmountPaid: string;
+  PurchasedAt: string;
+  ExpiresAt: string;
+  Status: string;
+};
+
+export function getAdminFeeSubscriptions(userId: string) {
+  const params = new URLSearchParams({ user: userId });
+  return adminReq<{ subscriptions: AdminFeeSubscription[] | null }>(`/admin/fees/subscriptions?${params}`);
+}

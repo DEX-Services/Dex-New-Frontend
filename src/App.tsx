@@ -24,6 +24,7 @@ import P2PWallet from "./pages/P2PWallet.tsx";
 import Token from "./pages/Token.tsx";
 import Refer from "./pages/Refer.tsx";
 import SIP from "./pages/SIP.tsx";
+import FeeTierSubscription from "./pages/FeeTierSubscription.tsx";
 import Affiliate from "./pages/Affiliate.tsx";
 import Support from "./pages/Support.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -33,6 +34,7 @@ import AdminProfile from "./pages/AdminProfile.tsx";
 import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
 import AdminSpreadControl from "./pages/AdminSpreadControl.tsx";
+import AdminFeeControl from "./pages/AdminFeeControl.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
@@ -110,12 +112,14 @@ const App = () => (
           <Route path="/affiliate" element={<Affiliate />} />
           <Route path="/support" element={<Support />} />
           <Route path="/sip" element={<SIP />} />
+          <Route path="/fee-tiers" element={<FeeTierSubscription />} />
           <Route path="/login" element={<AdminLogin />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/market-makers" element={<AdminMarketMakers />} />
             <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
             <Route path="/admin/market-makers/spread" element={<AdminSpreadControl />} />
+            <Route path="/admin/fees" element={<AdminFeeControl />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
