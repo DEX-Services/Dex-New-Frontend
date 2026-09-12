@@ -88,19 +88,21 @@ type SendTransactionParams = {
 // USDC/USDT stay listed as deposit-intake assets (a real on-chain deposit
 // lands there first, then converts to BIUSDB — see Dex-Backend's
 // chain.Listener), not because they're still tradable quote currencies.
-const SUPPORTED_ASSETS = ["BTC", "ETH", "SOL", "BNB", "BI2X", "BIUSDB", "USDC", "USDT", "BI"] as const;
+//
+// ETH, SOL, and BNB removed (2026-09-12): they backed the ETH-BIUSDB/
+// SOL-BIUSDB/BNB-BIUSDB SPOT markets, which no longer exist (ETH/SOL are
+// FUTURES-only now, settled entirely in BIUSDB; BNB has no market at all) —
+// see Dex-Backend's user_balances migration dropping these columns.
+const SUPPORTED_ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT", "BI"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	// The backend ledger stores every supported asset as a fixed-point raw
 	// integer with six fractional digits. BTC must use that same scale here:
 	// decoding it as eight decimals displayed balances 100x too small (for
-	// example, a real 0.000250 BTC appeared as 0.00000250 BTC). ETH/SOL/BNB
-	// use the same raw-unit convention (see Dex-Backend's user_balances schema).
+	// example, a real 0.000250 BTC appeared as 0.00000250 BTC).
 	BTC: 6,
-	ETH: 6,
-	SOL: 6,
-	BNB: 6,
+	BI2X: 6,
 	BIUSDB: 6,
 	USDC: 6,
 	USDT: 6,
