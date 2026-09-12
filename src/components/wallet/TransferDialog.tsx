@@ -4,20 +4,20 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { wallet, useWallet, WALLETS, shortAddress, getTreasuryAddress, getConnectedProvider } from "@/lib/useWallet";
+import { wallet, useWallet, WALLETS, shortAddress, getConnectedProvider } from "@/lib/useWallet";
 import { requestWithdrawal } from "@/lib/authApi";
 import { depositUsdc, isDexVaultConfigured } from "@/lib/contracts/dexVault";
-import { DEPOSIT_ASSETS, chainsFor, isDepositAllowed, isChainLive } from "@/lib/depositAssets";
+import { DEPOSIT_ASSETS, chainsFor, isDepositAllowed, isDepositLive } from "@/lib/depositAssets";
 import { ArrowDownToLine, ArrowUpFromLine, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { parseUnits, type Address } from "viem";
 
 const WITHDRAW_DECIMALS: Record<string, number> = { USDC: 6 };
-// AVAX is the only chain in DEPOSIT_ALLOWLIST with a working chain.Listener
-// today (see depositAssets.ts's isChainLive) — default both selectors to
-// the one combination that's actually live, so the dialog opens ready to
-// submit rather than on a combination that immediately errors.
+// USDC on AVAX is the only (asset, chain) pair with a working contract/
+// listener today (see depositAssets.ts's isDepositLive) — default both
+// selectors to it, so the dialog opens ready to submit rather than on a
+// combination that immediately errors.
 const DEFAULT_DEPOSIT_ASSET = "USDC";
 const DEFAULT_DEPOSIT_CHAIN = "AVAX";
 const SNOWTRACE_TX_URL = "https://testnet.snowtrace.io/tx/";
@@ -41,7 +41,6 @@ export function TransferDialog({
 
   const balance = w.balances.find((b) => b.asset === asset)?.available ?? 0;
   const fee = 0;
-  const treasuryAddress = getTreasuryAddress();
 
   // Deposits are restricted to a fixed (asset, chain) allowlist — BIUSDB and
   // BI2X only on Avalanche (they're the platform's own assets, not real
@@ -79,7 +78,9 @@ export function TransferDialog({
         // ever offers chainsFor(asset)), but guard the actual submit path
         // too in case state gets out of sync.
         return toast.error(`${asset} cannot be deposited on ${network}`);
-      } else if (asset === "USDC" && network === "AVAX") {
+      } else if (isDepositLive(asset, network)) {
+        // The one real combination: USDC on Avalanche, via the deployed
+        // DexVault contract (see depositAssets.ts's isDepositLive).
         if (!isDexVaultConfigured()) return toast.error("DexVault contract is not configured yet");
         const provider = getConnectedProvider();
         if (!provider) return toast.error("Connect a wallet first");
@@ -94,27 +95,15 @@ export function TransferDialog({
             onClick: () => window.open(`${SNOWTRACE_TX_URL}${txHash}`, "_blank"),
           },
         });
-      } else if (!isChainLive(network)) {
-        // Allowed by the product allowlist, but this chain has no working
-        // on-chain listener/contract yet (see depositAssets.ts's
-        // isChainLive doc comment) — say so rather than pretending to
-        // submit a deposit that nothing on the backend will ever see.
-        return toast.error(`${network} deposits are coming soon`, {
-          description: "This network is on the roadmap but isn't live yet — use Avalanche for now.",
-        });
       } else {
-        if (!treasuryAddress) return toast.error("Treasury address is not configured");
-
-        await wallet.sendTransfer({
-          from: w.address,
-          to: treasuryAddress,
-          value: "0x0",
-          data: "0x",
-        });
-
-        wallet.deposit(asset, amt);
-        toast.success("Deposit confirmed in wallet", {
-          description: `${amt} ${asset} sent to treasury on ${network}`,
+        // Allowed by the product allowlist, but no contract/listener exists
+        // for this exact (asset, chain) pair yet — including BIUSDB/BI2X/
+        // USDT on Avalanche itself, since DexVault only has a depositToken
+        // path for USDC today (see isDepositLive's doc comment). Say so
+        // rather than pretending to submit a deposit nothing on the backend
+        // will ever see or credit.
+        return toast.error(`${asset} deposits on ${network} are coming soon`, {
+          description: "This combination is on the roadmap but isn't live yet — use USDC on Avalanche for now.",
         });
       }
 
@@ -235,11 +224,9 @@ export function TransferDialog({
 
             <TabsContent value="deposit" className="m-0 space-y-2">
               <p className="text-[10px] text-muted-foreground">
-                {asset === "USDC" && network === "AVAX"
+                {isDepositLive(asset, network)
                   ? "Your wallet will ask to approve USDC, then confirm the deposit. Funds are forwarded to treasury on-chain."
-                  : !isChainLive(network)
-                  ? `${network} deposits are coming soon — not live yet.`
-                  : `Your connected wallet will ask for confirmation before sending ${asset} to the treasury.`}
+                  : `${asset} deposits on ${network} are coming soon — not live yet. Use USDC on Avalanche for now.`}
               </p>
             </TabsContent>
 

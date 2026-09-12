@@ -33,14 +33,21 @@ export function isDepositAllowed(asset: string, chain: string): boolean {
   return chainsFor(asset).includes(chain as Chain);
 }
 
-// isChainLive: of the allowed combinations above, which ones this build can
-// actually submit a real on-chain deposit for right now. Only Avalanche has
-// a working chain.Listener + deployed DexVault contract (see Dex-Backend's
-// internal/chain package) — every other chain in DEPOSIT_ALLOWLIST is a
-// real, permitted combination the product intends to support, but isn't
-// wired up to an actual contract/listener yet. Keeping this separate from
-// the allowlist means enabling a new chain later is turning this flag on,
-// not re-deciding which combinations are allowed.
-export function isChainLive(chain: string): boolean {
-  return chain === "AVAX";
+// isDepositLive: of the allowed (asset, chain) combinations above, which one
+// this build can actually submit a real on-chain deposit for right now.
+//
+// Only ONE combination is real: USDC on Avalanche, via the deployed
+// DexVault contract + Dex-Backend's chain.Listener (see internal/chain).
+// Every other allowed combination — including BIUSDB/BI2X/USDT on Avalanche
+// itself — has no deployed contract or listener behind it yet: DexVault
+// only exposes depositToken for USDC, and nothing watches for any other
+// asset's Deposit event on any chain. So "the chain is Avalanche" alone
+// does NOT make a combination live; only this exact pair does.
+//
+// Keeping this as a single pair-level check (not a per-chain flag) means
+// turning on the next real combination later — say BIUSDB on Avalanche,
+// once a BIUSDB-specific vault path exists — is adding one line here, not
+// restructuring this function's shape.
+export function isDepositLive(asset: string, chain: string): boolean {
+  return asset === "USDC" && chain === "AVAX";
 }

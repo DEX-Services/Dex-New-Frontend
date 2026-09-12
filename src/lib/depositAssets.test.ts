@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEPOSIT_ALLOWLIST, DEPOSIT_ASSETS, chainsFor, isDepositAllowed, isChainLive } from "./depositAssets";
+import { DEPOSIT_ALLOWLIST, DEPOSIT_ASSETS, chainsFor, isDepositAllowed, isDepositLive } from "./depositAssets";
 
 describe("depositAssets allowlist", () => {
   it("restricts BIUSDB and BI2X to Avalanche only", () => {
@@ -26,11 +26,16 @@ describe("depositAssets allowlist", () => {
     expect(isDepositAllowed("ETH", "AVAX")).toBe(false);
   });
 
-  it("only AVAX is live today; every other allowed chain is not yet wired up", () => {
-    expect(isChainLive("AVAX")).toBe(true);
-    for (const chain of ["BEP20", "ERC20", "TON", "TRC20", "Polygon", "Arbitrum"]) {
-      expect(isChainLive(chain)).toBe(false);
-    }
+  it("only USDC on AVAX is live today — including BIUSDB/BI2X/USDT on Avalanche itself", () => {
+    expect(isDepositLive("USDC", "AVAX")).toBe(true);
+    // Same chain, different asset — still not live: DexVault only has a
+    // depositToken path for USDC, not for any other asset on any chain.
+    expect(isDepositLive("BIUSDB", "AVAX")).toBe(false);
+    expect(isDepositLive("BI2X", "AVAX")).toBe(false);
+    expect(isDepositLive("USDT", "AVAX")).toBe(false);
+    // Same asset, different chain — also not live.
+    expect(isDepositLive("USDC", "ERC20")).toBe(false);
+    expect(isDepositLive("USDC", "Polygon")).toBe(false);
   });
 
   it("exposes exactly the four allowed deposit assets", () => {
