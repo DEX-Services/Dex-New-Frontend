@@ -40,24 +40,24 @@ export function me() {
 export type WalletBalanceResponse = {
   balances: {
     BTC: string;
+    BI2X: string;
     BIUSDB: string;
     USDC: string;
     USDT: string;
-    BI: string;
   };
   locked: {
     BTC: string;
+    BI2X: string;
     BIUSDB: string;
     USDC: string;
     USDT: string;
-    BI: string;
   };
   withdrawalLocked?: {
     BTC: string;
+    BI2X: string;
     BIUSDB: string;
     USDC: string;
     USDT: string;
-    BI: string;
   };
   token: string;
   amount: string;

@@ -93,7 +93,11 @@ type SendTransactionParams = {
 // SOL-BIUSDB/BNB-BIUSDB SPOT markets, which no longer exist (ETH/SOL are
 // FUTURES-only now, settled entirely in BIUSDB; BNB has no market at all) —
 // see Dex-Backend's user_balances migration dropping these columns.
-const SUPPORTED_ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT", "BI"] as const;
+//
+// BI (the platform's own native token, distinct from BI2X/BIUSDB) removed
+// (2026-09-13): never wired into any matching-engine market, same reasoning
+// as ETH/SOL/BNB above.
+const SUPPORTED_ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
@@ -106,7 +110,6 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	BIUSDB: 6,
 	USDC: 6,
 	USDT: 6,
-	BI: 6,
 };
 
 const DEFAULT_BALANCES: Balance[] = SUPPORTED_ASSETS.map((asset) => ({

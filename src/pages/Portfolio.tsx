@@ -71,14 +71,12 @@ const Portfolio = () => {
     const biusd = amountFor("BIUSDB");
     const usdc = amountFor("USDC");
     const usdt = amountFor("USDT");
-    const bi = amountFor("BI");
 
     return {
-      totalFunds: biusd + usdc + usdt + bi,
+      totalFunds: biusd + usdc + usdt,
       BIUSDB: biusd,
       USDC: usdc,
       USDT: usdt,
-      BI: bi,
     };
   }, [walletState.balances]);
 
@@ -106,12 +104,11 @@ const Portfolio = () => {
         </div>
 
         {/* Key stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BIUSDB + USDC + USDT + BI" icon={DollarSign} highlight />
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BIUSDB + USDC + USDT" icon={DollarSign} highlight />
           <StatCard label="BIUSDB" value={formatTokenAmount(dbBalances.BIUSDB)} sub="Tradable Balance" icon={Wallet} />
           <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Available Balance" icon={Wallet} />
           <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Available Balance" icon={Wallet} />
-          <StatCard label="BI" value={formatTokenAmount(dbBalances.BI)} sub="Available Balance" icon={Wallet} />
         </div>
 
         {/* Frozen amount allocation */}

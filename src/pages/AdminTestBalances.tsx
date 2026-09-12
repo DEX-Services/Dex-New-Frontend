@@ -16,8 +16,10 @@ import {
 // dropped along with the SPOT markets they backed (ETH/SOL are FUTURES-only
 // now, settled in BIUSDB; BNB has no market at all) — see Dex-Backend's
 // user_balances migration. BI2X added for the same reason it's a real
-// tradable asset (BI2X-BIUSDB spot/futures).
-const ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT", "BI"];
+// tradable asset (BI2X-BIUSDB spot/futures). BI (the platform's own native
+// token, distinct from BI2X) removed (2026-09-13): never wired into any
+// matching-engine market, same reasoning as ETH/SOL/BNB.
+const ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT"];
 
 // user_balances stores every asset as a raw integer scaled by 1e6 (see
 // balanceRawScale in AdminServer.toRawUnits, and the same convention in
