@@ -35,6 +35,8 @@ export function MarketList({
   collapsed,
   onToggleCollapse,
   onComingSoonChange,
+  kind: controlledKind,
+  onKindChange,
 }: {
   activeSymbol: string;
   onSelect: (s: string) => void;
@@ -45,10 +47,23 @@ export function MarketList({
   // its chart and disable the trade panel to match — browsing Forex should
   // visibly do something even though there's nothing to select yet.
   onComingSoonChange?: (comingSoon: boolean) => void;
+  // Optional controlled kind ("spot"/"perp"/"options"/"fav"), so the trade
+  // page can keep this list's Spot/Future sub-tab in sync with the trade
+  // panel's own Spot/Futures tab (selecting either one switches both).
+  // Uncontrolled (kind omitted) falls back to internal state, defaulting to
+  // "spot" — every other MarketList usage (e.g. a future standalone Markets
+  // page) keeps working exactly as before.
+  kind?: MarketKind | "fav";
+  onKindChange?: (k: MarketKind | "fav") => void;
 }) {
   const markets = useMarkets();
   const [asset, setAsset] = useState<AssetClass>("crypto");
-  const [kind, setKind] = useState<MarketKind | "fav">("perp");
+  const [uncontrolledKind, setUncontrolledKind] = useState<MarketKind | "fav">("spot");
+  const kind = controlledKind ?? uncontrolledKind;
+  const setKind = (k: MarketKind | "fav") => {
+    setUncontrolledKind(k);
+    onKindChange?.(k);
+  };
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set(markets.filter(m => m.favorite).map(m => m.symbol)));
 

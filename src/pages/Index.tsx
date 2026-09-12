@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { PanelGroup, Panel, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { Calculator, GripVertical, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, BarChart2, BookOpen, ArrowLeftRight, List, Plus, Trash2, LineChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatPrice } from "@/lib/mockData";
+import { formatPrice, MarketKind } from "@/lib/mockData";
 import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
 import { useOrders } from "@/lib/useOrders";
@@ -610,6 +610,9 @@ interface RightColumnProps {
   symbol: string;
   price: number;
   selectedOption?: OptionChainEntry | null;
+  // Controlled trade mode, kept in sync with the market list's Spot/Future
+  // sub-tab — see Index()'s tradeMode state.
+  tradeMode: MarketMode;
   onTradeModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
   optionLayoutActive?: boolean;
@@ -620,7 +623,7 @@ interface RightColumnProps {
   disabled?: boolean;
 }
 
-function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders, optionLayoutActive, disabled }: RightColumnProps) {
+function RightColumn({ symbol, price, selectedOption, tradeMode, onTradeModeChange, orders, optionLayoutActive, disabled }: RightColumnProps) {
   const [obOpen, setObOpen] = useState(true);
   const [tab, setTab] = useState<"book" | "trades">("book");
   const orderBookPanelRef = useRef<ImperativePanelHandle>(null);
@@ -678,6 +681,7 @@ function RightColumn({ symbol, price, selectedOption, onTradeModeChange, orders,
                 symbol={symbol}
                 price={price}
                 selectedOption={selectedOption}
+                mode={tradeMode}
                 onModeChange={onTradeModeChange}
                 orders={orders}
               />
@@ -883,6 +887,16 @@ const Index = () => {
   const baseAsset = market?.base ?? symbol.split("-")[0] ?? "";
   const backendOptions = backendOptionsMarketFor(baseAsset);
   const [tradeMode, setTradeMode] = useState<MarketMode>("spot");
+  // MarketList's Spot/Future sub-tab (MarketKind: "spot"|"perp"|"options") and
+  // TradePanel's Spot/Futures/Options tab (MarketMode: "spot"|"futures"|
+  // "options") name the futures case differently ("perp" vs "futures") but
+  // otherwise mean the same thing — these two keep tradeMode as the single
+  // source of truth so picking either one switches both, and the page loads
+  // on Spot by default (tradeMode's initial value above) rather than
+  // whatever MarketList's own default used to be.
+  const kindForTradeMode = (m: MarketMode): MarketKind | "fav" => (m === "futures" ? "perp" : m);
+  const tradeModeForKind = (k: MarketKind | "fav"): MarketMode => (k === "perp" ? "futures" : k === "fav" ? "spot" : k);
+  const handleKindChange = (k: MarketKind | "fav") => setTradeMode(tradeModeForKind(k));
   const optionLayoutActive = isOptionsMarket && !!backendOptions;
   const [optionContracts, setOptionContracts] = useState<OptionChainEntry[]>([]);
   useEffect(() => {
@@ -1021,6 +1035,8 @@ const Index = () => {
             collapsed={collapsed}
             onToggleCollapse={() => setCollapsed(c => !c)}
             onComingSoonChange={setBrowsingComingSoon}
+            kind={kindForTradeMode(tradeMode)}
+            onKindChange={handleKindChange}
           />
         );
       case "chart":
@@ -1121,6 +1137,7 @@ const Index = () => {
               symbol={symbol}
               price={price}
               selectedOption={selectedOption}
+              tradeMode={tradeMode}
               onTradeModeChange={setTradeMode}
               orders={orders}
               optionLayoutActive={optionLayoutActive}
@@ -1144,6 +1161,8 @@ const Index = () => {
                     collapsed={false}
                     onToggleCollapse={() => {}}
                     onComingSoonChange={setBrowsingComingSoon}
+                    kind={kindForTradeMode(tradeMode)}
+                    onKindChange={handleKindChange}
                   />
                 </div>
               )}
@@ -1170,6 +1189,7 @@ const Index = () => {
                     symbol={symbol}
                     price={price}
                     selectedOption={selectedOption}
+                    tradeMode={tradeMode}
                     onTradeModeChange={setTradeMode}
                     orders={orders}
                     optionLayoutActive={optionLayoutActive}

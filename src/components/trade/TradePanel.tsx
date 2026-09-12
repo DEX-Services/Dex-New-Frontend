@@ -26,12 +26,18 @@ export function TradePanel({
   symbol,
   price,
   selectedOption,
+  mode: controlledMode,
   onModeChange,
   orders,
 }: {
   symbol: string;
   price: number;
   selectedOption?: OptionChainEntry | null;
+  // Optional controlled mode, so the trade page can keep this panel's Spot/
+  // Futures/Options tab in sync with the market list's own Spot/Future
+  // sub-tab (selecting either one switches both). Uncontrolled (mode
+  // omitted) falls back to internal state, defaulting to "spot".
+  mode?: MarketMode;
   onModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
 }) {
@@ -44,7 +50,9 @@ export function TradePanel({
   // always right, whatever the display symbol's suffix convention is.
   const quoteAsset = marketMetadata?.quoteCurrency || symbol.split("-")[1] || "BIUSDB";
   const walletState = useWallet();
-  const [mode, setMode] = useState<MarketMode>("spot");
+  const [uncontrolledMode, setUncontrolledMode] = useState<MarketMode>("spot");
+  const mode = controlledMode ?? uncontrolledMode;
+  const setMode = setUncontrolledMode;
   const [side, setSide] = useState<Side>("buy");
   const isSpotSell = mode === "spot" && side === "sell";
   const isSpotBuy = mode === "spot" && side === "buy";
