@@ -227,9 +227,9 @@ export function setAdminAffiliateLinkActive(linkId: string, active: boolean) {
   });
 }
 
-// Fee Revenue: all-time gross fee collected per trading surface, raw
-// 6-decimal BI2XUSD units (spot/futures/liquidation/swap already include
-// whatever was carved out to a referral/affiliate payout — see
+// Fee Revenue: gross fee collected per trading surface over the given
+// window, raw 6-decimal BI2XUSD units (spot/futures/liquidation/swap already
+// include whatever was carved out to a referral/affiliate payout — see
 // FeeRevenueTotals on the backend). P2P is tracked separately from every
 // other category since it never touches the platform treasury tables.
 // Prop firm and any other not-yet-real fee type is simply absent here.
@@ -242,8 +242,14 @@ export type AdminFeeRevenue = {
   totalRaw: string;
 };
 
-export function getAdminFeeRevenue() {
-  return adminReq<AdminFeeRevenue>("/admin/fee-revenue");
+// Matches feeRevenueRanges on the backend exactly — "all" (or an omitted
+// range) means all-time, with no lower bound at all.
+export const FEE_REVENUE_RANGES = ["1h", "1d", "1w", "1m", "all"] as const;
+export type FeeRevenueRange = (typeof FEE_REVENUE_RANGES)[number];
+
+export function getAdminFeeRevenue(range: FeeRevenueRange = "all") {
+  const params = range === "all" ? "" : `?range=${encodeURIComponent(range)}`;
+  return adminReq<AdminFeeRevenue>(`/admin/fee-revenue${params}`);
 }
 
 export type AdminFeeSubscription = {

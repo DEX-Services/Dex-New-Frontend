@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Loader2, DollarSign, TrendingUp, Zap, Repeat, Users, Layers } from "lucide-react";
 import type { ComponentType } from "react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { getAdminFeeRevenue, type AdminFeeRevenue } from "@/lib/adminApi";
+import { Button } from "@/components/ui/button";
+import { getAdminFeeRevenue, FEE_REVENUE_RANGES, type AdminFeeRevenue, type FeeRevenueRange } from "@/lib/adminApi";
 import { formatBI2XUSDRaw } from "@/lib/referralApi";
 
 type Row = {
@@ -17,25 +18,41 @@ type Row = {
 // explainer row instead of a fabricated number — see the conversation this
 // page came from for why.
 const ROWS: Row[] = [
-  { key: "spotRaw", label: "Spot Trading", hint: "Maker + taker fees, all-time", icon: TrendingUp },
-  { key: "futuresRaw", label: "Futures Trading", hint: "Maker + taker fees, all-time", icon: TrendingUp },
+  { key: "spotRaw", label: "Spot Trading", hint: "Maker + taker fees", icon: TrendingUp },
+  { key: "futuresRaw", label: "Futures Trading", hint: "Maker + taker fees", icon: TrendingUp },
   { key: "liquidationRaw", label: "Auto-Liquidation", hint: "Forced position-close penalties", icon: Zap },
   { key: "swapRaw", label: "Swap", hint: "BI2XUSD ↔ USDT/USDC conversion fee", icon: Repeat },
-  { key: "p2pRaw", label: "P2P", hint: "Buyer + seller fees, all-time", icon: Users },
+  { key: "p2pRaw", label: "P2P", hint: "Buyer + seller fees", icon: Users },
 ];
 
+const RANGE_LABELS: Record<FeeRevenueRange, string> = {
+  "1h": "1 Hour",
+  "1d": "1 Day",
+  "1w": "1 Week",
+  "1m": "1 Month",
+  all: "All Time",
+};
+
 export default function AdminFeeRevenue() {
+  const [range, setRange] = useState<FeeRevenueRange>("all");
   const [data, setData] = useState<AdminFeeRevenue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     document.title = "Fee Revenue | BitDx Admin";
-    getAdminFeeRevenue()
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    getAdminFeeRevenue(range)
       .then(setData)
       .catch((e) => setError(e.message || "Could not load fee revenue."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [range]);
+
+  const rangeHint = range === "all" ? "all-time" : `in the last ${RANGE_LABELS[range].toLowerCase()}`;
 
   return (
     <AdminLayout>
@@ -45,10 +62,24 @@ export default function AdminFeeRevenue() {
             <Layers className="h-7 w-7 text-primary" /> Fee Revenue
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            All-time gross fees collected per trading surface, in BI2XUSD. Spot, futures and liquidation
-            totals include any share already paid out to a referrer or affiliate owner — this is what
-            was collected from users, not just what the treasury kept.
+            Gross fees collected per trading surface, in BI2XUSD. Spot, futures and liquidation totals
+            include any share already paid out to a referrer or affiliate owner — this is what was
+            collected from users, not just what the treasury kept.
           </p>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          {FEE_REVENUE_RANGES.map((r) => (
+            <Button
+              key={r}
+              size="sm"
+              variant={r === range ? "default" : "outline"}
+              className={r === range ? "bg-gradient-primary text-primary-foreground" : "glass"}
+              onClick={() => setRange(r)}
+            >
+              {RANGE_LABELS[r]}
+            </Button>
+          ))}
         </div>
 
         {error && (
@@ -67,7 +98,7 @@ export default function AdminFeeRevenue() {
               </div>
               <div>
                 <div className="text-3xl font-bold gradient-text">{formatBI2XUSDRaw(data.totalRaw)} BI2XUSD</div>
-                <div className="text-xs text-muted-foreground">Total fee revenue, all categories, all-time</div>
+                <div className="text-xs text-muted-foreground">Total fee revenue, all categories, {rangeHint}</div>
               </div>
             </div>
 
