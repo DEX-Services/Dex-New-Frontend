@@ -39,6 +39,7 @@ import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
 import AdminSpreadControl from "./pages/AdminSpreadControl.tsx";
 import AdminFeeControl from "./pages/AdminFeeControl.tsx";
 import AdminAffiliateLinks from "./pages/AdminAffiliateLinks.tsx";
+import AdminFeeRevenue from "./pages/AdminFeeRevenue.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
@@ -141,6 +142,7 @@ const App = () => (
             <Route path="/admin/market-makers/spread" element={<AdminSpreadControl />} />
             <Route path="/admin/fees" element={<AdminFeeControl />} />
             <Route path="/admin/affiliate-links" element={<AdminAffiliateLinks />} />
+            <Route path="/admin/fee-revenue" element={<AdminFeeRevenue />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
             <Route path="/admin/profile" element={<AdminProfile />} />

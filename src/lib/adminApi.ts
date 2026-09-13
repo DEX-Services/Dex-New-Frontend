@@ -227,6 +227,25 @@ export function setAdminAffiliateLinkActive(linkId: string, active: boolean) {
   });
 }
 
+// Fee Revenue: all-time gross fee collected per trading surface, raw
+// 6-decimal BI2XUSD units (spot/futures/liquidation/swap already include
+// whatever was carved out to a referral/affiliate payout — see
+// FeeRevenueTotals on the backend). P2P is tracked separately from every
+// other category since it never touches the platform treasury tables.
+// Prop firm and any other not-yet-real fee type is simply absent here.
+export type AdminFeeRevenue = {
+  spotRaw: string;
+  futuresRaw: string;
+  liquidationRaw: string;
+  swapRaw: string;
+  p2pRaw: string;
+  totalRaw: string;
+};
+
+export function getAdminFeeRevenue() {
+  return adminReq<AdminFeeRevenue>("/admin/fee-revenue");
+}
+
 export type AdminFeeSubscription = {
   ID: number;
   UserID: string;
