@@ -10,8 +10,9 @@
 // like everything else. The engine symbol for a PERP is "BASE-BI2XUSD" too —
 // distinct from the SPOT row of the same name via the (symbol, market) key.
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
-  // --- SPOT: BI2X and BTC only (2026-09-12 market-list restructure) ---
-  "BTC-BI2XUSD": { symbol: "BTC-BI2XUSD", market: "SPOT" },
+  // --- SPOT: BI2X only (BTC-BI2XUSD SPOT removed 2026-09-13; BTC-PERP
+  // FUTURES below is unaffected — same engine symbol string, different
+  // market) ---
   // BI2X: not a Binance-tracked asset like BTC — its index price comes from
   // the dedicated BI2X data feed (Price-Fetcher's bitdxfeed client).
   "BI2X-BI2XUSD": { symbol: "BI2X-BI2XUSD", market: "SPOT" },

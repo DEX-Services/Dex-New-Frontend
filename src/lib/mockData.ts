@@ -46,17 +46,15 @@ export type Market = {
 // disabledMarkets for the full list of what would need to come back
 // together for these to be real again.
 export const INITIAL_MARKETS: Market[] = [
-  // --- SPOT: BI2X and BTC only ---
-  // BTC-BI2XUSD is the real, backend-connected spot market (see
-  // backendMarkets.ts); BI2XUSD is the platform's internal stable quote
-  // currency, pegged 1:1 to USDT.
-  { symbol: "BTC-BI2XUSD", base: "BTC", quote: "BI2XUSD", price: 67428.1, change24h: 2.31, volume24h: 980_000_000, category: "spot", asset: "crypto", favorite: true },
+  // --- SPOT: BI2X only (BTC-BI2XUSD SPOT removed 2026-09-13; BTC-PERP
+  // FUTURES below is unaffected) ---
   // BI2X: a real engine spot market, but its base is NOT a Binance ticker —
   // priced from its own dedicated data feed instead. price/change24h/
   // volume24h here are placeholder seed values only, same role every row in
   // this list plays until useMarketIndexes.ts replaces them with the real
-  // feed.
-  { symbol: "BI2X-BI2XUSD", base: "BI2X", quote: "BI2XUSD", price: 100, change24h: 0, volume24h: 0, category: "spot", asset: "crypto" },
+  // feed. favorite: true moved here from the removed BTC-BI2XUSD row so the
+  // trade page still has a default-favorited spot market.
+  { symbol: "BI2X-BI2XUSD", base: "BI2X", quote: "BI2XUSD", price: 100, change24h: 0, volume24h: 0, category: "spot", asset: "crypto", favorite: true },
 
   // --- FUTURES: BI2X, BTC, ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, XRP ---
   // Perps map to the matching engine's real *-BI2XUSD futures markets —
