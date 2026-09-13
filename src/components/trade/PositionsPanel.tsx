@@ -103,7 +103,6 @@ export function PositionsPanel({
   const [botsAuthed, setBotsAuthed] = useState(true);
 
   const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
-  const optionsOrders = orders.orders.filter(o => o.market === "OPTIONS");
 
   const refetchPositions = useCallback(() => {
     if (!account) return;
@@ -429,9 +428,6 @@ export function PositionsPanel({
               <TabsTrigger value="futuresOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Futures Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{futuresOrders.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="optionsOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
-                Options Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{optionsOrders.length}</span>
-              </TabsTrigger>
               <TabsTrigger value="automated" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Bot / AI Agent <span className="ml-1.5 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px]">{myBots.length}</span>
               </TabsTrigger>
@@ -564,77 +560,6 @@ export function PositionsPanel({
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    {editingOrderId === o.id ? (
-                      <>
-                        <td className="text-right">
-                          <input value={editQty} onChange={(e) => setEditQty(e.target.value)}
-                            className="w-16 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
-                        </td>
-                        <td className="text-right">
-                          {o.price ? (
-                            <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
-                              className="w-20 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
-                          ) : (
-                            <span className="text-muted-foreground">MKT</span>
-                          )}
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="text-right">{o.qty}</td>
-                        <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
-                      </>
-                    )}
-                    <td className="text-right text-muted-foreground">{o.filled}</td>
-                    <td className="text-right text-muted-foreground">{o.status}</td>
-                    <td className="text-right pr-3 flex items-center justify-end gap-1">
-                      {editingOrderId === o.id ? (
-                        <>
-                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-buy"
-                            onClick={() => commitEdit(o)}><Check className="h-3 w-3" /></Button>
-                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-sell"
-                            onClick={cancelEdit}><X className="h-3 w-3" /></Button>
-                        </>
-                      ) : (
-                        <>
-                          {o.price && (
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
-                              title="Modify order (cancels and resubmits with your changes)"
-                              onClick={() => startEdit(o)}><Pencil className="h-3 w-3" /></Button>
-                          )}
-                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
-                            onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="optionsOrders" className="flex-1 overflow-auto m-0">
-          {optionsOrders.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No open options orders.</div>
-          ) : (
-            <table className="w-full text-[11px] font-mono">
-              <thead className="text-[10px] text-muted-foreground uppercase">
-                <tr className="border-b border-border/50">
-                  <th className="text-left px-3 py-1.5">Symbol</th>
-                  <th className="text-left">Side</th>
-                  <th className="text-right">Qty</th>
-                  <th className="text-right">Price</th>
-                  <th className="text-right">Filled</th>
-                  <th className="text-right">Status</th>
-                  <th className="text-right pr-3">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {optionsOrders.map(o => (
-                  <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
-                    <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
-                    <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
                     {editingOrderId === o.id ? (
                       <>
                         <td className="text-right">
