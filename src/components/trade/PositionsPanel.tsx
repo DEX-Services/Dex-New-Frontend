@@ -296,9 +296,55 @@ export function PositionsPanel({
     };
   }, [account]);
 
-  useEffect(() => { if (account) getOrderHistory().then(r => setOrderHistory(r.orders ?? [])).catch(() => setOrderHistory([])); }, [account]);
-  useEffect(() => { if (account) getFills().then(r => setFills(r.fills ?? [])).catch(() => setFills([])); }, [account]);
-  useEffect(() => { if (account) getPnlHistory().then(r => setRealizedPnl(r.entries ?? [])).catch(() => setRealizedPnl([])); }, [account]);
+  // Order History / Trade History (fills) / Realized PnL: previously fetched
+  // exactly once on mount (or account change) and never again, so placing an
+  // order after the panel had already loaded never showed up in any of these
+  // tabs — they silently went stale for the rest of the session. Now they
+  // refetch on any own-account order event too, throttled the same way
+  // positions/orders already are (see the ORDER_FILLED handling above and in
+  // useOrders), and also cover SPOT fills, not just FUTURES.
+  useEffect(() => {
+    if (!account) {
+      setOrderHistory([]);
+      setFills([]);
+      setRealizedPnl([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchHistory = () => {
+      getOrderHistory().then(r => { if (!cancelled) setOrderHistory(r.orders ?? []); }).catch(() => { if (!cancelled) setOrderHistory([]); });
+      getFills().then(r => { if (!cancelled) setFills(r.fills ?? []); }).catch(() => { if (!cancelled) setFills([]); });
+      getPnlHistory().then(r => { if (!cancelled) setRealizedPnl(r.entries ?? []); }).catch(() => { if (!cancelled) setRealizedPnl([]); });
+    };
+    fetchHistory();
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+    let refetchPending = false;
+    const throttledRefetch = () => {
+      if (refetchTimer) {
+        refetchPending = true;
+        return;
+      }
+      fetchHistory();
+      refetchTimer = setTimeout(() => {
+        refetchTimer = null;
+        if (refetchPending) {
+          refetchPending = false;
+          throttledRefetch();
+        }
+      }, 750);
+    };
+    const unsubWs = wsClient.subscribe((evt: WSEvent) => {
+      const isOwnOrderEvent =
+        (evt.type === "ORDER_FILLED" || evt.type === "ORDER_PARTIALLY_FILLED" || evt.type === "ORDER_CANCELLED") &&
+        (!evt.order?.accountId || evt.order.accountId === account);
+      if (isOwnOrderEvent) throttledRefetch();
+    });
+    return () => {
+      cancelled = true;
+      if (refetchTimer) clearTimeout(refetchTimer);
+      unsubWs();
+    };
+  }, [account]);
 
   // Bot / AI Agent tab: the account's own strategy bots (grid/DCA/TWAP/
   // market-maker) from the bots service, replacing 4 hardcoded fake rows
