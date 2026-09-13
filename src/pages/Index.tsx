@@ -1116,7 +1116,12 @@ const Index = () => {
               <PanelResizeHandle className="h-1.5 flex items-center justify-center group cursor-row-resize hidden lg:flex">
                 <div className="h-0.5 w-8 bg-border/50 rounded group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
               </PanelResizeHandle>
-              <Panel ref={posPanelRef} defaultSize={DEFAULT_CENTER_SIZES[1]} minSize={MINIMIZED_POSITIONS_SIZE} className="hidden lg:block">
+              {/* Was "hidden lg:block" — that silently removed the entire
+                  Positions/Orders/History panel below the lg breakpoint
+                  (<1024px), with no other way to reach it on desktop. Always
+                  render it now; only the mobile PanelGroup branch below is
+                  skipped in favor of the bottom tab bar. */}
+              <Panel ref={posPanelRef} defaultSize={DEFAULT_CENTER_SIZES[1]} minSize={MINIMIZED_POSITIONS_SIZE}>
                 <DraggableCard
                   id={slots[2]}
                   title={PANEL_TITLES[slots[2]]}

@@ -166,5 +166,46 @@ export function useOrders(account: string) {
     [publish]
   );
 
-  return { orders, place, cancel, refetch };
+  // There is no backend amend/modify endpoint (only place + cancel), so a
+  // "modify" is cancel-then-resubmit: cancel the resting order for its
+  // remaining unfilled qty, then place a new order with the edited
+  // price/qty. Not atomic — the old order's book priority is lost and,
+  // between the two calls, the market could move or the remainder could
+  // fill/partially fill first (submitOrder validates qty > 0 for what's
+  // still open, but a fill racing the cancel is possible and surfaces as a
+  // normal cancel-failure to the caller). Acceptable tradeoff: this ships
+  // without needing a new engine order-book amend path.
+  const modify = useCallback(
+    async (o: OpenOrder, next: { price?: string; qty: string }) => {
+      await cancelOrder(o.symbol, o.market, o.id);
+      if (ordersRef.current.delete(o.id)) publish();
+      const res = await submitOrder({
+        account,
+        symbol: o.symbol,
+        market: o.market,
+        side: o.side,
+        type: next.price ? "LIMIT" : "MARKET",
+        qty: next.qty,
+        price: next.price,
+      });
+      if (!TERMINAL.has(res.status)) {
+        ordersRef.current.set(res.orderId, {
+          id: res.orderId,
+          symbol: o.symbol,
+          market: o.market,
+          side: o.side,
+          price: next.price,
+          qty: next.qty,
+          filled: res.filled,
+          status: res.status,
+        });
+        publish();
+      }
+      wallet.refreshBalances().catch(() => {});
+      return res;
+    },
+    [account, publish]
+  );
+
+  return { orders, place, cancel, modify, refetch };
 }

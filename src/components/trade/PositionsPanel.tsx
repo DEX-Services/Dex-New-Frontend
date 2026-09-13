@@ -4,7 +4,7 @@ import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Bot, Sparkles, X } from "lucide-react";
+import { Bot, Sparkles, X, Pencil, Check } from "lucide-react";
 import { getPositions, getOrderHistory, getFills, getFundingHistory, getPnlHistory, FuturesPositionDTO, OptionsPositionDTO, OrderHistoryDTO, FillDTO, RealizedPnlDTO } from "@/lib/apiClient";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
@@ -92,6 +92,13 @@ export function PositionsPanel({
   const [fills, setFills] = useState<FillDTO[]>([]);
   const [realizedPnl, setRealizedPnl] = useState<RealizedPnlDTO[]>([]);
   const [closing, setClosing] = useState<string | null>(null);
+  // Inline "modify order" editor state: which order id is being edited, and
+  // its draft price/qty. There is no backend amend endpoint, so committing
+  // this is a cancel-then-resubmit (see useOrders.modify).
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editPrice, setEditPrice] = useState("");
+  const [editQty, setEditQty] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const futuresTickers = useFuturesTickers();
   const [myBots, setMyBots] = useState<BotDTO[]>([]);
   const [botsAuthed, setBotsAuthed] = useState(true);
@@ -154,6 +161,27 @@ export function PositionsPanel({
       toast.success("Order cancelled");
     } catch (err) {
       toast.error("Cancel failed", { description: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  const startEdit = (o: { id: string; price?: string; qty: string }) => {
+    setEditingOrderId(o.id);
+    setEditPrice(o.price ?? "");
+    setEditQty(o.qty);
+  };
+
+  const cancelEdit = () => setEditingOrderId(null);
+
+  const commitEdit = async (o: { id: string; symbol: string; market: string; side: "BUY" | "SELL"; price?: string; qty: string }) => {
+    setSavingEdit(true);
+    try {
+      await orders.modify(o, { price: editPrice || undefined, qty: editQty });
+      toast.success("Order modified");
+      setEditingOrderId(null);
+    } catch (err) {
+      toast.error("Modify failed", { description: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -337,7 +365,14 @@ export function PositionsPanel({
     });
   }, [futuresPositions, markets, futuresTickers]);
 
-  const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
+  const unrealizedPnl = positions.reduce((s, p) => s + p.pnl, 0);
+  // Realized PnL is cumulative across every closed/liquidated futures
+  // position ever recorded for this account (getPnlHistory has no date
+  // filter here), so "Total PnL" below is lifetime-realized + currently
+  // open unrealized — matching what a user means by "PnL across all my
+  // trades", not just what's open right now.
+  const realizedPnlTotal = realizedPnl.reduce((s, p) => s + parseFloat(p.pnl), 0);
+  const totalPnl = unrealizedPnl + realizedPnlTotal;
 
   return (
     <div className="glass rounded-b-xl rounded-t-none h-full flex flex-col overflow-hidden">
@@ -364,9 +399,21 @@ export function PositionsPanel({
               <TabsTrigger value="history" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">Order History</TabsTrigger>
             </TabsList>
           </div>
-          <div className="shrink-0 text-[11px] text-muted-foreground">
-            Total PnL: <span className={cn("font-mono font-bold", totalPnl >= 0 ? "text-buy" : "text-sell")}>
-              {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
+          <div className="shrink-0 flex items-center gap-3 text-[11px] text-muted-foreground" title="Total = unrealized PnL on open positions + realized PnL from every closed/liquidated position">
+            <span>
+              Unrealized: <span className={cn("font-mono", unrealizedPnl >= 0 ? "text-buy" : "text-sell")}>
+                {unrealizedPnl >= 0 ? "+" : ""}${unrealizedPnl.toFixed(2)}
+              </span>
+            </span>
+            <span>
+              Realized: <span className={cn("font-mono", realizedPnlTotal >= 0 ? "text-buy" : "text-sell")}>
+                {realizedPnlTotal >= 0 ? "+" : ""}${realizedPnlTotal.toFixed(2)}
+              </span>
+            </span>
+            <span>
+              Total PnL: <span className={cn("font-mono font-bold", totalPnl >= 0 ? "text-buy" : "text-sell")}>
+                {totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}
+              </span>
             </span>
           </div>
         </div>
@@ -543,13 +590,48 @@ export function PositionsPanel({
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="text-right">{o.qty}</td>
-                    <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                    {editingOrderId === o.id ? (
+                      <>
+                        <td className="text-right">
+                          <input value={editQty} onChange={(e) => setEditQty(e.target.value)}
+                            className="w-16 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                        </td>
+                        <td className="text-right">
+                          {o.price ? (
+                            <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+                              className="w-20 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                          ) : (
+                            <span className="text-muted-foreground">MKT</span>
+                          )}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="text-right">{o.qty}</td>
+                        <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                      </>
+                    )}
                     <td className="text-right text-muted-foreground">{o.filled}</td>
                     <td className="text-right text-muted-foreground">{o.status}</td>
-                    <td className="text-right pr-3">
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
-                        onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                    <td className="text-right pr-3 flex items-center justify-end gap-1">
+                      {editingOrderId === o.id ? (
+                        <>
+                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-buy"
+                            onClick={() => commitEdit(o)}><Check className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-sell"
+                            onClick={cancelEdit}><X className="h-3 w-3" /></Button>
+                        </>
+                      ) : (
+                        <>
+                          {o.price && (
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                              title="Modify order (cancels and resubmits with your changes)"
+                              onClick={() => startEdit(o)}><Pencil className="h-3 w-3" /></Button>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                            onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -579,13 +661,48 @@ export function PositionsPanel({
                   <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
                     <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
-                    <td className="text-right">{o.qty}</td>
-                    <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                    {editingOrderId === o.id ? (
+                      <>
+                        <td className="text-right">
+                          <input value={editQty} onChange={(e) => setEditQty(e.target.value)}
+                            className="w-16 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                        </td>
+                        <td className="text-right">
+                          {o.price ? (
+                            <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+                              className="w-20 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                          ) : (
+                            <span className="text-muted-foreground">MKT</span>
+                          )}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="text-right">{o.qty}</td>
+                        <td className="text-right">{o.price ? formatPrice(Number(o.price)) : "MKT"}</td>
+                      </>
+                    )}
                     <td className="text-right text-muted-foreground">{o.filled}</td>
                     <td className="text-right text-muted-foreground">{o.status}</td>
-                    <td className="text-right pr-3">
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
-                        onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                    <td className="text-right pr-3 flex items-center justify-end gap-1">
+                      {editingOrderId === o.id ? (
+                        <>
+                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-buy"
+                            onClick={() => commitEdit(o)}><Check className="h-3 w-3" /></Button>
+                          <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-sell"
+                            onClick={cancelEdit}><X className="h-3 w-3" /></Button>
+                        </>
+                      ) : (
+                        <>
+                          {o.price && (
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                              title="Modify order (cancels and resubmits with your changes)"
+                              onClick={() => startEdit(o)}><Pencil className="h-3 w-3" /></Button>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                            onClick={() => handleCancel(o.symbol, o.market, o.id)}><X className="h-3 w-3" /></Button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
