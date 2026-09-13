@@ -25,6 +25,8 @@ import Token from "./pages/Token.tsx";
 import Refer from "./pages/Refer.tsx";
 import SIP from "./pages/SIP.tsx";
 import FeeTierSubscription from "./pages/FeeTierSubscription.tsx";
+import Prediction from "./pages/Prediction.tsx";
+import PredictionOrders from "./pages/PredictionOrders.tsx";
 import Affiliate from "./pages/Affiliate.tsx";
 import Support from "./pages/Support.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -113,6 +115,8 @@ const App = () => (
           <Route path="/support" element={<Support />} />
           <Route path="/sip" element={<SIP />} />
           <Route path="/fee-tiers" element={<FeeTierSubscription />} />
+          <Route path="/prediction" element={<Prediction />} />
+          <Route path="/prediction/orders" element={<PredictionOrders />} />
           <Route path="/login" element={<AdminLogin />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />

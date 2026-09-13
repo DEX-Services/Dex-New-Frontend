@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink as RouterNavLink, useLocation, Link } from "react-router-dom";
-import { LayoutDashboard, LineChart, Wallet, Users, Settings, Zap, Bell, Search, ArrowDownToLine, ArrowUpFromLine, User, Building2, Sparkles, Repeat, Coins, Gift, CalendarClock, Bot, CircleHelp, Percent } from "lucide-react";
+import { LayoutDashboard, LineChart, Wallet, Users, Settings, Zap, Bell, Search, ArrowDownToLine, ArrowUpFromLine, User, Building2, Sparkles, Repeat, Coins, Gift, CalendarClock, Bot, CircleHelp, Percent, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,6 +19,7 @@ const navItems = [
   { to: "/copy", icon: Users, label: "Copy" },
   { to: "/prop", icon: Building2, label: "Prop Firm" },
   { to: "/p2p", icon: Repeat, label: "P2P" },
+  { to: "/prediction", icon: TrendingUp, label: "Predict" },
   { to: "/token", icon: Coins, label: "Token" },
   { to: "/sip", icon: CalendarClock, label: "SIP/SWP" },
 ];
