@@ -65,16 +65,16 @@ const Portfolio = () => {
   const totalFrozen = FROZEN_AMOUNT.reduce((sum, item) => sum + item.value, 0);
   const dbBalances = useMemo(() => {
     const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
-    // BIUSDB is the tradable balance every market actually settles in; USDC/
+    // BI2XUSD is the tradable balance every market actually settles in; USDC/
     // USDT are shown too since a real deposit briefly exists in one of
-    // those before the chain listener converts it to BIUSDB (see useWallet.ts).
-    const biusd = amountFor("BIUSDB");
+    // those before the chain listener converts it to BI2XUSD (see useWallet.ts).
+    const bi2xusd = amountFor("BI2XUSD");
     const usdc = amountFor("USDC");
     const usdt = amountFor("USDT");
 
     return {
-      totalFunds: biusd + usdc + usdt,
-      BIUSDB: biusd,
+      totalFunds: bi2xusd + usdc + usdt,
+      BI2XUSD: bi2xusd,
       USDC: usdc,
       USDT: usdt,
     };
@@ -105,8 +105,8 @@ const Portfolio = () => {
 
         {/* Key stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BIUSDB + USDC + USDT" icon={DollarSign} highlight />
-          <StatCard label="BIUSDB" value={formatTokenAmount(dbBalances.BIUSDB)} sub="Tradable Balance" icon={Wallet} />
+          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BI2XUSD + USDC + USDT" icon={DollarSign} highlight />
+          <StatCard label="BI2XUSD" value={formatTokenAmount(dbBalances.BI2XUSD)} sub="Tradable Balance" icon={Wallet} />
           <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Available Balance" icon={Wallet} />
           <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Available Balance" icon={Wallet} />
         </div>

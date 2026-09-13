@@ -1,6 +1,6 @@
 const P2P_API_URL = import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8081";
 
-export const P2P_ASSETS = ["BIUSDB"] as const;
+export const P2P_ASSETS = ["BI2XUSD"] as const;
 export const P2P_PAYMENT_METHODS = ["UPI", "Bank Transfer", "MPESN", "NEFT", "IMPS"] as const;
 export type P2PAsset = (typeof P2P_ASSETS)[number];
 export type P2PPaymentMethod = (typeof P2P_PAYMENT_METHODS)[number];
@@ -40,7 +40,7 @@ export async function uploadP2POrderProof(orderId:string,file:File){const body=n
 export const p2pProofURL=(proofId:string)=>`${P2P_API_URL}/p2p/order/proofs/download?proofId=${encodeURIComponent(proofId)}`;
 export const getP2POrderEvents=(orderId:string)=>request<{events:P2POrderEvent[]}>(`/p2p/order/events?orderId=${encodeURIComponent(orderId)}`);
 export const fundP2PWallet=(asset:P2PAsset,amountRaw:string)=>request<{balance:P2PWalletBalance}>("/p2p/wallet/fund",json({asset,amountRaw,idempotencyKey:idempotencyKey()}));
-export const createP2PListing=(side:P2PAdSide,amountRaw:string,minOrderFiat:string,maxOrderFiat:string,paymentMethods:P2PPaymentMethod[],username?:string)=>request<{listing:P2PListing}>("/p2p/listings",json({asset:"BIUSDB",side,amountRaw,minOrderFiat,maxOrderFiat,paymentMethods,username}));
+export const createP2PListing=(side:P2PAdSide,amountRaw:string,minOrderFiat:string,maxOrderFiat:string,paymentMethods:P2PPaymentMethod[],username?:string)=>request<{listing:P2PListing}>("/p2p/listings",json({asset:"BI2XUSD",side,amountRaw,minOrderFiat,maxOrderFiat,paymentMethods,username}));
 export const takeP2PListing=(listingId:string,amountRaw:string,paymentMethod:P2PPaymentMethod)=>request<{order:P2POrder}>("/p2p/orders/create",json({listingId,amountRaw,paymentMethod,idempotencyKey:idempotencyKey()}));
 export const markP2POrderPaid=(orderId:string,ownAccountAttested=true)=>request<{order:P2POrder}>("/p2p/orders/paid",json({orderId,ownAccountAttested}));
 export const releaseP2POrder=(orderId:string)=>request<{order:P2POrder}>("/p2p/orders/release",json({orderId}));
@@ -56,46 +56,46 @@ export function parseP2PAmount(value:string,asset:P2PAsset):string{
 export function formatP2PAmount(raw:string,maximumFractionDigits=6):string{
 	const value=BigInt(raw||"0");const whole=value/1_000_000n;const fraction=(value%1_000_000n).toString().padStart(6,"0").replace(/0+$/,"").slice(0,maximumFractionDigits);return fraction?`${whole}.${fraction}`:whole.toString();
 }
-export function parseBIUSDBAmount(value:string):string{
-	if(!/^\d+(?:\.\d{0,6})?$/.test(value)||Number(value)<=0)throw new Error("Enter a valid BIUSDB amount with up to 6 decimal places");
-	return parseP2PAmount(value,"BIUSDB");
+export function parseBI2XUSDAmount(value:string):string{
+	if(!/^\d+(?:\.\d{0,6})?$/.test(value)||Number(value)<=0)throw new Error("Enter a valid BI2XUSD amount with up to 6 decimal places");
+	return parseP2PAmount(value,"BI2XUSD");
 }
-export function formatBIUSDBAmount(raw:string):string{
+export function formatBI2XUSDAmount(raw:string):string{
 	return formatP2PAmount(raw,6);
 }
-export function formatBIUSDBSellCapacity(raw:string):string{
+export function formatBI2XUSDSellCapacity(raw:string):string{
 	const balance=BigInt(raw||"0");
 	return formatP2PAmount((balance-balance/101n).toString(),6);
 }
 export function effectiveP2PMaxOrderFiat(listing:Pick<P2PListing,"maxOrderFiat"|"remainingRaw"|"price">):number{
-	const remainingFiat=Number(formatBIUSDBAmount(listing.remainingRaw))*Number(listing.price);
+	const remainingFiat=Number(formatBI2XUSDAmount(listing.remainingRaw))*Number(listing.price);
 	return Math.max(0,Math.min(Number(listing.maxOrderFiat),remainingFiat));
 }
-export function biusdAmountFromFiat(fiatAmount:string|number,price:string|number):string{
+export function bi2xusdAmountFromFiat(fiatAmount:string|number,price:string|number):string{
 	const fiat=Number(fiatAmount);const unitPrice=Number(price);
 	if(!Number.isFinite(fiat)||!Number.isFinite(unitPrice)||fiat<=0||unitPrice<=0)return "0";
 	return (Math.floor((fiat/unitPrice)*1_000_000)/1_000_000).toFixed(6).replace(/\.?0+$/,"");
 }
-export function grossBIUSDBAmountForNet(netAmount:string|number):string{
-	const net=biusdRawOrZero(netAmount);
+export function grossBI2XUSDAmountForNet(netAmount:string|number):string{
+	const net=bi2xusdRawOrZero(netAmount);
 	if(net<=0n)return "0";
-	return formatBIUSDBAmount((net+(net-1n)/99n).toString());
+	return formatBI2XUSDAmount((net+(net-1n)/99n).toString());
 }
-export function netBIUSDBAmountAfterBuyerFee(grossAmount:string|number):string{
-	const gross=biusdRawOrZero(grossAmount);
+export function netBI2XUSDAmountAfterBuyerFee(grossAmount:string|number):string{
+	const gross=bi2xusdRawOrZero(grossAmount);
 	if(gross<=0n)return "0";
-	return formatBIUSDBAmount((gross-gross/100n).toString());
+	return formatBI2XUSDAmount((gross-gross/100n).toString());
 }
-export function biusdFeeAmount(grossAmount:string|number):string{
-	const gross=biusdRawOrZero(grossAmount);
-	return formatBIUSDBAmount((gross/100n).toString());
+export function bi2xusdFeeAmount(grossAmount:string|number):string{
+	const gross=bi2xusdRawOrZero(grossAmount);
+	return formatBI2XUSDAmount((gross/100n).toString());
 }
-export function sellerBIUSDBDebitWithFee(grossAmount:string|number):string{
-	const gross=biusdRawOrZero(grossAmount);
-	return formatBIUSDBAmount((gross+gross/100n).toString());
+export function sellerBI2XUSDDebitWithFee(grossAmount:string|number):string{
+	const gross=bi2xusdRawOrZero(grossAmount);
+	return formatBI2XUSDAmount((gross+gross/100n).toString());
 }
-function biusdRawOrZero(value:string|number):bigint{
+function bi2xusdRawOrZero(value:string|number):bigint{
 	const text=typeof value==="number"?value.toFixed(6).replace(/\.?0+$/,""):value;
-	try{return BigInt(parseBIUSDBAmount(text))}catch{return 0n}
+	try{return BigInt(parseBI2XUSDAmount(text))}catch{return 0n}
 }
 export const formatINR=(value:string|number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(value));

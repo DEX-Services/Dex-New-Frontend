@@ -213,7 +213,7 @@ export function createBI2XDatafeed() {
       const symbolInfo: LibrarySymbolInfo = {
         name: "BI2X",
         ticker: "BI2X",
-        description: "BI2X / BIUSDB",
+        description: "BI2X / BI2XUSD",
         type: "crypto",
         session: "24x7",
         timezone: "UTC",

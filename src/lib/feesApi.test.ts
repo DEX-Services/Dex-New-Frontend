@@ -16,7 +16,7 @@ describe("feesApi", () => {
   });
 
   it("getFeeTiers requests /fees/tiers and returns the tier list", async () => {
-    const tiers = [{ tier: 1, biusdbValue: "500", discountPct: "5", active: true, bi2xCost: "133.333333" }];
+    const tiers = [{ tier: 1, bi2xusdValue: "500", discountPct: "5", active: true, bi2xCost: "133.333333" }];
     global.fetch = mockFetchJSON({ tiers });
     const result = await getFeeTiers();
     expect(result.tiers).toEqual(tiers);

@@ -2,40 +2,40 @@
 // Only pairs actually running in the matching engine get live data; everything
 // else keeps the existing mock simulation.
 //
-// Every pair — spot and futures — quotes in BIUSDB, the platform's internal
+// Every pair — spot and futures — quotes in BI2XUSD, the platform's internal
 // stable currency (pegged 1:1 to USDT, no on-chain contract of its own) —
 // see Dex-Backend's chain.Listener and the matching-engine's
 // cmd/engine/markets.go. USDT/USDC are no longer tradable quote currencies;
-// futures collateral used to be real USDC, now converts to/settles in BIUSDB
-// like everything else. The engine symbol for a PERP is "BASE-BIUSDB" too —
+// futures collateral used to be real USDC, now converts to/settles in BI2XUSD
+// like everything else. The engine symbol for a PERP is "BASE-BI2XUSD" too —
 // distinct from the SPOT row of the same name via the (symbol, market) key.
 const REGISTERED: Record<string, { symbol: string; market: string }> = {
   // --- SPOT: BI2X and BTC only (2026-09-12 market-list restructure) ---
-  "BTC-BIUSDB": { symbol: "BTC-BIUSDB", market: "SPOT" },
+  "BTC-BI2XUSD": { symbol: "BTC-BI2XUSD", market: "SPOT" },
   // BI2X: not a Binance-tracked asset like BTC — its index price comes from
   // the dedicated BI2X data feed (Price-Fetcher's bitdxfeed client).
-  "BI2X-BIUSDB": { symbol: "BI2X-BIUSDB", market: "SPOT" },
+  "BI2X-BI2XUSD": { symbol: "BI2X-BI2XUSD", market: "SPOT" },
 
   // --- FUTURES: BI2X, BTC, ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, XRP ---
-  "BTC-PERP": { symbol: "BTC-BIUSDB", market: "FUTURES" },
-  "BI2X-PERP": { symbol: "BI2X-BIUSDB", market: "FUTURES" },
+  "BTC-PERP": { symbol: "BTC-BI2XUSD", market: "FUTURES" },
+  "BI2X-PERP": { symbol: "BI2X-BI2XUSD", market: "FUTURES" },
   // ETH, AVAX, LINK, SOL, DOGE, TAO, ADA, and XRP are FUTURES-ONLY — none has
   // a SPOT row above (unlike BTC/BI2X), so each is priced directly off
   // Price-Fetcher's Binance feed with no spot funding/index underlying (see
   // matching-engine's seed.go — underlying_symbol is empty for all eight).
   // All are real Binance <ASSET>USDT tickers.
-  "ETH-PERP": { symbol: "ETH-BIUSDB", market: "FUTURES" },
-  "AVAX-PERP": { symbol: "AVAX-BIUSDB", market: "FUTURES" },
-  "LINK-PERP": { symbol: "LINK-BIUSDB", market: "FUTURES" },
-  "SOL-PERP": { symbol: "SOL-BIUSDB", market: "FUTURES" },
-  "DOGE-PERP": { symbol: "DOGE-BIUSDB", market: "FUTURES" },
-  "TAO-PERP": { symbol: "TAO-BIUSDB", market: "FUTURES" },
-  "ADA-PERP": { symbol: "ADA-BIUSDB", market: "FUTURES" },
-  "XRP-PERP": { symbol: "XRP-BIUSDB", market: "FUTURES" },
+  "ETH-PERP": { symbol: "ETH-BI2XUSD", market: "FUTURES" },
+  "AVAX-PERP": { symbol: "AVAX-BI2XUSD", market: "FUTURES" },
+  "LINK-PERP": { symbol: "LINK-BI2XUSD", market: "FUTURES" },
+  "SOL-PERP": { symbol: "SOL-BI2XUSD", market: "FUTURES" },
+  "DOGE-PERP": { symbol: "DOGE-BI2XUSD", market: "FUTURES" },
+  "TAO-PERP": { symbol: "TAO-BI2XUSD", market: "FUTURES" },
+  "ADA-PERP": { symbol: "ADA-BI2XUSD", market: "FUTURES" },
+  "XRP-PERP": { symbol: "XRP-BI2XUSD", market: "FUTURES" },
 
   // BNB (was SPOT+FUTURES) was REMOVED entirely per the 2026-09-12
-  // restructure, not just disabled — no BNB-BIUSDB or BNB-PERP entry exists
-  // anywhere in this map any more. ETH-BIUSDB (spot) and SOL-BIUSDB (spot)
+  // restructure, not just disabled — no BNB-BI2XUSD or BNB-PERP entry exists
+  // anywhere in this map any more. ETH-BI2XUSD (spot) and SOL-BI2XUSD (spot)
   // were also removed; both assets remain tradable, but futures-only now
   // (see ETH-PERP/SOL-PERP above).
 
@@ -51,22 +51,22 @@ const REGISTERED: Record<string, { symbol: string; market: string }> = {
   // Non-crypto perps. The engine symbol's base is the Price-Fetcher ticker,
   // case-preserved ("CrudeOIL", "AAPL.us"); there is no engine spot book for
   // any of these, so their futures rows carry no funding underlying.
-  // EURUSD: { symbol: "EURUSD-BIUSDB", market: "FUTURES" },
-  // GBPUSD: { symbol: "GBPUSD-BIUSDB", market: "FUTURES" },
-  // AUDUSD: { symbol: "AUDUSD-BIUSDB", market: "FUTURES" },
-  // "XAU-USD": { symbol: "GOLD-BIUSDB", market: "FUTURES" },
-  // "XAG-USD": { symbol: "SILVER-BIUSDB", market: "FUTURES" },
-  // "WTI-USD": { symbol: "CrudeOIL-BIUSDB", market: "FUTURES" },
-  // "AAPL-PERP": { symbol: "AAPL.us-BIUSDB", market: "FUTURES" },
-  // "TSLA-PERP": { symbol: "TSLA.us-BIUSDB", market: "FUTURES" },
-  // "NVDA-PERP": { symbol: "NVDA.us-BIUSDB", market: "FUTURES" },
+  // EURUSD: { symbol: "EURUSD-BI2XUSD", market: "FUTURES" },
+  // GBPUSD: { symbol: "GBPUSD-BI2XUSD", market: "FUTURES" },
+  // AUDUSD: { symbol: "AUDUSD-BI2XUSD", market: "FUTURES" },
+  // "XAU-USD": { symbol: "GOLD-BI2XUSD", market: "FUTURES" },
+  // "XAG-USD": { symbol: "SILVER-BI2XUSD", market: "FUTURES" },
+  // "WTI-USD": { symbol: "CrudeOIL-BI2XUSD", market: "FUTURES" },
+  // "AAPL-PERP": { symbol: "AAPL.us-BI2XUSD", market: "FUTURES" },
+  // "TSLA-PERP": { symbol: "TSLA.us-BI2XUSD", market: "FUTURES" },
+  // "NVDA-PERP": { symbol: "NVDA.us-BI2XUSD", market: "FUTURES" },
 };
 
 // Underlying spot pair registered as an Options market in the engine, keyed
-// by the base asset shown in the trade panel (e.g. "BTC" from "BTC-BIUSDB").
+// by the base asset shown in the trade panel (e.g. "BTC" from "BTC-BI2XUSD").
 // The backend's /option-chain endpoint is queried with this underlying symbol.
 const OPTIONS_UNDERLYING: Record<string, { underlying: string; quote: string }> = {
-  BTC: { underlying: "BTC-BIUSDB", quote: "BIUSDB" },
+  BTC: { underlying: "BTC-BI2XUSD", quote: "BI2XUSD" },
 };
 
 export function backendOptionsMarketFor(baseAsset: string) {
@@ -91,7 +91,7 @@ export function registeredFuturesSymbols(): { symbol: string; market: string }[]
 
 // optionInstrumentSymbol builds the per-instrument symbol the backend now
 // expects for option orders. Format: BASE-QUOTE-STRIKE-EXPIRY-TYPE
-// (e.g. "BTC-BIUSDB-55000-20250102-CALL"), matching the backend's seed format.
+// (e.g. "BTC-BI2XUSD-55000-20250102-CALL"), matching the backend's seed format.
 //
 // strike:  numeric strike price (e.g. 55000)
 // expiry:  RFC3339 timestamp from the option chain (e.g. "2025-01-15T00:00:00Z")
@@ -104,7 +104,7 @@ export function optionInstrumentSymbol(
   type: "CALL" | "PUT"
 ): string {
   const entry = OPTIONS_UNDERLYING[baseAsset];
-  const quote = entry?.quote ?? "BIUSDB";
+  const quote = entry?.quote ?? "BI2XUSD";
   const expiryDate = expiry.slice(0, 10).replace(/-/g, "");
   return `${baseAsset}-${quote}-${strike}-${expiryDate}-${type}`;
 }

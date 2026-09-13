@@ -42,7 +42,7 @@ export function TransferDialog({
   const balance = w.balances.find((b) => b.asset === asset)?.available ?? 0;
   const fee = 0;
 
-  // Deposits are restricted to a fixed (asset, chain) allowlist — BIUSDB and
+  // Deposits are restricted to a fixed (asset, chain) allowlist — BI2XUSD and
   // BI2X only on Avalanche (they're the platform's own assets, not real
   // tokens on any other chain); USDT/USDC across the chains they actually
   // circulate on. See depositAssets.ts. Withdrawals stay USDC-on-Avalanche
@@ -97,7 +97,7 @@ export function TransferDialog({
         });
       } else {
         // Allowed by the product allowlist, but no contract/listener exists
-        // for this exact (asset, chain) pair yet — including BIUSDB/BI2X/
+        // for this exact (asset, chain) pair yet — including BI2XUSD/BI2X/
         // USDT on Avalanche itself, since DexVault only has a depositToken
         // path for USDC today (see isDepositLive's doc comment). Say so
         // rather than pretending to submit a deposit nothing on the backend
@@ -139,7 +139,7 @@ export function TransferDialog({
             const nextMode = v as "deposit" | "withdraw";
             setMode(nextMode);
             // Withdrawals only ever offer USDC on Avalanche today — reset to
-            // that so a deposit-side pick like BIUSDB/BI2X doesn't leave the
+            // that so a deposit-side pick like BI2XUSD/BI2X doesn't leave the
             // withdraw tab's asset selector on a value not in its own list.
             if (nextMode === "withdraw") {
               setAsset("USDC");
@@ -175,7 +175,7 @@ export function TransferDialog({
                       // whatever the user already holds a balance in.
                       DEPOSIT_ASSETS.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)
                     ) : (
-                      // BIUSDB/BI2X have no on-chain withdrawal path (BIUSDB
+                      // BI2XUSD/BI2X have no on-chain withdrawal path (BI2XUSD
                       // is the platform's internal 1:1-pegged trading
                       // currency; BI2X only trades on this exchange — see
                       // useWallet.ts). Only assets with a real withdrawal

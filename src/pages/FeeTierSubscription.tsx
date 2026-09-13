@@ -69,7 +69,7 @@ export default function FeeTierSubscription() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Spend BI2X (the DEX token) once to unlock a lower fee rate across spot, futures, and P2P
-            trading for a full year. Each tier's cost is a fixed BIUSDB value — the BI2X quantity shown
+            trading for a full year. Each tier's cost is a fixed BI2XUSD value — the BI2X quantity shown
             below updates live with BI2X's current price and is recomputed at the moment you subscribe.
           </p>
         </div>
@@ -113,7 +113,7 @@ export default function FeeTierSubscription() {
                     <div className="border-t border-glass-border pt-3 space-y-1">
                       <div className="text-sm">
                         <span className="text-muted-foreground">Cost: </span>
-                        <span className="font-mono">{t.biusdbValue} BIUSDB</span>
+                        <span className="font-mono">{t.bi2xusdValue} BI2XUSD</span>
                       </div>
                       <div className="text-xs font-mono text-muted-foreground">
                         {t.bi2xCost ? `≈ ${t.bi2xCost} BI2X at current price` : t.bi2xCostError ?? ""}

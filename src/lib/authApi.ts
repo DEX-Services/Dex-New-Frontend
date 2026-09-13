@@ -41,21 +41,21 @@ export type WalletBalanceResponse = {
   balances: {
     BTC: string;
     BI2X: string;
-    BIUSDB: string;
+    BI2XUSD: string;
     USDC: string;
     USDT: string;
   };
   locked: {
     BTC: string;
     BI2X: string;
-    BIUSDB: string;
+    BI2XUSD: string;
     USDC: string;
     USDT: string;
   };
   withdrawalLocked?: {
     BTC: string;
     BI2X: string;
-    BIUSDB: string;
+    BI2XUSD: string;
     USDC: string;
     USDT: string;
   };
@@ -76,8 +76,8 @@ export function requestWithdrawal(asset: string, amount: string) {
 }
 
 // Converts deposit-intake stables and the platform's internal stable, one
-// direction only: USDT→BIUSDB and USDC→BIUSDB are free (1:1); BIUSDB→USDT and
-// BIUSDB→USDC carry a 1% conversion fee deducted from the credited amount.
+// direction only: USDT→BI2XUSD and USDC→BI2XUSD are free (1:1); BI2XUSD→USDT and
+// BI2XUSD→USDC carry a 1% conversion fee deducted from the credited amount.
 // `amount` is raw 6-decimal integer units of the source asset.
 export function swapAssets(sourceAsset: string, destinationAsset: string, amount: string) {
   return authReq<{ status: string; sourceAsset: string; destinationAsset: string; amount: string; creditedAmount: string; feeAmount?: string }>(`/wallet/swap`, {

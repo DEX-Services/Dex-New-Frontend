@@ -19,8 +19,8 @@ const LABELS: Record<FeeConfigKey, { label: string; hint: string }> = {
   "futures.taker": { label: "Futures — Taker", hint: "Market order, aggressor side" },
   "p2p.buyer": { label: "P2P — Buyer", hint: "Charged to the buyer side" },
   "p2p.seller": { label: "P2P — Seller", hint: "Charged to the seller side" },
-  "swap.in": { label: "Swap — USDT/USDC → BIUSDB", hint: "Into the platform stable" },
-  "swap.out": { label: "Swap — BIUSDB → USDT/USDC", hint: "Out of the platform stable" },
+  "swap.in": { label: "Swap — USDT/USDC → BI2XUSD", hint: "Into the platform stable" },
+  "swap.out": { label: "Swap — BI2XUSD → USDT/USDC", hint: "Out of the platform stable" },
   liquidation: { label: "Auto-Liquidation", hint: "Charged on forced position closes" },
 };
 

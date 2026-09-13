@@ -83,21 +83,21 @@ type SendTransactionParams = {
   data?: string;
 };
 
-// BIUSDB is the platform's internal stable quote currency (pegged 1:1 to
+// BI2XUSD is the platform's internal stable quote currency (pegged 1:1 to
 // USDT, no on-chain contract of its own) — every market trades against it.
 // USDC/USDT stay listed as deposit-intake assets (a real on-chain deposit
-// lands there first, then converts to BIUSDB — see Dex-Backend's
+// lands there first, then converts to BI2XUSD — see Dex-Backend's
 // chain.Listener), not because they're still tradable quote currencies.
 //
-// ETH, SOL, and BNB removed (2026-09-12): they backed the ETH-BIUSDB/
-// SOL-BIUSDB/BNB-BIUSDB SPOT markets, which no longer exist (ETH/SOL are
-// FUTURES-only now, settled entirely in BIUSDB; BNB has no market at all) —
+// ETH, SOL, and BNB removed (2026-09-12): they backed the ETH-BI2XUSD/
+// SOL-BI2XUSD/BNB-BI2XUSD SPOT markets, which no longer exist (ETH/SOL are
+// FUTURES-only now, settled entirely in BI2XUSD; BNB has no market at all) —
 // see Dex-Backend's user_balances migration dropping these columns.
 //
-// BI (the platform's own native token, distinct from BI2X/BIUSDB) removed
+// BI (the platform's own native token, distinct from BI2X/BI2XUSD) removed
 // (2026-09-13): never wired into any matching-engine market, same reasoning
 // as ETH/SOL/BNB above.
-const SUPPORTED_ASSETS = ["BTC", "BI2X", "BIUSDB", "USDC", "USDT"] as const;
+const SUPPORTED_ASSETS = ["BTC", "BI2X", "BI2XUSD", "USDC", "USDT"] as const;
 type SupportedAsset = (typeof SUPPORTED_ASSETS)[number];
 
 const ASSET_DECIMALS: Record<SupportedAsset, number> = {
@@ -107,7 +107,7 @@ const ASSET_DECIMALS: Record<SupportedAsset, number> = {
 	// example, a real 0.000250 BTC appeared as 0.00000250 BTC).
 	BTC: 6,
 	BI2X: 6,
-	BIUSDB: 6,
+	BI2XUSD: 6,
 	USDC: 6,
 	USDT: 6,
 };

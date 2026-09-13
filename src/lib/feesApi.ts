@@ -2,7 +2,7 @@ const FEES_API_URL = import.meta.env.VITE_AUTH_API_URL ?? "http://localhost:8081
 
 export type FeeTier = {
   tier: number;
-  biusdbValue: string;
+  bi2xusdValue: string;
   discountPct: string;
   active: boolean;
   bi2xCost?: string; // live preview only — the server recomputes at purchase time
