@@ -380,10 +380,35 @@ async function connect(source: WalletId) {
   }
 }
 
+// Referral/affiliate signup capture. App.tsx stashes a "?ref=CODE" URL param
+// here on first load (before any wallet connects); the code is only ever
+// meaningful for a NEW user's first login, so it's read (and cleared) once,
+// right at the login call, rather than kept around indefinitely.
+const PENDING_REFERRAL_CODE_KEY = "dex_pending_referral_code";
+
+export function stashPendingReferralCode(code: string) {
+  try {
+    localStorage.setItem(PENDING_REFERRAL_CODE_KEY, code);
+  } catch {
+    // localStorage may be unavailable (private browsing, etc.) — losing the
+    // code just means this signup won't be attributed, not a hard failure.
+  }
+}
+
+function consumePendingReferralCode(): string {
+  try {
+    const code = localStorage.getItem(PENDING_REFERRAL_CODE_KEY) ?? "";
+    if (code) localStorage.removeItem(PENDING_REFERRAL_CODE_KEY);
+    return code;
+  } catch {
+    return "";
+  }
+}
+
 async function authenticateWithBackend(provider: Eip1193Provider, source: WalletId, address: string) {
   const { message } = await getNonce(address);
   const signature = (await requestWithTimeout(provider, "personal_sign", [message, address])) as string;
-  const { user } = await apiLogin(address, signature, source);
+  const { user } = await apiLogin(address, signature, source, consumePendingReferralCode());
   setState({ userId: user.id });
 }
 

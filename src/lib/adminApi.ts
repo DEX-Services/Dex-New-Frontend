@@ -184,6 +184,49 @@ export function setAdminFeeRate(key: FeeConfigKey, rate: string) {
   });
 }
 
+// Referral & affiliate admin controls — see REFERRAL-AFFILIATE-PLAN.md.
+// Referral % is one global setting; affiliate links each carry their own
+// admin-set share_pct, fixed for the link's lifetime once created.
+export type AdminAffiliateLink = {
+  ID: string;
+  Code: string;
+  OwnerUserID: string;
+  SharePct: string;
+  Active: boolean;
+  JoinedCount: number;
+  EarningsRaw: string;
+  CreatedAt: string;
+};
+
+export function getAdminReferralConfig() {
+  return adminReq<{ sharePct: string }>("/admin/referral-config");
+}
+
+export function setAdminReferralConfig(sharePct: string) {
+  return adminReq<{ status: string; sharePct: string }>("/admin/referral-config", {
+    method: "POST",
+    body: JSON.stringify({ sharePct }),
+  });
+}
+
+export function getAdminAffiliateLinks() {
+  return adminReq<{ links: AdminAffiliateLink[] | null }>("/admin/affiliate-links");
+}
+
+export function createAdminAffiliateLink(ownerUserId: string, sharePct: string) {
+  return adminReq<AdminAffiliateLink>("/admin/affiliate-links", {
+    method: "POST",
+    body: JSON.stringify({ ownerUserId, sharePct }),
+  });
+}
+
+export function setAdminAffiliateLinkActive(linkId: string, active: boolean) {
+  return adminReq<{ status: string }>("/admin/affiliate-links/active", {
+    method: "POST",
+    body: JSON.stringify({ linkId, active }),
+  });
+}
+
 export type AdminFeeSubscription = {
   ID: number;
   UserID: string;

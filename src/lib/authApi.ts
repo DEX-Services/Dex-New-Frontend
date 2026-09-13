@@ -22,11 +22,15 @@ export function getNonce(address: string) {
   return authReq<{ nonce: string; message: string }>(`/auth/nonce?${params}`);
 }
 
-export function login(address: string, signature: string, walletType: string) {
+// referralCode is an optional referral or affiliate code (see
+// pendingReferralCode in useWallet.ts, which captures "?ref=CODE" from the
+// URL on first visit). Only ever consulted by the backend the first time
+// this wallet address logs in — a returning user is never (re-)linked.
+export function login(address: string, signature: string, walletType: string, referralCode?: string) {
   return authReq<{ user: AuthUser; token: string }>(`/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ address, signature, walletType }),
+    body: JSON.stringify({ address, signature, walletType, referralCode: referralCode || undefined }),
   });
 }
 

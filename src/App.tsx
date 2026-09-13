@@ -2,6 +2,7 @@ import { useLayoutEffect, useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { setAuthExpiredHandler } from "@/lib/apiClient";
+import { stashPendingReferralCode } from "@/lib/useWallet";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +38,7 @@ import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
 import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
 import AdminSpreadControl from "./pages/AdminSpreadControl.tsx";
 import AdminFeeControl from "./pages/AdminFeeControl.tsx";
+import AdminAffiliateLinks from "./pages/AdminAffiliateLinks.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
@@ -54,6 +56,19 @@ function ScrollToTop() {
     document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname]);
 
+  return null;
+}
+
+/** Captures a "?ref=CODE" referral/affiliate signup code from the URL on
+ *  first load and stashes it for the next wallet login to consume — see
+ *  stashPendingReferralCode/consumePendingReferralCode in useWallet.ts. Only
+ *  meaningful for a brand-new user's first login; harmless if the visitor
+ *  already has an account (the backend never re-links a returning user). */
+function ReferralCodeCapture() {
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("ref");
+    if (code) stashPendingReferralCode(code.trim());
+  }, []);
   return null;
 }
 
@@ -92,6 +107,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <AuthExpiryWatcher />
+        <ReferralCodeCapture />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/trade" element={<Index />} />
@@ -124,6 +140,7 @@ const App = () => (
             <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
             <Route path="/admin/market-makers/spread" element={<AdminSpreadControl />} />
             <Route path="/admin/fees" element={<AdminFeeControl />} />
+            <Route path="/admin/affiliate-links" element={<AdminAffiliateLinks />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
