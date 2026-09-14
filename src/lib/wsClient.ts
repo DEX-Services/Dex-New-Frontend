@@ -68,6 +68,38 @@ const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8080/ws";
 const MAX_RECONNECT_DELAY = 30_000;
 const BASE_RECONNECT_DELAY = 1_000;
 
+// The engine numbers most events with a per-symbol, gapless, incrementing
+// sequence (starting near 1) — that's what checkSequence below tracks
+// per-stream to detect drops. A handful of event kinds instead use a
+// process-wide "out-of-band" counter (matching-engine's
+// events.Bus.NextOutOfBandSequence, based at 1<<62) for events that don't
+// belong to any single symbol's book-sequenced stream: funding payments,
+// liquidations, realized PnL, and — critically — pre-book order
+// rejections (e.g. "insufficient opposing liquidity", a rejected market
+// order with no counterparty). Both numbering spaces share the
+// sequenceNumber field, but they have no "earlier/later" relationship to
+// each other.
+//
+// Before this constant existed, checkSequence compared them as if they
+// did: once ANY out-of-band event landed for a symbol (lastSeq set to a
+// ~4.6e18 value), every subsequent NORMAL, real order/trade event for
+// that same symbol satisfied `sequenceNumber <= prev` and was silently
+// dropped for the rest of the connection's lifetime — a real trade could
+// fill and settle correctly while Order History / Trade History simply
+// stopped live-updating for that symbol until the next reconnect (which
+// clears lastSeq) or a manual page refresh. Confirmed live 2026-09-14: a
+// rejected order (e.g. a market SELL with no resting liquidity) silently
+// broke live updates for every later order on the same symbol.
+//
+// JS numbers can't exactly represent 1n<<62n (over Number.MAX_SAFE_INTEGER,
+// 2^53-1) — JSON.parse already rounds it on the way in — so this uses a
+// much lower, still-astronomically-unreachable threshold for a real
+// per-symbol book sequence rather than the exact Go constant: no symbol
+// will realistically emit anywhere near 10^15 book events in this
+// platform's lifetime, so anything at or above this is unambiguously
+// out-of-band regardless of float rounding.
+const OUT_OF_BAND_SEQ_THRESHOLD = 1e15;
+
 /** Server control frame: declare which "symbol|market" streams this
  *  connection wants, so the hub stops broadcasting every market's churn to
  *  every client. Unsubscribing is deliberately unsupported by the server —
@@ -167,7 +199,17 @@ class WSClient {
         this.tickListeners.forEach((l) => l(this.tickers));
         return;
       }
-      this.checkSequence(evt);
+      // checkSequence's own comment always described dropping a stale/
+      // duplicate event from delivery ("don't deliver a rewind") — but this
+      // call site never actually gated delivery on its return value, so
+      // that never happened in practice; every stale/duplicate frame was
+      // delivered to listeners anyway. Not the cause of the out-of-band
+      // sequence bug above (that was about lastSeq bookkeeping making
+      // LATER, valid events look stale — this fixes an unrelated pre-
+      // existing gap between this function's stated contract and what the
+      // caller actually did with it), but worth closing now that
+      // checkSequence's return value means something real.
+      if (!this.checkSequence(evt)) return;
       this.listeners.forEach((l) => l(evt));
     };
 
@@ -192,24 +234,35 @@ class WSClient {
     };
   }
 
-  private checkSequence(evt: WSEvent) {
-    if (typeof evt.sequenceNumber !== "number" || !evt.symbol) return;
+  // Returns false when the event should be dropped (stale/duplicate); the
+  // caller still dispatches to listeners in every other case, including
+  // out-of-band events, which this function never drops — it only decides
+  // whether to update lastSeq / fire a gap for the per-symbol book stream.
+  private checkSequence(evt: WSEvent): boolean {
+    if (typeof evt.sequenceNumber !== "number" || !evt.symbol) return true;
+    // Out-of-band events (see OUT_OF_BAND_SEQ_THRESHOLD's doc comment) don't
+    // belong to this symbol's book-sequenced stream at all — never compare
+    // them against lastSeq (they have no earlier/later relationship to it)
+    // and never let them advance/pollute it, or every later real book event
+    // for this symbol would look "stale" and be dropped forever.
+    if (evt.sequenceNumber >= OUT_OF_BAND_SEQ_THRESHOLD) return true;
     const key = `${evt.symbol}|${evt.market}`;
     const prev = this.lastSeq.get(key);
     if (prev !== undefined) {
       if (evt.sequenceNumber <= prev) {
         // Stale or duplicate: drop it (don't advance, don't deliver a rewind).
-        return;
+        return false;
       }
       if (evt.sequenceNumber > prev + 1) {
         // Gap: we missed events. Advance to current and tell consumers to
         // refetch authoritative state for this stream.
         this.lastSeq.set(key, evt.sequenceNumber);
         this.gapListeners.forEach((l) => l(key));
-        return;
+        return true;
       }
     }
     this.lastSeq.set(key, evt.sequenceNumber);
+    return true;
   }
 
   private emitGapForAll() {
