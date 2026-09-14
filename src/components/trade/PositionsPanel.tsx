@@ -295,10 +295,21 @@ export function PositionsPanel({
   // Order History / Trade History (fills) / Realized PnL: previously fetched
   // exactly once on mount (or account change) and never again, so placing an
   // order after the panel had already loaded never showed up in any of these
-  // tabs — they silently went stale for the rest of the session. Now they
-  // refetch on any own-account order event too, throttled the same way
-  // positions/orders already are (see the ORDER_FILLED handling above and in
-  // useOrders), and also cover SPOT fills, not just FUTURES.
+  // tabs — they silently went stale for the rest of the session.
+  //
+  // The original fix for this (see git history) relied entirely on
+  // wsClient's ORDER_FILLED/etc. events to trigger a refetch — but this
+  // app's WebSocket client is never actually connected at runtime (confirmed
+  // live 2026-09-14: zero WS entries in the browser's Network tab, ever,
+  // across a full session including hard reloads; every other "live"-looking
+  // panel on this page — depth, chart, positions, bots — actually works via
+  // plain 5s-or-faster REST polling, e.g. fetchPositions below and
+  // useOrderBook's polling, not push). So wsClient.subscribe here was
+  // registering a listener that could only ever fire if a connection existed
+  // that never does — a silent no-op, not a working live-update path.
+  // Added a 5s poll (same interval already used for positions/bots below)
+  // as the actual, working mechanism; the WS listener is kept as a harmless
+  // bonus for whenever a real WS connection exists.
   useEffect(() => {
     if (!account) {
       setOrderHistory([]);
@@ -313,6 +324,7 @@ export function PositionsPanel({
       getPnlHistory().then(r => { if (!cancelled) setRealizedPnl(r.entries ?? []); }).catch(() => { if (!cancelled) setRealizedPnl([]); });
     };
     fetchHistory();
+    const interval = setInterval(fetchHistory, 5000);
     let refetchTimer: ReturnType<typeof setTimeout> | null = null;
     let refetchPending = false;
     const throttledRefetch = () => {
@@ -337,6 +349,7 @@ export function PositionsPanel({
     });
     return () => {
       cancelled = true;
+      clearInterval(interval);
       if (refetchTimer) clearTimeout(refetchTimer);
       unsubWs();
     };

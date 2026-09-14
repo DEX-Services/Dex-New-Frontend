@@ -85,6 +85,21 @@ export function useOrders(account: string) {
     refetch();
   }, [account, refetch, publish]);
 
+  // Safety-net poll: this app's WebSocket client is never actually connected
+  // at runtime (confirmed live 2026-09-14 — zero WS entries in the browser's
+  // Network tab across a full session, every reload; every other "live"
+  // panel on the trade page, e.g. positions/depth/chart, actually works via
+  // plain REST polling, not push). Without this, an order placed/cancelled
+  // from another tab or device — or any missed optimistic local update —
+  // would never self-correct: the "Live deltas from the WS stream" effect
+  // below is registering a listener on a connection that doesn't exist.
+  // 5s matches the interval already used for positions/bots elsewhere.
+  useEffect(() => {
+    if (!account) return;
+    const interval = setInterval(() => void refetch(), 5000);
+    return () => clearInterval(interval);
+  }, [account, refetch]);
+
   // Live deltas from the WS stream.
   useEffect(() => {
     const unsub = wsClient.subscribe((evt: WSEvent) => {
