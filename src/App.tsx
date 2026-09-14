@@ -27,6 +27,7 @@ import Refer from "./pages/Refer.tsx";
 import SIP from "./pages/SIP.tsx";
 import FeeTierSubscription from "./pages/FeeTierSubscription.tsx";
 import Prediction from "./pages/Prediction.tsx";
+import PredictionMarketDetail from "./pages/PredictionMarketDetail.tsx";
 import PredictionOrders from "./pages/PredictionOrders.tsx";
 import Affiliate from "./pages/Affiliate.tsx";
 import Support from "./pages/Support.tsx";
@@ -134,6 +135,7 @@ const App = () => (
           <Route path="/fee-tiers" element={<FeeTierSubscription />} />
           <Route path="/prediction" element={<Prediction />} />
           <Route path="/prediction/orders" element={<PredictionOrders />} />
+          <Route path="/prediction/:marketId" element={<PredictionMarketDetail />} />
           <Route path="/login" element={<AdminLogin />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
