@@ -40,7 +40,7 @@ export default function Landing() {
         <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
           <Link to="/trade" className="hover:text-foreground transition-colors">Trade</Link>
           <Link to="/markets" className="hover:text-foreground transition-colors">Market</Link>
-          <Link to="/copy" className="hover:text-foreground transition-colors">Copy</Link>
+          {/* <Link to="/copy" className="hover:text-foreground transition-colors">Copy</Link> Copy Trading hidden */}
           <Link to="/prop" className="hover:text-foreground transition-colors">Prop Firm</Link>
           <Link to="/p2p" className="hover:text-foreground transition-colors">P2P</Link>
           <Link to="/token" className="hover:text-foreground transition-colors">Token</Link>
@@ -67,7 +67,7 @@ export default function Landing() {
         <div className="md:hidden fixed inset-x-0 top-16 bg-card/95 backdrop-blur-lg border-b border-border z-40 py-6 px-6 flex flex-col gap-4">
           <Link to="/trade" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Trade</Link>
           <Link to="/markets" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Market</Link>
-          <Link to="/copy" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Copy</Link>
+          {/* <Link to="/copy" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Copy</Link> Copy Trading hidden */}
           <Link to="/prop" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
           <Link to="/p2p" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
           <Link to="/token" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Token</Link>
@@ -545,7 +545,7 @@ export default function Landing() {
             <div className="space-y-3 text-sm text-muted-foreground">
               <Link to="/trade" className="block hover:text-primary transition-colors">Trading Terminal</Link>
               <Link to="/markets" className="block hover:text-primary transition-colors">Markets</Link>
-              <Link to="/copy" className="block hover:text-primary transition-colors">Copy Trading</Link>
+              {/* <Link to="/copy" className="block hover:text-primary transition-colors">Copy Trading</Link> Copy Trading hidden */}
               <Link to="/prop" className="block hover:text-primary transition-colors">Prop Firm</Link>
             </div>
           </div>

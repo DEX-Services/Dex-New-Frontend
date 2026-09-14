@@ -11,7 +11,7 @@ import Index from "./pages/Index.tsx";
 import Markets from "./pages/Markets.tsx";
 import Portfolio from "./pages/Portfolio.tsx";
 import Leaderboard from "./pages/Leaderboard.tsx";
-import CopyTrade from "./pages/CopyTrade.tsx";
+// import CopyTrade from "./pages/CopyTrade.tsx"; // Copy Trading hidden
 import Settings from "./pages/Settings.tsx";
 import Profile from "./pages/Profile.tsx";
 import PropFirm from "./pages/PropFirm.tsx";
@@ -118,7 +118,7 @@ const App = () => (
           <Route path="/markets" element={<Markets />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/copy" element={<CopyTrade />} />
+          {/* <Route path="/copy" element={<CopyTrade />} /> Copy Trading hidden */}
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/prop" element={<PropFirm />} />

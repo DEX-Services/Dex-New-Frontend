@@ -520,9 +520,10 @@ export function TradePanel({
       {!isOptions && (
         <div className="px-3 pt-2">
           <Tabs value={orderType} onValueChange={v => setOrderType(v as OrderType)}>
-            <TabsList className="grid grid-cols-3 h-8 bg-muted/30 w-full rounded-lg p-0.5">
+            <TabsList className="grid grid-cols-2 h-8 bg-muted/30 w-full rounded-lg p-0.5">
               <TabsTrigger value="market" className="h-7 text-xs rounded-md">Market</TabsTrigger>
               <TabsTrigger value="limit" className="h-7 text-xs rounded-md">Limit</TabsTrigger>
+              {/* "More" order types (OCO, Trailing Stop, TWAP, Iceberg) hidden — not wired up yet
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -548,6 +549,7 @@ export function TradePanel({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+              */}
             </TabsList>
           </Tabs>
         </div>

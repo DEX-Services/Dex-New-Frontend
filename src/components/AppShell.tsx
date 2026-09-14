@@ -16,7 +16,7 @@ const navItems = [
   { to: "/trade", icon: LineChart, label: "Trade" },
   { to: "/trading-bots", icon: Bot, label: "Bots" },
   { to: "/markets", icon: LayoutDashboard, label: "Markets" },
-  { to: "/copy", icon: Users, label: "Copy" },
+  // { to: "/copy", icon: Users, label: "Copy" }, // Copy Trading hidden
   { to: "/prop", icon: Building2, label: "Prop Firm" },
   { to: "/p2p", icon: Repeat, label: "P2P" },
   { to: "/prediction", icon: TrendingUp, label: "Predict" },

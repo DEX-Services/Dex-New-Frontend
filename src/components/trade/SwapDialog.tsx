@@ -341,7 +341,14 @@ export function SwapDialog({
               To
             </div>
             <div className="flex items-center gap-3">
-              <TokenSelect value={toSymbol} options={toOptions} onChange={handleToChange} />
+              {toOptions.length > 1 ? (
+                <TokenSelect value={toSymbol} options={toOptions} onChange={handleToChange} />
+              ) : (
+                <span className="flex h-12 w-auto shrink-0 min-w-[128px] items-center gap-2 rounded-xl border border-border bg-muted/30 px-3">
+                  <TokenAvatar token={toToken} size={26} />
+                  <span className="font-bold">{toToken.symbol}</span>
+                </span>
+              )}
               <div className="min-w-0 flex-1 truncate text-right font-mono text-2xl font-bold">
                 <span className={outputAmount > 0 ? "text-foreground" : "text-muted-foreground/40"}>
                   {outputAmount > 0 ? formatAmount(outputAmount) : "0"}
