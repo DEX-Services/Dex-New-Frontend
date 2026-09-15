@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   formatAccountSize,
+  formatPropFirmProgram,
   formatUsd,
   getPropFirmPrice,
   propFirmPrograms,
@@ -127,9 +128,13 @@ export function PropFirmPurchaseDialog({
                 <div className="grid gap-3 sm:grid-cols-3">
                   {propFirmPrograms.map((item) => (
                     <button key={item} type="button" onClick={() => setProgram(item)} className={`rounded-xl border p-4 text-left transition-all ${program === item ? "border-primary bg-primary/10 shadow-glow-primary" : "border-border bg-card hover:border-primary/40"}`}>
-                      <span className="block text-sm font-bold">{item}</span>
+                      <span className="block text-sm font-bold">{formatPropFirmProgram(item)}</span>
                       <span className="mt-1 block text-xs text-muted-foreground">
-                        {item === "One-Step" ? "One evaluation stage" : item === "Two-Step" ? "Two evaluation stages" : "Direct funding product"}
+                        {item === "One-Step"
+                          ? "Complete 1 evaluation challenge before becoming funded"
+                          : item === "Two-Step"
+                            ? "Complete 2 evaluation challenges before becoming funded"
+                            : "No evaluation challenge (subject to final business confirmation)"}
                       </span>
                     </button>
                   ))}
@@ -151,7 +156,7 @@ export function PropFirmPurchaseDialog({
               <div className="grid gap-4 rounded-2xl border border-border bg-card p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Selected account</div>
-                  <div className="mt-1 text-lg font-bold">{program} · {formatAccountSize(size)}</div>
+                  <div className="mt-1 text-lg font-bold">{formatPropFirmProgram(program)} · {formatAccountSize(size)}</div>
                   <ul className="mt-3 grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2">
                     {propFirmRuleSummary[program].map((rule) => <li key={rule} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />{rule}</li>)}
                   </ul>
@@ -165,7 +170,7 @@ export function PropFirmPurchaseDialog({
             <div className="space-y-5">
               <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div><span className="text-xs text-muted-foreground">Program</span><strong className="mt-1 block">{program}</strong></div>
+                  <div><span className="text-xs text-muted-foreground">Program</span><strong className="mt-1 block">{formatPropFirmProgram(program)}</strong></div>
                   <div><span className="text-xs text-muted-foreground">Account size</span><strong className="mt-1 block">{formatAccountSize(size)}</strong></div>
                   <div><span className="text-xs text-muted-foreground">Amount due</span><strong className="mt-1 block text-xl text-primary">{formatUsd(price)}</strong></div>
                 </div>
@@ -197,7 +202,7 @@ export function PropFirmPurchaseDialog({
           {step === "ready" && (
             <div className="space-y-5 text-center">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-buy/30 bg-buy/10 text-buy"><CheckCircle2 className="h-8 w-8" /></div>
-              <div><h3 className="text-xl font-bold">PropFirm account created</h3><p className="mt-1 text-sm text-muted-foreground">{program} · {formatAccountSize(size)} · Demo account</p></div>
+              <div><h3 className="text-xl font-bold">PropFirm account created</h3><p className="mt-1 text-sm text-muted-foreground">{formatPropFirmProgram(program)} · {formatAccountSize(size)} · Demo account</p></div>
               <div className="mx-auto max-w-md space-y-3 text-left">
                 <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Login ID</small><strong className="font-mono text-sm">PF-DEMO-105827</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("login", "PF-DEMO-105827")} aria-label="Copy login ID">{copied === "login" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>
                 <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Temporary password</small><strong className="font-mono text-sm">Demo@1234</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("password", "Demo@1234")} aria-label="Copy temporary password">{copied === "password" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>

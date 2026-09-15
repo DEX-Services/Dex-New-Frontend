@@ -7,6 +7,7 @@ import type { CSSProperties } from "react";
 import { useState } from "react";
 import {
   formatAccountSize,
+  formatPropFirmProgram,
   formatUsd,
   getPropFirmPrice,
   propFirmPrograms,
@@ -24,7 +25,7 @@ const challenges = [
 ];
 
 const features = [
-  { icon: CheckCircle2, title: "Three Programs", desc: "Choose One-Step, Two-Step, or Instant Funding." },
+  { icon: CheckCircle2, title: "Three Programs", desc: "Choose a 1-Step Challenge, 2-Step Challenge, or Instant Funding." },
   { icon: Shield, title: "Visible Risk Limits", desc: "See confirmed loss rules clearly before purchasing." },
   { icon: BarChart3, title: "Trading Workspace", desc: "Use a dedicated PropFirm Trade and Profile application." },
   { icon: Wallet, title: "Secure Checkout", desc: "Payment confirmation will be verified by the backend." },
@@ -248,7 +249,7 @@ export default function PropFirm() {
                     <div className="flex-1">
                       <h3 className="text-lg font-bold mb-1">{c.name}</h3>
                       <div className="text-3xl font-bold mb-1 gradient-text">{formatAccountSize(c.capital)}</div>
-                      <div className="text-xs font-semibold mb-4 text-primary">One-Step · Two-Step · Instant</div>
+                      <div className="text-xs font-semibold mb-4 text-primary">1-Step Challenge &middot; 2-Step Challenge &middot; Instant Funding</div>
 
                       <div className="space-y-2.5 mb-6">
                         <div className="flex justify-between text-xs">
@@ -305,7 +306,7 @@ export default function PropFirm() {
                       : "glass border-border/50 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {mode}
+                  {formatPropFirmProgram(mode)}
                 </button>
               ))}
             </div>

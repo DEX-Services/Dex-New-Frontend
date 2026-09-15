@@ -1,6 +1,12 @@
 export const propFirmPrograms = ["One-Step", "Two-Step", "Instant Funding"] as const;
 export type PropFirmProgram = (typeof propFirmPrograms)[number];
 
+export function formatPropFirmProgram(program: PropFirmProgram) {
+  if (program === "One-Step") return "1-Step Challenge";
+  if (program === "Two-Step") return "2-Step Challenge";
+  return "Instant Funding";
+}
+
 export const propFirmSizes = [5000, 10000, 25000, 50000, 100000] as const;
 export type PropFirmSize = (typeof propFirmSizes)[number];
 
