@@ -99,6 +99,17 @@ export function TradePanel({
   // actually edits the field themselves — editedPriceRef flips true the
   // moment they type, so a live price update never clobbers what they
   // typed mid-edit.
+  //
+  // Fixed 2026-09-15: editedPriceRef used to flip true only inside onChange,
+  // leaving a real window — between the user clicking/tabbing into the
+  // field and their first keystroke actually committing — during which a
+  // live price tick (the SSE index-price stream pushes roughly once a
+  // second, see useIndexPrice) could still land and overwrite whatever was
+  // there. Reported symptom: typing a price like 5.16 and having it snap
+  // back to the live market price (e.g. 5.15) moments later. Flipping the
+  // ref on focus too closes that window — the guard is active from the
+  // moment the user interacts with the field, not only after their first
+  // character registers.
   const editedPriceRef = useRef(false);
   useEffect(() => {
     if (editedPriceRef.current) return;
@@ -118,6 +129,22 @@ export function TradePanel({
   const [slEnabled, setSlEnabled] = useState(false);
   const [tp, setTp] = useState((price * 1.05).toFixed(2));
   const [sl, setSl] = useState((price * 0.97).toFixed(2));
+  // TP/SL can be entered as either an absolute price OR a percentage, with
+  // the other side auto-calculated — previously the percentage was a
+  // read-only derived <span> with no way to type into it at all. tpPctInput/
+  // slPctInput hold the text actually shown in the percent field; typing
+  // into IT recomputes tp/sl (the price), while typing into the price field
+  // recomputes the displayed percent — same "whichever the user touched
+  // last wins, the live price never fights it" pattern as editedPriceRef
+  // above, just per-leg and bidirectional instead of one-directional.
+  const [tpPctInput, setTpPctInput] = useState("5.0");
+  const [slPctInput, setSlPctInput] = useState("3.0");
+  // percentToTpPrice/percentToSlPrice invert tpPct/slPct's sign convention
+  // below (TP is always entered/shown as a positive %, SL always negative,
+  // regardless of buy/sell side) so typing "5" into either box means the
+  // same thing a user expects regardless of which side they're on.
+  const percentToTpPrice = (pct: number) => (side === "buy" ? price * (1 + pct / 100) : price * (1 - pct / 100));
+  const percentToSlPrice = (pct: number) => (side === "buy" ? price * (1 - pct / 100) : price * (1 + pct / 100));
   const [optType, setOptType] = useState<OptionType>("call");
   const [expiry, setExpiry] = useState("7D");
   const [strike, setStrike] = useState((Math.round(price / 100) * 100).toString());
@@ -215,6 +242,21 @@ export function TradePanel({
   // half-configured order (only TP, or only SL) would be a meaningless number.
   const showRR = tpEnabled && slEnabled;
   const rr = showRR && Number.isFinite(tpPct / slPct) && slPct !== 0 ? Math.abs(tpPct / slPct).toFixed(2) : "—";
+  // Keep the percent input showing what the current tp/sl price actually
+  // implies, whenever the price field (or the live price, or side) is what
+  // last changed — mirrors limitPrice's editedPriceRef guard: typing into
+  // the percent box itself skips this via the ref below, exactly like
+  // typing into the price box skips the live-price sync.
+  const editedTpPctRef = useRef(false);
+  const editedSlPctRef = useRef(false);
+  useEffect(() => {
+    if (editedTpPctRef.current) { editedTpPctRef.current = false; return; }
+    if (Number.isFinite(tpPct)) setTpPctInput(Math.abs(tpPct).toFixed(1));
+  }, [tp, price, side]);
+  useEffect(() => {
+    if (editedSlPctRef.current) { editedSlPctRef.current = false; return; }
+    if (Number.isFinite(slPct)) setSlPctInput(Math.abs(slPct).toFixed(1));
+  }, [sl, price, side]);
 
   const strikeNum = parseFloat(strike) || price;
   const days = parseInt(expiry) || 7;
@@ -571,6 +613,7 @@ export function TradePanel({
             </div>
             <Input
               value={limitPrice}
+              onFocus={() => { editedPriceRef.current = true; }}
               onChange={e => { editedPriceRef.current = true; setLimitPrice(e.target.value); }}
               className="h-9 rounded-lg font-mono text-sm bg-muted/30 border-border px-3"
             />
@@ -770,7 +813,24 @@ export function TradePanel({
               <span className="text-xs">Take Profit</span>
               <Input disabled={!tpEnabled} value={tp} onChange={e => setTp(e.target.value)}
                 className="h-7 rounded-md font-mono text-xs text-buy px-2" />
-              <span className="text-xs text-right text-buy font-mono">+{tpPct.toFixed(1)}%</span>
+              <div className="flex items-center gap-0.5">
+                <span className="text-xs text-buy font-mono">+</span>
+                <Input
+                  disabled={!tpEnabled}
+                  value={tpPctInput}
+                  onChange={e => {
+                    setTpPctInput(e.target.value);
+                    const pct = parseFloat(e.target.value);
+                    if (Number.isFinite(pct) && price > 0) {
+                      editedTpPctRef.current = true;
+                      setTp(percentToTpPrice(pct).toFixed(2));
+                    }
+                  }}
+                  className="h-7 w-12 rounded-md font-mono text-xs text-buy px-1 text-right"
+                  aria-label="Take profit percent"
+                />
+                <span className="text-xs text-buy font-mono">%</span>
+              </div>
             </div>
             <div className="grid grid-cols-[auto_1fr_minmax(88px,0.8fr)_48px] items-center gap-2">
               <input
@@ -783,7 +843,24 @@ export function TradePanel({
               <span className="text-xs">Stop Loss</span>
               <Input disabled={!slEnabled} value={sl} onChange={e => setSl(e.target.value)}
                 className="h-7 rounded-md font-mono text-xs text-sell px-2" />
-              <span className="text-xs text-right text-sell font-mono">-{Math.abs(slPct).toFixed(1)}%</span>
+              <div className="flex items-center gap-0.5">
+                <span className="text-xs text-sell font-mono">-</span>
+                <Input
+                  disabled={!slEnabled}
+                  value={slPctInput}
+                  onChange={e => {
+                    setSlPctInput(e.target.value);
+                    const pct = parseFloat(e.target.value);
+                    if (Number.isFinite(pct) && price > 0) {
+                      editedSlPctRef.current = true;
+                      setSl(percentToSlPrice(pct).toFixed(2));
+                    }
+                  }}
+                  className="h-7 w-12 rounded-md font-mono text-xs text-sell px-1 text-right"
+                  aria-label="Stop loss percent"
+                />
+                <span className="text-xs text-sell font-mono">%</span>
+              </div>
             </div>
           </div>
         )}

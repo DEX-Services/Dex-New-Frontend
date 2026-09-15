@@ -900,6 +900,35 @@ const Index = () => {
   const kindForTradeMode = (m: MarketMode): MarketKind | "fav" => (m === "futures" ? "perp" : m);
   const tradeModeForKind = (k: MarketKind | "fav"): MarketMode => (k === "perp" ? "futures" : k === "fav" ? "spot" : k);
   const handleKindChange = (k: MarketKind | "fav") => setTradeMode(tradeModeForKind(k));
+  // Fixed 2026-09-15: switching market TYPE via TradePanel's own Spot/
+  // Futures tabs (as opposed to picking a row in the left MarketList) used
+  // to update tradeMode WITHOUT ever touching `symbol` — e.g. opening BI2X
+  // SPOT ("BI2X-BI2XUSD") from the left panel, then clicking "Futures" on
+  // the right panel, left `symbol` at the stale SPOT string. backendMarkets'
+  // REGISTERED table keys spot/futures separately even for the same base
+  // asset ("BI2X-BI2XUSD" -> SPOT vs "BI2X-PERP" -> FUTURES), so the panel
+  // then showed Futures-only controls (leverage, margin mode) while actually
+  // wired to the SPOT market/metadata underneath -- a submitted order in
+  // that state would have gone to the engine as a SPOT order despite every
+  // visible control being futures-specific. handleTradeModeChange keeps
+  // `symbol` in sync with whichever mode the user just chose, for the SAME
+  // base asset, following the same "<BASE>-PERP" / "<BASE>-BI2XUSD" display
+  // convention used everywhere else (see backendMarkets.ts's REGISTERED
+  // table and this file's own baseAsset derivation above). Passed to
+  // TradePanel as onModeChange in place of setTradeMode directly.
+  const handleTradeModeChange = (m: MarketMode) => {
+    setTradeMode(m);
+    if (m === "futures") {
+      setSymbol(`${baseAsset}-PERP`);
+    } else if (m === "spot") {
+      // Not every base asset has a SPOT market (see backendMarkets.ts:
+      // ETH/AVAX/LINK/SOL/DOGE/TAO/ADA/XRP are FUTURES-ONLY) -- only BI2X
+      // and (formerly) BTC ever had one. Falling back to the existing
+      // symbol rather than guessing a SPOT pair that doesn't exist avoids
+      // silently landing on a dead/unregistered market.
+      setSymbol(baseAsset === "BI2X" ? "BI2X-BI2XUSD" : symbol);
+    }
+  };
   const optionLayoutActive = isOptionsMarket && !!backendOptions;
   const [optionContracts, setOptionContracts] = useState<OptionChainEntry[]>([]);
   useEffect(() => {
@@ -1146,7 +1175,7 @@ const Index = () => {
               price={price}
               selectedOption={selectedOption}
               tradeMode={tradeMode}
-              onTradeModeChange={setTradeMode}
+              onTradeModeChange={handleTradeModeChange}
               orders={orders}
               optionLayoutActive={optionLayoutActive}
               disabled={browsingComingSoon}
@@ -1198,7 +1227,7 @@ const Index = () => {
                     price={price}
                     selectedOption={selectedOption}
                     tradeMode={tradeMode}
-                    onTradeModeChange={setTradeMode}
+                    onTradeModeChange={handleTradeModeChange}
                     orders={orders}
                     optionLayoutActive={optionLayoutActive}
                     disabled={browsingComingSoon}
