@@ -225,13 +225,27 @@ export function TradePanel({
   //   (margin + PnL) / notional < MMR
   // Solving for the mark price at which margin + unrealized PnL = MMR * notional:
   //   long:  liq = entry * (1 - 1/lev) / (1 - MMR)
-  //   short: liq = entry * (1 + 1/lev) / (1 - MMR)
+  //   short: liq = entry * (1 + 1/lev) / (1 + MMR)
   // These values are from /markets (the engine symbol configuration), never
-  // hardcoded browser fallbacks for executable markets.
+  // hardcoded browser fallbacks for executable markets. Verified 2026-09-15
+  // against the engine's actual settlement.Position.MarginRatio/PnL and
+  // liquidation.Engine.checkIsolated: this formula is the exact algebraic
+  // solve of the real trigger condition, not an approximation.
   const mmr = Number(marketMetadata?.maintenanceMarginRatePct ?? 0) / 100;
   const liqPrice = side === "buy"
     ? (price * (1 - 1 / effLeverage)) / (1 - mmr)
     : (price * (1 + 1 / effLeverage)) / (1 + mmr);
+  // At leverage 1 (full notional posted as margin, no borrowing), a long's
+  // liq price formula above collapses to exactly entry*(1-1/1)/(1-MMR) = 0 —
+  // verified against the backend's real trigger condition directly (not
+  // just this simplified formula): margin already equals the full notional,
+  // so (margin + PnL) / notional never drops below MMR for any mark price
+  // above zero. That $0 is mathematically correct, but shown as a bare
+  // number it reads as "you'll be liquidated once price hits zero" (real,
+  // if extreme, risk) rather than its true meaning: this position has no
+  // liquidation risk at all at 1x. hasLiquidationRisk gates the display so
+  // the UI says so directly instead of showing a misleading "$0.00000000".
+  const hasLiquidationRisk = effLeverage > 1;
   const fee = orderValue * feeRate;
   const orderValueLabel = orderValue > 0 && orderValue < 1
     ? `$${orderValue.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 8 })}`
@@ -892,7 +906,7 @@ export function TradePanel({
             {isFutures && (
               <Row
                 label={<span className="flex items-center gap-1"><Shield className="h-3 w-3" />Liq. price</span>}
-                value={`$${formatPrice(liqPrice)}`}
+                value={hasLiquidationRisk ? `$${formatPrice(liqPrice)}` : "No risk at 1x"}
                 valueClass="text-warning"
               />
             )}
