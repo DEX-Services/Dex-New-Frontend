@@ -432,3 +432,45 @@ export function getOptionChain(underlying: string) {
   const params = new URLSearchParams({ underlying });
   return req<OptionChainResponse>(`/option-chain?${params}`);
 }
+
+// ─── BI2X staking ───────────────────────────────────────────────────────────
+// 5% APR, simple interest, no lock-up period, BI2X only. See
+// Dex-Backend/internal/api/staking.go for the backend side. The frontend
+// computes a LIVE estimate of accrued interest for display (see
+// stakingMath.ts) from principalRaw + startedAt alone — no polling needed
+// just to watch the number tick up — but the backend always recalculates
+// authoritatively at redeem time, so the actual payout never depends on the
+// frontend's estimate.
+
+export type StakingPosition = {
+  id: string;
+  asset: string;
+  principalRaw: string;
+  aprBps: number;
+  startedAt: string;
+  status: "active" | "redeemed";
+  closedAt?: string;
+};
+
+export function getStakingPositions() {
+  return tradeReq<{ positions: StakingPosition[] | null }>("/staking/positions");
+}
+
+// amount is a human-decimal BI2X string (e.g. "5000"), not raw units.
+export function stakeBI2X(amount: string) {
+  return tradeReq<{ position: StakingPosition }>("/staking/stake", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount }),
+  });
+}
+
+// amount omitted (or undefined) redeems the position's full remaining
+// principal; a human-decimal string redeems that much of it (partial).
+export function redeemStake(positionId: string, amount?: string) {
+  return tradeReq<{ position: StakingPosition; principalRaw: string; interestRaw: string; totalRaw: string }>("/staking/redeem", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ positionId, amount }),
+  });
+}
