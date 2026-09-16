@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Coins, Loader2, Lock, TrendingUp, Unlock } from "lucide-react";
 import { wallet, useWallet } from "@/lib/useWallet";
-import { getStakingPositions, redeemStake, stakeBI2X, type StakingPosition } from "@/lib/apiClient";
+import { getStakingHistory, getStakingPositions, redeemStake, stakeBI2X, type StakingEvent, type StakingPosition } from "@/lib/apiClient";
 import { estimateAccruedInterest, estimateCurrentValue, rawToHuman } from "@/lib/stakingMath";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,7 @@ function formatBI2X(n: number): string {
 export default function Staking() {
   const walletState = useWallet();
   const [positions, setPositions] = useState<StakingPosition[]>([]);
+  const [events, setEvents] = useState<StakingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -38,8 +39,11 @@ export default function Staking() {
   const bi2xBalance = walletState.balances.find((b) => b.asset === "BI2X")?.available ?? 0;
 
   const load = () =>
-    getStakingPositions()
-      .then((res) => setPositions(res.positions ?? []))
+    Promise.all([getStakingPositions(), getStakingHistory()])
+      .then(([positionsRes, historyRes]) => {
+        setPositions(positionsRes.positions ?? []);
+        setEvents(historyRes.events ?? []);
+      })
       .catch(() => setError("Could not load your staking positions."));
 
   useEffect(() => {
@@ -110,7 +114,7 @@ export default function Staking() {
   };
 
   const activePositions = positions.filter((p) => p.status === "active");
-  const redeemedPositions = positions.filter((p) => p.status === "redeemed");
+  const redeemEvents = events.filter((e) => e.kind === "redeem");
   const totalStaked = activePositions.reduce((sum, p) => sum + rawToHuman(p.principalRaw), 0);
   const totalAccrued = activePositions.reduce(
     (sum, p) => sum + estimateAccruedInterest(rawToHuman(p.principalRaw), p.aprBps, p.startedAt),
@@ -238,7 +242,7 @@ export default function Staking() {
           )}
         </div>
 
-        {redeemedPositions.length > 0 && (
+        {redeemEvents.length > 0 && (
           <div className="glass rounded-xl p-5 sm:p-6 space-y-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -248,19 +252,29 @@ export default function Staking() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-[11px] text-muted-foreground uppercase tracking-wide border-b border-border/50">
-                    <th className="text-left font-medium py-2 pr-4">Staked</th>
                     <th className="text-left font-medium py-2 pr-4">Redeemed</th>
-                    <th className="text-right font-medium py-2">Final Principal</th>
+                    <th className="text-right font-medium py-2 pr-4">Principal</th>
+                    <th className="text-right font-medium py-2 pr-4">Interest</th>
+                    <th className="text-right font-medium py-2">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {redeemedPositions.map((p) => (
-                    <tr key={p.id} className={cn("border-b border-border/30 last:border-0")}>
-                      <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">{new Date(p.startedAt).toLocaleString()}</td>
-                      <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">{p.closedAt ? new Date(p.closedAt).toLocaleString() : "—"}</td>
-                      <td className="py-2.5 text-right font-mono">{formatBI2X(rawToHuman(p.principalRaw))} BI2X</td>
-                    </tr>
-                  ))}
+                  {/* One row per actual redemption (not per position), so a
+                      partial redemption shows its own principal+interest
+                      instead of only ever seeing the position's final state
+                      when it eventually fully closes. */}
+                  {redeemEvents.map((e) => {
+                    const principal = rawToHuman(e.principalRaw);
+                    const interest = rawToHuman(e.interestRaw);
+                    return (
+                      <tr key={e.id} className={cn("border-b border-border/30 last:border-0")}>
+                        <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">{new Date(e.createdAt).toLocaleString()}</td>
+                        <td className="py-2.5 pr-4 text-right font-mono">{formatBI2X(principal)} BI2X</td>
+                        <td className="py-2.5 pr-4 text-right font-mono text-buy">+{formatBI2X(interest)} BI2X</td>
+                        <td className="py-2.5 text-right font-mono font-semibold">{formatBI2X(principal + interest)} BI2X</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -474,3 +474,21 @@ export function redeemStake(positionId: string, amount?: string) {
     body: JSON.stringify({ positionId, amount }),
   });
 }
+
+// One entry in the staking history log — every stake and redeem action.
+// interestRaw is "0" for a 'stake' event; for a 'redeem' event it's the
+// exact interest paid out on that specific redemption (the backend's
+// authoritative figure, not a re-derived estimate) — this is what lets the
+// redemption history table show interest earned alongside principal.
+export type StakingEvent = {
+  id: number;
+  positionId: string;
+  kind: "stake" | "redeem";
+  principalRaw: string;
+  interestRaw: string;
+  createdAt: string;
+};
+
+export function getStakingHistory(limit = 100) {
+  return tradeReq<{ events: StakingEvent[] | null }>(`/staking/history?limit=${limit}`);
+}
