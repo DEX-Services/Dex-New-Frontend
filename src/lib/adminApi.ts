@@ -268,3 +268,38 @@ export function getAdminFeeSubscriptions(userId: string) {
   const params = new URLSearchParams({ user: userId });
   return adminReq<{ subscriptions: AdminFeeSubscription[] | null }>(`/admin/fees/subscriptions?${params}`);
 }
+
+// ─── BI2X token allocation ──────────────────────────────────────────────────
+
+export type BI2XAllocationBalance = {
+  category: string;
+  remainingQty: string;
+  updatedAt: string;
+};
+
+export type BI2XAllocationHistoryEntry = {
+  id: number;
+  category: string;
+  amountQty: string;
+  eventDate: string;
+  note?: string;
+  createdBy?: string;
+  createdAt: string;
+};
+
+export function getBI2XAllocationTotals() {
+  return adminReq<{ totals: BI2XAllocationBalance[] }>("/admin/bi2x-allocation");
+}
+
+export function getBI2XAllocationHistory(limit = 50) {
+  return adminReq<{ history: BI2XAllocationHistoryEntry[] }>(`/admin/bi2x-allocation/history?limit=${limit}`);
+}
+
+// date, if provided, must be an RFC3339 string; omit to default to now on
+// the backend.
+export function addBI2XAllocationHistory(category: string, amount: string, note?: string, date?: string) {
+  return adminReq<{ entry: BI2XAllocationHistoryEntry; totals: BI2XAllocationBalance[] }>("/admin/bi2x-allocation/history", {
+    method: "POST",
+    body: JSON.stringify({ category, amount, note, date }),
+  });
+}
