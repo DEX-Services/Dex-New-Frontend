@@ -149,6 +149,16 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
       const yesPrice = Number(tick.yesPrice);
       setLoading(false);
       setMarket((prev) => {
+        // endTime must be fixed once per window, never recomputed from
+        // tick.timeRemaining + Date.now() on every tick — WebSocket message
+        // delivery isn't perfectly on-cadence, so "now" at the moment a tick
+        // is processed drifts against when the server actually measured
+        // timeRemaining. Recomputing endTime every tick fed that jitter
+        // straight into the countdown, making it visibly skip forward and
+        // backward instead of decreasing smoothly. Only the very first tick
+        // for a window (before REST has supplied the real endTime) may
+        // derive it from timeRemaining; every tick after reuses that same
+        // fixed value.
         const base: PredictionMarket = prev && prev.windowId === tick.windowId
           ? prev
           : {
@@ -173,7 +183,6 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
           ...base,
           windowId: tick.windowId,
           status: tick.status === "settled" ? "RESOLVED" : tick.status === "locked" ? "CLOSED" : "OPEN",
-          endTime: new Date(Date.now() + tick.timeRemaining).toISOString(),
           referencePrice: Number(tick.targetPrice),
           currentPrice,
           priceHistory: historyRef.current,
