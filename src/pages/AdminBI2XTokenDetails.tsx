@@ -199,7 +199,7 @@ export default function AdminBI2XTokenDetails() {
               <Label className="text-xs">Note (optional)</Label>
               <Input placeholder="e.g. Q3 staking distribution" value={formNote} onChange={(e) => setFormNote(e.target.value)} />
             </div>
-            <Button type="submit" disabled={submitting} className="h-9 bg-gradient-primary text-primary-foreground hover:opacity-90">
+            <Button type="submit" disabled={submitting} className="h-9 whitespace-nowrap bg-gradient-primary text-primary-foreground hover:opacity-90">
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
               Record
             </Button>
@@ -209,12 +209,12 @@ export default function AdminBI2XTokenDetails() {
           {formError && <div className="rounded-lg border border-sell/30 bg-sell/10 px-3 py-2 text-sm text-sell">{formError}</div>}
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm border-separate border-spacing-0">
               <thead>
                 <tr className="text-[11px] text-muted-foreground uppercase tracking-wide border-b border-border/50">
-                  <th className="text-left font-medium py-2">Date</th>
-                  <th className="text-left font-medium py-2">Category</th>
-                  <th className="text-right font-medium py-2">Amount (BI2X)</th>
+                  <th className="text-left font-medium py-2 pr-4">Date</th>
+                  <th className="text-left font-medium py-2 pr-4">Category</th>
+                  <th className="text-right font-medium py-2 pr-4">Amount (BI2X)</th>
                   <th className="text-left font-medium py-2">Note</th>
                 </tr>
               </thead>
@@ -228,14 +228,14 @@ export default function AdminBI2XTokenDetails() {
                 ) : (
                   history.map((h) => (
                     <tr key={h.id} className="border-b border-border/30 last:border-0">
-                      <td className="py-2.5 text-muted-foreground whitespace-nowrap">{new Date(h.eventDate).toLocaleString()}</td>
-                      <td className="py-2.5">
+                      <td className="py-2.5 pr-4 text-muted-foreground whitespace-nowrap">{new Date(h.eventDate).toLocaleString()}</td>
+                      <td className="py-2.5 pr-4">
                         <div className="flex items-center gap-2">
                           <span className="h-2 w-2 rounded-full shrink-0" style={{ background: CATEGORY_COLORS[h.category] ?? "#888" }} />
                           <span>{h.category}</span>
                         </div>
                       </td>
-                      <td className="py-2.5 text-right font-mono">{formatTokens(h.amountQty)}</td>
+                      <td className="py-2.5 pr-4 text-right font-mono whitespace-nowrap">{formatTokens(h.amountQty)}</td>
                       <td className="py-2.5 text-muted-foreground">{h.note || "—"}</td>
                     </tr>
                   ))
