@@ -1,5 +1,3 @@
-import { authHeader } from "./Auth";
-
 const PREDICTION_API_URL = import.meta.env.VITE_PREDICTION_API_URL ?? "http://localhost:8084";
 export const PREDICTION_WS_URL = import.meta.env.VITE_PREDICTION_WS_URL ?? "ws://localhost:8084/prediction/ws";
 
@@ -60,10 +58,20 @@ export type PredictionTick = {
   status: PredictionWindowStatus;
 };
 
+// Wallet-authenticated sessions live entirely in the dex_session HttpOnly
+// cookie Dex-Backend sets on login (see authApi.ts) — never in
+// localStorage/Authorization headers, which is only how the separate admin
+// panel session works (Auth.ts's setSession, called only from adminApi.ts).
+// Using Authorization here meant this request could never carry a real
+// wallet session's credentials at all. credentials: "include" sends that
+// cookie the same way every other authenticated request in the app does
+// (see authApi.ts's authReq) — cookies are host-scoped, not port-scoped, so
+// the same localhost cookie reaches this service on its own port.
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${PREDICTION_API_URL}${path}`, {
     ...options,
-    headers: { ...authHeader(), ...(options?.headers ?? {}) },
+    credentials: "include",
+    headers: { ...(options?.headers ?? {}) },
   });
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
