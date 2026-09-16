@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { getPredictionWindows, type PredictionTick, type PredictionWindow } from "@/lib/predictionApi";
 import { predictionWsClient } from "@/lib/predictionWsClient";
-import { predictionMarketId, type PredictionMarket, type PredictionOutcome, type PredictionPricePoint } from "@/lib/predictionMarkets";
+import { predictionMarketId, type PredictionMarket, type PredictionPricePoint } from "@/lib/predictionMarkets";
 
 const ICON: Record<string, string> = { BTC: "BTC", ETH: "ETH", SOL: "SOL" };
 const MAX_HISTORY_POINTS = 120;
 
-function windowToMarket(win: PredictionWindow, yesPrice?: number, currentPrice?: number): PredictionMarket {
-  const yes = yesPrice ?? 0.5;
-  const outcomes: PredictionOutcome[] = [
-    { id: "yes", label: "YES", price: Number(yes.toFixed(2)), tone: "positive" },
-    { id: "no", label: "NO", price: Number((1 - yes).toFixed(2)), tone: "negative" },
-  ];
+// REST gives us window identity/timing (id, start/end, status) — the things
+// a 5s poll can safely own. Live price/outcome data comes exclusively from
+// WebSocket ticks; REST must never touch those fields once ticks are
+// flowing, or every poll would stomp the live chart/prices back to a bare
+// 50/50 placeholder (this was the "chart disappears every few seconds" bug).
+function windowToMarket(win: PredictionWindow): PredictionMarket {
   const status = win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN";
   return {
     id: predictionMarketId(win.market, win.duration === "5m" ? 5 : 15),
@@ -27,13 +27,13 @@ function windowToMarket(win: PredictionWindow, yesPrice?: number, currentPrice?:
     startTime: win.startTime,
     endTime: win.endTime,
     referencePrice: win.targetPrice ? Number(win.targetPrice) : undefined,
-    currentPrice: currentPrice ?? (win.openingPrice ? Number(win.openingPrice) : undefined),
+    currentPrice: win.openingPrice ? Number(win.openingPrice) : undefined,
     priceHistory: [],
-    outcomes,
-    orderBooks: [
-      { outcomeId: "yes", bids: [], asks: [], lastPrice: outcomes[0].price },
-      { outcomeId: "no", bids: [], asks: [], lastPrice: outcomes[1].price },
+    outcomes: [
+      { id: "yes", label: "YES", price: 0.5, tone: "positive" },
+      { id: "no", label: "NO", price: 0.5, tone: "negative" },
     ],
+    orderBooks: [],
     relatedMarketIds: [],
   };
 }
@@ -41,31 +41,50 @@ function windowToMarket(win: PredictionWindow, yesPrice?: number, currentPrice?:
 /**
  * Loads the current round for a symbol/duration from the REST API, then
  * keeps it live via the prediction-service's WebSocket tick stream (one
- * broadcast per second per round). Falls back to polling REST every 5s if
- * the socket hasn't delivered a tick recently, so the UI never fully stalls
- * on a dropped connection.
+ * broadcast per second per round). REST only ever supplies window identity
+ * and timing/status — once a tick for the current window has arrived, REST
+ * polls are merged in a way that never overwrites price/outcome data, so a
+ * routine 5s poll can't undo what the live socket already rendered.
  */
 export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalMinutes: 5 | 15) {
   const duration = intervalMinutes === 5 ? "5m" : "15m";
   const [market, setMarket] = useState<PredictionMarket | null>(null);
   const [now, setNow] = useState(Date.now);
   const historyRef = useRef<PredictionPricePoint[]>([]);
-  const windowIdRef = useRef<number | null>(null);
+  const tickWindowIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     historyRef.current = [];
-    windowIdRef.current = null;
+    tickWindowIdRef.current = null;
 
     const loadOnce = async () => {
       try {
         const windows = await getPredictionWindows();
         if (cancelled) return;
         const win = windows.find((w) => w.market === symbol && w.duration === duration);
-        if (win) {
-          windowIdRef.current = win.id;
-          setMarket(windowToMarket(win));
-        }
+        if (!win) return;
+
+        setMarket((prev) => {
+          // A tick for this exact window has already populated live price
+          // data — only refresh the timing/status fields REST is
+          // authoritative for, keep everything price-related as-is.
+          if (prev && prev.windowId === win.id && tickWindowIdRef.current === win.id) {
+            return {
+              ...prev,
+              status: win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN",
+              startTime: win.startTime,
+              endTime: win.endTime,
+            };
+          }
+          // New window (round rolled over) or no live data yet: safe to use
+          // the full REST-derived placeholder until the next tick arrives.
+          if (prev?.windowId !== win.id) {
+            historyRef.current = [];
+            tickWindowIdRef.current = null;
+          }
+          return windowToMarket(win);
+        });
       } catch {
         /* transient network error; next poll or tick will recover */
       }
@@ -75,7 +94,10 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
 
     const unsubscribeTick = predictionWsClient.subscribe((tick: PredictionTick) => {
       if (tick.market !== symbol || tick.duration !== duration) return;
-      windowIdRef.current = tick.windowId;
+      if (tickWindowIdRef.current !== tick.windowId) {
+        historyRef.current = [];
+      }
+      tickWindowIdRef.current = tick.windowId;
       const currentPrice = Number(tick.currentPrice);
       const timestamp = new Date().toISOString();
       historyRef.current = [...historyRef.current, { timestamp, price: currentPrice }].slice(-MAX_HISTORY_POINTS);
@@ -135,5 +157,5 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
 
   const closed = market ? market.status !== "OPEN" || now >= new Date(market.endTime).getTime() : false;
 
-  return { market, now, closed, windowId: windowIdRef.current };
+  return { market, now, closed, windowId: tickWindowIdRef.current };
 }
