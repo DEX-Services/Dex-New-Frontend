@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { getPredictionWindows, type PredictionTick, type PredictionWindow } from "@/lib/predictionApi";
+import { getPredictionHistory, getPredictionWindows, type PredictionTick, type PredictionWindow } from "@/lib/predictionApi";
 import { predictionWsClient } from "@/lib/predictionWsClient";
 import { predictionMarketId, type PredictionMarket, type PredictionPricePoint } from "@/lib/predictionMarkets";
 
 const ICON: Record<string, string> = { BTC: "BTC", ETH: "ETH", SOL: "SOL" };
-const MAX_HISTORY_POINTS = 120;
+const MAX_HISTORY_POINTS = 1200;
 
 // REST gives us window identity/timing (id, start/end, status) — the things
 // a 5s poll can safely own. Live price/outcome data comes exclusively from
 // WebSocket ticks; REST must never touch those fields once ticks are
 // flowing, or every poll would stomp the live chart/prices back to a bare
 // 50/50 placeholder (this was the "chart disappears every few seconds" bug).
-function windowToMarket(win: PredictionWindow): PredictionMarket {
+function windowToMarket(win: PredictionWindow, priceHistory: PredictionPricePoint[] = []): PredictionMarket {
   const status = win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN";
+  const last = priceHistory.at(-1);
   return {
     id: predictionMarketId(win.market, win.duration === "5m" ? 5 : 15),
     windowId: win.id,
@@ -27,8 +28,8 @@ function windowToMarket(win: PredictionWindow): PredictionMarket {
     startTime: win.startTime,
     endTime: win.endTime,
     referencePrice: win.targetPrice ? Number(win.targetPrice) : undefined,
-    currentPrice: win.openingPrice ? Number(win.openingPrice) : undefined,
-    priceHistory: [],
+    currentPrice: last ? last.price : win.openingPrice ? Number(win.openingPrice) : undefined,
+    priceHistory,
     outcomes: [
       { id: "yes", label: "YES", price: 0.5, tone: "positive" },
       { id: "no", label: "NO", price: 0.5, tone: "negative" },
@@ -39,24 +40,46 @@ function windowToMarket(win: PredictionWindow): PredictionMarket {
 }
 
 /**
- * Loads the current round for a symbol/duration from the REST API, then
- * keeps it live via the prediction-service's WebSocket tick stream (one
- * broadcast per second per round). REST only ever supplies window identity
- * and timing/status — once a tick for the current window has arrived, REST
- * polls are merged in a way that never overwrites price/outcome data, so a
- * routine 5s poll can't undo what the live socket already rendered.
+ * Loads the current round for a symbol/duration from the REST API — seeding
+ * the chart with the round's full price history since it opened (fetched
+ * once from Redis-backed /prediction/history, not rebuilt from page-open) —
+ * then keeps it live via the WebSocket tick stream. REST only ever supplies
+ * window identity, timing/status, and the one-time history seed; once a
+ * tick for the current window has arrived, REST polls are merged in a way
+ * that never overwrites price/outcome data, so a routine 5s poll can't undo
+ * what the live socket already rendered.
+ *
+ * When the tracked round rolls over to a new window, this does NOT silently
+ * follow it — `roundClosed` flips true and the market/state stay frozen on
+ * the round that just ended, so the UI can show a "this round has closed"
+ * screen. Call `switchToLive()` to explicitly move to the new round.
  */
 export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalMinutes: 5 | 15) {
   const duration = intervalMinutes === 5 ? "5m" : "15m";
   const [market, setMarket] = useState<PredictionMarket | null>(null);
+  const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now);
+  const [roundClosed, setRoundClosed] = useState(false);
+  const [nextWindowId, setNextWindowId] = useState<number | null>(null);
+  // Bumped by switchToLive() to force the load effect below to re-run and
+  // start tracking a fresh window, since trackedWindowIdRef being a ref
+  // can't itself trigger a re-render/re-subscribe.
+  const [generation, setGeneration] = useState(0);
   const historyRef = useRef<PredictionPricePoint[]>([]);
   const tickWindowIdRef = useRef<number | null>(null);
+  // The window this hook is "locked onto" for display — set once on load,
+  // changed only by switchToLive(), never silently overwritten by a
+  // rollover detected via REST poll or a tick for a different window.
+  const trackedWindowIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     historyRef.current = [];
     tickWindowIdRef.current = null;
+    trackedWindowIdRef.current = null;
+    setLoading(true);
+    setRoundClosed(false);
+    setNextWindowId(null);
 
     const loadOnce = async () => {
       try {
@@ -65,25 +88,40 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
         const win = windows.find((w) => w.market === symbol && w.duration === duration);
         if (!win) return;
 
+        // First load for this symbol/duration: seed history from Redis and
+        // lock onto this window.
+        if (trackedWindowIdRef.current === null) {
+          trackedWindowIdRef.current = win.id;
+          let seeded: PredictionPricePoint[] = [];
+          try {
+            const points = await getPredictionHistory(win.id);
+            seeded = points.map((p) => ({ timestamp: new Date(p.timestampMs).toISOString(), price: Number(p.currentPrice) }));
+          } catch {
+            /* history fetch failed; chart just starts empty and builds from here */
+          }
+          if (cancelled) return;
+          historyRef.current = seeded.slice(-MAX_HISTORY_POINTS);
+          setMarket(windowToMarket(win, historyRef.current));
+          setLoading(false);
+          return;
+        }
+
+        // A later poll: if the backend has already rolled to a new window
+        // for this symbol/duration, don't follow it automatically — freeze
+        // on the tracked round and surface that a new one is ready.
+        if (win.id !== trackedWindowIdRef.current) {
+          setRoundClosed(true);
+          setNextWindowId(win.id);
+          return;
+        }
+
+        // Same tracked window: only refresh the timing/status fields REST
+        // is authoritative for if a tick hasn't already populated live data.
         setMarket((prev) => {
-          // A tick for this exact window has already populated live price
-          // data — only refresh the timing/status fields REST is
-          // authoritative for, keep everything price-related as-is.
-          if (prev && prev.windowId === win.id && tickWindowIdRef.current === win.id) {
-            return {
-              ...prev,
-              status: win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN",
-              startTime: win.startTime,
-              endTime: win.endTime,
-            };
+          if (prev && tickWindowIdRef.current === win.id) {
+            return { ...prev, status: win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN", startTime: win.startTime, endTime: win.endTime };
           }
-          // New window (round rolled over) or no live data yet: safe to use
-          // the full REST-derived placeholder until the next tick arrives.
-          if (prev?.windowId !== win.id) {
-            historyRef.current = [];
-            tickWindowIdRef.current = null;
-          }
-          return windowToMarket(win);
+          return windowToMarket(win, historyRef.current);
         });
       } catch {
         /* transient network error; next poll or tick will recover */
@@ -94,14 +132,22 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
 
     const unsubscribeTick = predictionWsClient.subscribe((tick: PredictionTick) => {
       if (tick.market !== symbol || tick.duration !== duration) return;
-      if (tickWindowIdRef.current !== tick.windowId) {
-        historyRef.current = [];
+      // A round rolled over before the next REST poll caught it — same
+      // freeze-and-surface behavior as the poll path above.
+      if (trackedWindowIdRef.current !== null && tick.windowId !== trackedWindowIdRef.current) {
+        setRoundClosed(true);
+        setNextWindowId(tick.windowId);
+        return;
+      }
+      if (trackedWindowIdRef.current === null) {
+        trackedWindowIdRef.current = tick.windowId;
       }
       tickWindowIdRef.current = tick.windowId;
       const currentPrice = Number(tick.currentPrice);
       const timestamp = new Date().toISOString();
       historyRef.current = [...historyRef.current, { timestamp, price: currentPrice }].slice(-MAX_HISTORY_POINTS);
       const yesPrice = Number(tick.yesPrice);
+      setLoading(false);
       setMarket((prev) => {
         const base: PredictionMarket = prev && prev.windowId === tick.windowId
           ? prev
@@ -153,9 +199,16 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
       window.clearInterval(clockTimer);
       unsubscribeTick();
     };
-  }, [symbol, duration, intervalMinutes]);
+  }, [symbol, duration, intervalMinutes, generation]);
+
+  // Explicitly moves the tracked window forward to the new round once the
+  // user chooses to — re-running the whole load sequence (fresh history
+  // seed, fresh tick tracking) for the new window id.
+  const switchToLive = () => {
+    setGeneration((g) => g + 1);
+  };
 
   const closed = market ? market.status !== "OPEN" || now >= new Date(market.endTime).getTime() : false;
 
-  return { market, now, closed, windowId: tickWindowIdRef.current };
+  return { market, now, closed, loading, roundClosed, nextWindowId, switchToLive, windowId: tickWindowIdRef.current };
 }

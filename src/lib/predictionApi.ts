@@ -96,6 +96,10 @@ const json = (body: unknown): RequestInit => ({
 export const getPredictionWindows = () => request<PredictionWindow[]>("/prediction/windows");
 export const getPredictionWindow = (id: number) => request<PredictionWindow>(`/prediction/windows/${id}`);
 
+export type PredictionHistoryPoint = { timestampMs: number; currentPrice: string; yesPrice: string };
+export const getPredictionHistory = (windowId: number) =>
+  request<PredictionHistoryPoint[]>(`/prediction/history?windowId=${windowId}`);
+
 export type PredictionBookLevelDTO = { price: string; size: string };
 export const getPredictionOrderBook = (windowId: number) =>
   request<{ yes: PredictionBookLevelDTO[]; no: PredictionBookLevelDTO[] }>(`/prediction/book?windowId=${windowId}`);

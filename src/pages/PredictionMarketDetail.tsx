@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { MarketHeader } from "@/components/prediction/MarketHeader";
@@ -47,7 +47,7 @@ export default function PredictionMarketDetail() {
 function PredictionMarketDetailContent({ symbol, minutes }: { symbol: (typeof SYMBOLS)[number]; minutes: 5 | 15 }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedOutcome = searchParams.get("outcome") ?? undefined;
-  const { market, closed } = useLivePredictionMarket(symbol, minutes);
+  const { market, closed, loading, roundClosed, switchToLive } = useLivePredictionMarket(symbol, minutes);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(requestedOutcome ?? "yes");
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -55,10 +55,39 @@ function PredictionMarketDetailContent({ symbol, minutes }: { symbol: (typeof SY
     document.title = `${symbol} Above Target | BitDx Prediction Markets`;
   }, [symbol]);
 
-  if (!market) {
+  if (loading || !market) {
     return (
       <AppShell>
-        <main className="mx-auto flex min-h-[50vh] max-w-lg items-center p-6 text-center text-sm text-muted-foreground">Loading market…</main>
+        <main className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          Loading market…
+        </main>
+      </AppShell>
+    );
+  }
+
+  // The round this page was tracking has ended and a new one has already
+  // opened for this market/duration. Stay on this frozen view (final
+  // chart, final prices) rather than silently jumping to the new round —
+  // the user explicitly chooses when to move on.
+  if (roundClosed) {
+    return (
+      <AppShell>
+        <main className="mx-auto w-full max-w-7xl space-y-5 p-4 sm:p-6">
+          <MarketHeader market={market} closed />
+          <div className="glass-strong flex flex-col items-center gap-3 rounded-xl p-10 text-center">
+            <CheckCircle2 className="h-9 w-9 text-primary" />
+            <h2 className="text-lg font-semibold">This round has closed</h2>
+            <p className="max-w-sm text-sm text-muted-foreground">A new {minutes}-minute {symbol} round is now live. Your positions and orders from this round are unaffected.</p>
+            <Button className="mt-2" onClick={switchToLive}>Go to live market</Button>
+          </div>
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+            <div className="min-w-0 space-y-5">
+              <MarketStats market={market} />
+              <MarketPriceChart market={market} live={false} />
+            </div>
+          </div>
+        </main>
       </AppShell>
     );
   }
