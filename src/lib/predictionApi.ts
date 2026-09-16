@@ -101,6 +101,9 @@ export const placePredictionOrder = (windowId: number, side: PredictionSide, pri
 export const cancelPredictionOrder = (orderId: number) =>
   request<{ status: string }>(`/prediction/orders/${orderId}/cancel`, { method: "POST" });
 
+export const sellPredictionPosition = (windowId: number, side: PredictionSide, size: string, minPrice: string) =>
+  request<{ orderId: number; filledSize: string }>("/prediction/positions/sell", json({ windowId, side, size, minPrice }));
+
 export const getPredictionOrders = () => request<PredictionOrder[] | null>("/prediction/orders");
 
 export const getPredictionPositions = () => request<PredictionPosition[]>("/prediction/positions");
