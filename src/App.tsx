@@ -43,6 +43,7 @@ import AdminAffiliateLinks from "./pages/AdminAffiliateLinks.tsx";
 import AdminFeeRevenue from "./pages/AdminFeeRevenue.tsx";
 import AdminTestBalances from "./pages/AdminTestBalances.tsx";
 import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
+import AdminBI2XTokenDetails from "./pages/AdminBI2XTokenDetails.tsx";
 import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 import { readTheme, type ThemeMode } from "@/lib/theme";
 
@@ -147,6 +148,7 @@ const App = () => (
             <Route path="/admin/fee-revenue" element={<AdminFeeRevenue />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />
             <Route path="/admin/p2p-appeals" element={<AdminP2PAppeals />} />
+            <Route path="/admin/bi2x-token" element={<AdminBI2XTokenDetails />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
           </Route>
           <Route path="*" element={<NotFound />} />

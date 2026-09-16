@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { BarChart3, LogOut, User, Zap, Waves, Wallet, LineChart, Scale, Radio, Percent, Users, Layers } from "lucide-react";
+import { BarChart3, LogOut, User, Zap, Waves, Wallet, LineChart, Scale, Radio, Percent, Users, Layers, Coins } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -39,6 +39,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <AdminNavLink to="/admin/affiliate-links" label="Affiliate Links" icon={Users} />
           <AdminNavLink to="/admin/test-balances" label="Test Balances" icon={Wallet} />
           <AdminNavLink to="/admin/p2p-appeals" label="P2P Appeals" icon={Scale} />
+          <AdminNavLink to="/admin/bi2x-token" label="BI2X Token" icon={Coins} />
           <AdminNavLink to="/admin/profile" label="Profile" icon={User} />
         </nav>
 
