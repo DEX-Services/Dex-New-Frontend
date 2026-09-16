@@ -122,9 +122,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Popover>
         )}
 
-        <Button variant="outline" className={cn("glass px-2.5 sm:px-4", w.connected ? "border-buy/40 text-buy hover:bg-buy/10 hover:text-buy" : "border-primary/40 text-primary hover:bg-primary/10 hover:text-primary")} onClick={() => setWalletOpen(true)}>
-          <span className={cn("mr-1 sm:mr-1.5 h-1.5 w-1.5 rounded-full animate-pulse", w.connected ? "bg-buy" : "bg-primary")} />
-          <span className="hidden sm:inline">{w.connected ? `${getWalletSourceLabel(w.walletId)} · ${shortAddress(w.address)}` : "Connect Wallet"}</span>
+        <Button
+          variant="outline"
+          className={cn(
+            "glass px-2.5 sm:px-4",
+            !w.connected
+              ? "border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              : w.userId
+                ? "border-buy/40 text-buy hover:bg-buy/10 hover:text-buy"
+                : "border-warning/40 text-warning hover:bg-warning/10 hover:text-warning",
+          )}
+          onClick={() => setWalletOpen(true)}
+          title={w.connected && !w.userId ? "Connected but not signed in — click to finish signing in" : undefined}
+        >
+          <span className={cn("mr-1 sm:mr-1.5 h-1.5 w-1.5 rounded-full animate-pulse", !w.connected ? "bg-primary" : w.userId ? "bg-buy" : "bg-warning")} />
+          <span className="hidden sm:inline">{w.connected ? `${getWalletSourceLabel(w.walletId)} · ${shortAddress(w.address)}${w.userId ? "" : " · not signed in"}` : "Connect Wallet"}</span>
           <span className="sm:hidden">{w.connected ? shortAddress(w.address) : "Connect"}</span>
         </Button>
 
