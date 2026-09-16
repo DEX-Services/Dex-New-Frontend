@@ -816,7 +816,13 @@ export function TradePanel({
         {!isOptions && (
           <div className="space-y-1.5 pt-1.5 border-t border-border/50">
             <span className="text-xs font-semibold">TP/SL (optional)</span>
-            <div className="grid grid-cols-[auto_1fr_minmax(88px,0.8fr)_48px] items-center gap-2">
+            {/* Last column widened from a fixed 48px to minmax(64px,auto):
+                the percent box itself is 48px (w-12), but the +/- sign and
+                "%" label sitting either side of it need room too, so a
+                48px track was clipping the % label off the edge of the
+                panel. The price column shrank slightly (0.8fr -> 0.7fr,
+                88px -> 72px floor) to make room without widening the panel. */}
+            <div className="grid grid-cols-[auto_1fr_minmax(72px,0.7fr)_minmax(64px,auto)] items-center gap-2">
               <input
                 type="checkbox"
                 checked={tpEnabled}
@@ -846,7 +852,7 @@ export function TradePanel({
                 <span className="text-xs text-buy font-mono">%</span>
               </div>
             </div>
-            <div className="grid grid-cols-[auto_1fr_minmax(88px,0.8fr)_48px] items-center gap-2">
+            <div className="grid grid-cols-[auto_1fr_minmax(72px,0.7fr)_minmax(64px,auto)] items-center gap-2">
               <input
                 type="checkbox"
                 checked={slEnabled}
