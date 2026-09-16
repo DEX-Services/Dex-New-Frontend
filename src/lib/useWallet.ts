@@ -453,8 +453,20 @@ async function restoreSession() {
     const { user } = await me();
     setState({ userId: user.id });
   } catch {
-    // No active backend session (e.g. expired cookie) - re-authenticate silently.
-    await authenticateWithBackend(provider, stored.walletId, address);
+    // No active backend session (e.g. expired cookie) - re-authenticate.
+    // This prompts a wallet signature; if the user dismisses it or it
+    // otherwise fails, surface that into state.error instead of silently
+    // leaving `connected: true` with no real backend session — previously
+    // this rejection propagated to a bare `.catch(() => {})` at both call
+    // sites, so the UI kept showing "connected" while every authenticated
+    // request (e.g. placing a prediction order) failed with an opaque
+    // "unauthorized" and no indication why.
+    try {
+      await authenticateWithBackend(provider, stored.walletId, address);
+    } catch (err) {
+      setState({ userId: undefined, error: "Sign the wallet message to finish signing in." });
+      throw err;
+    }
   }
 
   await syncBalancesWithBackend();

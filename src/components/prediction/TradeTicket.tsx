@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { isAuthenticated } from "@/lib/Auth";
 import { getPredictionPositions, placePredictionOrder, sellPredictionPosition, type PredictionSide as ApiSide } from "@/lib/predictionApi";
 import { calculateBuyEstimate, calculateSellEstimate, formatContractPrice, formatPredictionCurrency, getPredictionOutcome, type PredictionMarket } from "@/lib/predictionMarkets";
 
@@ -55,6 +56,16 @@ export function TradeTicket({ market, selectedOutcomeId, onSelectOutcome, disabl
 
   const submit = async () => {
     if (!valid || !market.windowId) return;
+    // A wallet can show as "connected" in the top bar without a valid
+    // backend session underneath it — connecting on-chain and signing in
+    // to the backend are two separate steps, and the second one silently
+    // fails to complete in some cases (e.g. a dismissed signature prompt on
+    // page reload). Catch that here with a specific, actionable message
+    // instead of letting the request 401 with a bare "unauthorized".
+    if (!isAuthenticated()) {
+      toast.error("Not signed in", { description: "Your wallet is connected but not signed in to BitDx — reconnect your wallet to sign the login message, then try again." });
+      return;
+    }
     setSubmitting(true);
     try {
       const side: ApiSide = outcome.id === "yes" ? "YES" : "NO";
