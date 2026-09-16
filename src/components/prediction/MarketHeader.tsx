@@ -5,10 +5,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CATEGORY_BADGE_CLASS, formatPredictionDate, type PredictionMarket } from "@/lib/predictionMarkets";
-import type { PredictionIntervalState } from "@/lib/predictionSimulation";
+import { formatPredictionDate, type PredictionMarket } from "@/lib/predictionMarkets";
 
-export function MarketHeader({ market, closed, intervalState }: { market: PredictionMarket; closed: boolean; intervalState?: PredictionIntervalState }) {
+export function MarketHeader({ market, closed }: { market: PredictionMarket; closed: boolean }) {
   const [bookmarked, setBookmarked] = useState(false);
 
   const copyLink = async () => {
@@ -28,8 +27,7 @@ export function MarketHeader({ market, closed, intervalState }: { market: Predic
           <div className="flex h-12 min-w-12 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 px-2 font-mono text-sm font-bold text-primary shadow-[0_0_20px_hsl(var(--primary)/0.12)] sm:h-14 sm:min-w-14">{market.icon}</div>
           <div className="min-w-0">
             <div className="mb-1.5 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className={cn("text-[10px]", CATEGORY_BADGE_CLASS[market.category])}>{market.category}</Badge>
-              <Badge variant="outline" className={intervalState === "UPCOMING" ? "border-warning/30 bg-warning/10 text-warning" : closed ? "border-sell/30 bg-sell/10 text-sell" : "border-buy/30 bg-buy/10 text-buy"}>{intervalState === "UPCOMING" ? "Upcoming" : intervalState === "LIVE" ? "Live" : closed ? market.status === "RESOLVED" ? "Resolved" : "Closed" : market.status}</Badge>
+              <Badge variant="outline" className={closed ? "border-sell/30 bg-sell/10 text-sell" : "border-buy/30 bg-buy/10 text-buy"}>{closed ? (market.status === "RESOLVED" ? "Resolved" : "Closed") : "Live"}</Badge>
               {market.interval && <span className="text-xs text-muted-foreground">{market.interval}</span>}
             </div>
             <h1 className="text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">{market.title}</h1>

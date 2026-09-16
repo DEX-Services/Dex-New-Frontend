@@ -4,29 +4,60 @@ import { ClipboardList, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PredictionMarketCard } from "@/components/prediction/PredictionMarketCard";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PREDICTION_CATEGORIES, PREDICTION_MARKETS } from "@/lib/predictionMarkets";
+import { getPredictionWindows, type PredictionWindow } from "@/lib/predictionApi";
+import { predictionMarketId, type PredictionMarket } from "@/lib/predictionMarkets";
 
-const DURATION_FILTERS = [
-  { value: "ALL", label: "All durations" },
-  { value: 5, label: "5 Min" },
-  { value: 15, label: "15 Min" },
-] as const;
-type DurationFilter = (typeof DURATION_FILTERS)[number]["value"];
+function windowToCardMarket(win: PredictionWindow): PredictionMarket {
+  const yes = win.status === "committed" ? 0.5 : undefined;
+  return {
+    id: predictionMarketId(win.market, win.duration === "5m" ? 5 : 15),
+    windowId: win.id,
+    slug: predictionMarketId(win.market, win.duration === "5m" ? 5 : 15),
+    title: `${win.market} Above Target — Next ${win.duration === "5m" ? "5 Minutes" : "15 Minutes"}`,
+    shortTitle: `${win.market} Above Target`,
+    icon: win.market,
+    symbol: win.market,
+    interval: win.duration === "5m" ? "5 Minutes" : "15 Minutes",
+    intervalMinutes: win.duration === "5m" ? 5 : 15,
+    status: win.status === "settled" ? "RESOLVED" : win.status === "locked" ? "CLOSED" : "OPEN",
+    startTime: win.startTime,
+    endTime: win.endTime,
+    referencePrice: win.targetPrice ? Number(win.targetPrice) : undefined,
+    currentPrice: win.openingPrice ? Number(win.openingPrice) : undefined,
+    priceHistory: [],
+    outcomes: yes === undefined
+      ? [{ id: "yes", label: "YES", price: 0.5, tone: "positive" }, { id: "no", label: "NO", price: 0.5, tone: "negative" }]
+      : [{ id: "yes", label: "YES", price: yes, tone: "positive" }, { id: "no", label: "NO", price: 1 - yes, tone: "negative" }],
+    orderBooks: [],
+    relatedMarketIds: [],
+  };
+}
 
 export default function Prediction() {
   const navigate = useNavigate();
-  const [category, setCategory] = useState<(typeof PREDICTION_CATEGORIES)[number]>("All");
-  const [duration, setDuration] = useState<DurationFilter>("ALL");
+  const [markets, setMarkets] = useState<PredictionMarket[]>([]);
 
   useEffect(() => {
     document.title = "Prediction Markets | BitDx";
   }, []);
 
-  const markets = PREDICTION_MARKETS.filter((market) =>
-    (category === "All" || market.category === category)
-    && (duration === "ALL" || market.intervalMinutes === duration),
-  );
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const windows = await getPredictionWindows();
+        if (!cancelled) setMarkets(windows.map(windowToCardMarket));
+      } catch {
+        /* transient network error; next poll will retry */
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   return (
     <AppShell>
@@ -34,37 +65,19 @@ export default function Prediction() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight"><TrendingUp className="h-7 w-7 text-primary" />Prediction Markets</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Trade on the outcome of real-world events. Buy YES, NO, UP, or DOWN shares — each winning share pays $1 and each losing share pays $0.</p>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">Predict whether BTC, ETH, or SOL will be above a randomly set target price in 5 or 15 minutes. Buy YES or NO shares — each winning share pays $1 and each losing share pays $0.</p>
           </div>
           <Button variant="outline" className="shrink-0 gap-2" onClick={() => navigate("/prediction/orders")}><ClipboardList className="h-4 w-4" />My Orders</Button>
-        </div>
-
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-none" aria-label="Prediction market categories">
-            {PREDICTION_CATEGORIES.map((item) => (
-              <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={cn(filterClass, category === item ? selectedFilterClass : unselectedFilterClass)}>{item}</button>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-2" aria-label="Prediction market duration">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Duration</span>
-            {DURATION_FILTERS.map((item) => (
-              <button key={String(item.value)} type="button" aria-pressed={duration === item.value} onClick={() => setDuration(item.value)} className={cn(filterClass, duration === item.value ? selectedFilterClass : unselectedFilterClass)}>{item.label}</button>
-            ))}
-          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {markets.map((market) => <PredictionMarketCard key={market.id} market={market} />)}
         </div>
 
-        {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">No markets match this category and duration.</div>}
+        {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">Loading markets…</div>}
 
-        <p className="max-w-2xl text-xs text-muted-foreground">Prediction markets are a preview feature. Prices, depth, positions, and volumes are illustrative; demo orders are not sent to a backend or blockchain.</p>
+        <p className="max-w-2xl text-xs text-muted-foreground">Orders are matched against real users' opposite-side orders — there is no market maker. Maker fee 0.015%, taker fee 0.045%.</p>
       </main>
     </AppShell>
   );
 }
-
-const filterClass = "shrink-0 rounded-md border px-3 py-1.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
-const selectedFilterClass = "border-primary/30 bg-primary/15 text-primary";
-const unselectedFilterClass = "border-border/50 text-muted-foreground hover:bg-muted/40";
