@@ -81,6 +81,18 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
     setRoundClosed(false);
     setNextWindowId(null);
 
+    // A window that just rolled over sits in "committed" for about a
+    // second (occasionally longer, if the price feed is briefly stale —
+    // see the backend's revealGracePeriod) before it's revealed and starts
+    // broadcasting ticks. Previously the very first load treated
+    // "committed" the same as "open" and showed a static 50/50 placeholder
+    // with no live data — indistinguishable from actually being stuck.
+    // Polling fast (not the normal 5s cadence) specifically during this
+    // narrow gap means the page flips to live data within ~1s of the
+    // reveal instead of waiting for the next slow poll.
+    let fastPollTimer: ReturnType<typeof setInterval> | null = null;
+    const FAST_POLL_MS = 1000;
+
     const loadOnce = async () => {
       try {
         const windows = await getPredictionWindows();
@@ -88,9 +100,19 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
         const win = windows.find((w) => w.market === symbol && w.duration === duration);
         if (!win) return;
 
-        // First load for this symbol/duration: seed history from Redis and
-        // lock onto this window.
+        // First load for this symbol/duration.
         if (trackedWindowIdRef.current === null) {
+          if (win.status === "committed") {
+            // Not revealed yet — keep showing the loading state and poll
+            // fast until it opens, rather than rendering a placeholder
+            // that looks identical to a genuinely live 50/50 market.
+            if (!fastPollTimer) fastPollTimer = setInterval(loadOnce, FAST_POLL_MS);
+            return;
+          }
+          if (fastPollTimer) {
+            clearInterval(fastPollTimer);
+            fastPollTimer = null;
+          }
           trackedWindowIdRef.current = win.id;
           let seeded: PredictionPricePoint[] = [];
           try {
@@ -206,6 +228,7 @@ export function useLivePredictionMarket(symbol: "BTC" | "ETH" | "SOL", intervalM
       cancelled = true;
       window.clearInterval(pollTimer);
       window.clearInterval(clockTimer);
+      if (fastPollTimer) clearInterval(fastPollTimer);
       unsubscribeTick();
     };
   }, [symbol, duration, intervalMinutes, generation]);
