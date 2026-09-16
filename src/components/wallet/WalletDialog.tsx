@@ -41,27 +41,10 @@ export function WalletDialog({ open, onOpenChange, onConnected }: { open: boolea
     }
   };
 
-  const [signingIn, setSigningIn] = useState(false);
-
   const handleDisconnect = async () => {
     await wallet.disconnect();
     toast.message("Wallet disconnected");
     onOpenChange(false);
-  };
-
-  const handleSignIn = async () => {
-    setSigningIn(true);
-    try {
-      await wallet.signIn();
-      toast.success("Signed in");
-      onOpenChange(false);
-      onConnected?.();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Sign-in failed";
-      toast.error(message.includes("rejected") ? "Sign-in rejected by wallet" : message);
-    } finally {
-      setSigningIn(false);
-    }
   };
 
   return (
@@ -94,17 +77,6 @@ export function WalletDialog({ open, onOpenChange, onConnected }: { open: boolea
                 <Copy className="h-3.5 w-3.5" />
               </Button>
             </div>
-
-            {!w.userId && (
-              <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning-foreground">
-                <p className="font-medium text-warning">Not signed in</p>
-                <p className="mt-1 text-muted-foreground">Your wallet is connected but there's no active BitDx session — sign a message to finish signing in before trading.</p>
-                <Button className="mt-2 w-full" size="sm" onClick={handleSignIn} disabled={signingIn}>
-                  {signingIn ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />}
-                  {signingIn ? "Signing in…" : "Sign in"}
-                </Button>
-              </div>
-            )}
 
             <Button variant="outline" className="w-full" onClick={handleDisconnect}>
               <LogOut className="h-3.5 w-3.5 mr-1.5" /> Disconnect

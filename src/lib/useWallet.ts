@@ -368,14 +368,8 @@ async function connect(source: WalletId) {
       await authenticateWithBackend(provider, source, address);
       await syncBalancesWithBackend();
     } catch (authError) {
-      // Wallet is connected on-chain even if backend session creation fails
-      // (e.g. the signature prompt was dismissed) — don't block the UI, but
-      // do surface it so the user has a way to retry (see signIn() below)
-      // instead of silently sitting in a "connected but not signed in"
-      // state with only a console warning to explain why every
-      // authenticated request then fails.
+      // Wallet is connected on-chain even if backend session creation fails; surface but don't block.
       console.warn("Backend login failed", authError);
-      setState({ userId: undefined, error: "Sign the wallet message to finish signing in." });
     }
 
     return { walletId: source, address };
@@ -485,25 +479,10 @@ async function sendTransfer(params: SendTransactionParams) {
   return requestWithTimeout(provider, "eth_sendTransaction", [params]);
 }
 
-// Re-establishes the backend session for an already on-chain-connected
-// wallet, without a full disconnect/reconnect cycle — the recovery path for
-// "connected but not signed in" (state.userId undefined while
-// state.connected is true), which previously had no way to resolve short
-// of disconnecting and reconnecting from scratch.
-async function signIn() {
-  const provider = getConnectedProvider();
-  if (!provider || !state.walletId || !state.address) {
-    throw new Error("Connect a wallet first");
-  }
-  await authenticateWithBackend(provider, state.walletId, state.address);
-  await syncBalancesWithBackend();
-}
-
 export const wallet = {
   connect,
   disconnect,
   restoreSession,
-  signIn,
   sendTransfer,
   refreshBalances: syncBalancesWithBackend,
   clearError() {
