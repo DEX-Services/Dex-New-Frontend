@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { backendMarketFor, backendOptionsMarketFor, frontendSymbolFor, registeredFuturesSymbols } from "./backendMarkets";
+import { backendMarketFor, backendOptionsMarketFor, frontendSymbolFor, registeredFuturesSymbols, registeredSpotSymbols } from "./backendMarkets";
 
 describe("backendMarketFor", () => {
   it("resolves all currently-registered SPOT symbols (BI2X only)", () => {
@@ -75,6 +75,13 @@ describe("registeredFuturesSymbols", () => {
     const bases = futures.map((f) => f.symbol.split("-")[0]).sort();
     expect(bases).toEqual(["ADA", "AVAX", "BI2X", "BTC", "DOGE", "ETH", "LINK", "SOL", "TAO", "XRP"]);
     expect(bases).not.toContain("BNB");
+  });
+});
+
+describe("registeredSpotSymbols", () => {
+  it("returns only SPOT entries, in engine-symbol form — BI2X-BI2XUSD only", () => {
+    const spot = registeredSpotSymbols();
+    expect(spot).toEqual([{ symbol: "BI2X-BI2XUSD", market: "SPOT" }]);
   });
 });
 

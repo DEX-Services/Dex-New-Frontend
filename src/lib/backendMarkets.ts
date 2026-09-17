@@ -90,6 +90,15 @@ export function registeredFuturesSymbols(): { symbol: string; market: string }[]
   return Object.values(REGISTERED).filter((e) => e.market === "FUTURES");
 }
 
+// All backend-registered SPOT symbol/market pairs, engine-symbol form.
+// Used the same way registeredFuturesSymbols is — e.g. to populate a bot
+// creation form's trading-pair dropdown with only symbols that actually
+// have a live order book, instead of a free-text field the user could
+// mistype or point at a disabled/nonexistent market.
+export function registeredSpotSymbols(): { symbol: string; market: string }[] {
+  return Object.values(REGISTERED).filter((e) => e.market === "SPOT");
+}
+
 // optionInstrumentSymbol builds the per-instrument symbol the backend now
 // expects for option orders. Format: BASE-QUOTE-STRIKE-EXPIRY-TYPE
 // (e.g. "BTC-BI2XUSD-55000-20250102-CALL"), matching the backend's seed format.
