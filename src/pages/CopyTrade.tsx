@@ -251,7 +251,7 @@ function CopySetupDialog({ trader, relationship, open, onOpenChange, onSave }: {
     const maxTradeValue = Number(maxPerTrade);
     if (!Number.isFinite(allocationValue) || allocationValue < 100) { toast.error("Enter an allocation of at least 100 USDT"); return; }
     if (!Number.isFinite(maxTradeValue) || maxTradeValue <= 0 || maxTradeValue > allocationValue) { toast.error("Max per trade must be between 1 USDT and your allocation"); return; }
-    onSave({ traderId: trader.id, allocation: allocationValue, multiplier, maxPerTrade: maxTradeValue, stopLoss, copySells, status: relationship?.status ?? "active", startedAt: relationship?.startedAt ?? new Date().toISOString() });
+    onSave({ traderId: trader.id, allocation: allocationValue, multiplier, maxPerTrade: maxTradeValue, stopLoss, copySells, commissionPercent: trader.commissionPercent, status: relationship?.status ?? "active", startedAt: relationship?.startedAt ?? new Date().toISOString() });
     onOpenChange(false);
   };
 

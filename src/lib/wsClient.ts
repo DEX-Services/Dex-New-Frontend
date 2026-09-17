@@ -360,14 +360,17 @@ class WSClient {
   /** Subscribe to sequence-gap notifications (stream needs a resync). */
   onGap(listener: GapListener) {
     this.gapListeners.add(listener);
-    return () => this.gapListeners.delete(listener);
+    // Set.delete returns boolean; the unsubscribe function is handed
+    // straight to React effects as their cleanup return value, which must
+    // be void — wrapped in a block body so nothing is returned.
+    return () => { this.gapListeners.delete(listener); };
   }
 
   /** Subscribe to connection status changes. */
   onStatus(listener: StatusListener) {
     this.statusListeners.add(listener);
     listener(this.status);
-    return () => this.statusListeners.delete(listener);
+    return () => { this.statusListeners.delete(listener); };
   }
 
   /** Tear the connection down once nothing is listening, so an unmounted app

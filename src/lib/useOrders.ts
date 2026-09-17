@@ -191,7 +191,11 @@ export function useOrders(account: string) {
   // normal cancel-failure to the caller). Acceptable tradeoff: this ships
   // without needing a new engine order-book amend path.
   const modify = useCallback(
-    async (o: OpenOrder, next: { price?: string; qty: string }) => {
+    // Only symbol/market/id/side are ever read below — was typed as the full
+    // OpenOrder, which forced every caller to supply filled/status values
+    // that mean nothing here (e.g. Order History rows, which don't carry an
+    // OpenOrder at all). Narrowed to what this function actually uses.
+    async (o: Pick<OpenOrder, "id" | "symbol" | "market" | "side">, next: { price?: string; qty: string }) => {
       await cancelOrder(o.symbol, o.market, o.id);
       if (ordersRef.current.delete(o.id)) publish();
       const res = await submitOrder({

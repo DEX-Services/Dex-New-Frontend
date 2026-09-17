@@ -11,7 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { toast } from "sonner";
 import { backendMarketFor, backendOptionsMarketFor, optionInstrumentSymbol } from "@/lib/backendMarkets";
 import { useOrders } from "@/lib/useOrders";
-import { getOptionChain, OptionChainEntry, submitAttachedOrder } from "@/lib/apiClient";
+import { getOptionChain, OptionChainEntry, submitAttachedOrder, SubmitOrderParams } from "@/lib/apiClient";
 import { useWallet } from "@/lib/useWallet";
 import { useMarketMetadata } from "@/lib/useMarketMetadata";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -363,7 +363,12 @@ export function TradePanel({
       return;
     }
 
-    const engineOrderType = orderType.toUpperCase();
+    // Was orderType.toUpperCase(), typed as plain `string` — TypeScript
+    // couldn't narrow it to SubmitOrderParams' "LIMIT" | "MARKET" | ... union,
+    // which is what made parentOrder below fail to type-check at its two
+    // call sites. The ternary form (matching the equivalent cast already
+    // used elsewhere in this file) keeps the literal type.
+    const engineOrderType: "LIMIT" | "MARKET" = orderType === "market" ? "MARKET" : "LIMIT";
     const rawRequestedPrice = orderType === "market" ? price : Number(limitPrice);
     // JavaScript number arithmetic can produce values such as 78536.7702
     // from a tick-aligned input/calculation. Normalize the submitted limit
@@ -425,7 +430,7 @@ export function TradePanel({
       : {};
 
     try {
-      const parentOrder = {
+      const parentOrder: SubmitOrderParams = {
         symbol: backendMarket.symbol,
         market: backendMarket.market,
         side: side === "buy" ? "BUY" : "SELL",
@@ -437,7 +442,15 @@ export function TradePanel({
       };
       const res = hasTpsl
         ? await submitAttachedOrder(parentOrder,
-            tpEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: tp, qty: "0" } : undefined,
+            // Take-profit is a LIMIT leg (it closes at a favorable price the
+            // market rises/falls TO, so it can rest as a normal resting
+            // order), not a STOP — sending it as { type: "STOP", stopPrice }
+            // with no price left the engine's take-profit query param
+            // (tpPrice) always empty, so the leg was silently never created:
+            // the order succeeded, the toast confirmed it, but no TP ever
+            // existed. Stop-loss stays STOP (it closes only once the market
+            // moves AGAINST the position past a trigger).
+            tpEnabled ? { ...parentOrder, side: exitSide, type: "LIMIT", price: tp, qty: "0" } : undefined,
             slEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: sl, qty: "0" } : undefined)
         : await orders.place(parentOrder);
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {

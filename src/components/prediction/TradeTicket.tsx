@@ -57,9 +57,14 @@ export function TradeTicket({ market, selectedOutcomeId, onSelectOutcome, disabl
     if (!valid || !market.windowId) return;
     setSubmitting(true);
     try {
-      const side: ApiSide = outcome.id === "yes" ? "YES" : "NO";
+      // ApiSide (predictionApi.ts's PredictionSide) is lowercase "yes"/"no" —
+      // a same-named but differently-cased type also exists in
+      // predictionMarkets.ts ("YES"/"NO"), which this used to be assigned
+      // from before being immediately .toLowerCase()'d and cast at every
+      // call site below. Assign the correct casing directly instead.
+      const side: ApiSide = outcome.id === "yes" ? "yes" : "no";
       if (mode === "BUY") {
-        const result = await placePredictionOrder(market.windowId, side.toLowerCase() as "yes" | "no", outcome.price.toFixed(2), estimate.shares.toFixed(6));
+        const result = await placePredictionOrder(market.windowId, side, outcome.price.toFixed(2), estimate.shares.toFixed(6));
         if (result.status === "filled") {
           toast.success("Order filled", { description: `Bought ${Number(result.filledSize).toFixed(2)} ${outcome.label} shares.` });
         } else if (Number(result.filledSize) > 0) {
@@ -71,7 +76,7 @@ export function TradeTicket({ market, selectedOutcomeId, onSelectOutcome, disabl
         // Accept execution up to 5% worse than the currently quoted price —
         // protects against selling into a stale/moved book.
         const minPrice = Math.max(0.01, outcome.price * 0.95).toFixed(2);
-        const result = await sellPredictionPosition(market.windowId, side.toLowerCase() as "yes" | "no", estimate.shares.toFixed(6), minPrice);
+        const result = await sellPredictionPosition(market.windowId, side, estimate.shares.toFixed(6), minPrice);
         const filled = Number(result.filledSize);
         if (filled >= estimate.shares - 1e-9) {
           toast.success("Position closed", { description: `Sold ${filled.toFixed(2)} ${outcome.label} shares.` });
