@@ -80,9 +80,10 @@ export default function TradingBots() {
   }, []);
 
   const visibleTemplates = useMemo(() => {
-    const list = templates.length > 0
+    const list = (templates.length > 0
       ? templates
-      : FALLBACK_TEMPLATES.map((t) => ({ ...t, params: [] } as BotTemplate));
+      : FALLBACK_TEMPLATES.map((t) => ({ ...t, params: [] } as BotTemplate))
+    ).filter((t) => t.available);
     return category === "All" ? list : list.filter((t) => t.category === category);
   }, [templates, category]);
 
@@ -167,23 +168,12 @@ export default function TradingBots() {
                 return (
                   <button
                     key={t.key}
-                    disabled={!t.available}
-                    onClick={() => t.available && setCreateTemplate(t)}
-                    className={cn(
-                      "rounded-2xl border border-border/60 bg-card/60 p-5 text-left transition-all",
-                      t.available
-                        ? "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5"
-                        : "cursor-not-allowed opacity-60",
-                    )}
+                    onClick={() => setCreateTemplate(t)}
+                    className="rounded-2xl border border-border/60 bg-card/60 p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5"
                   >
                     <Icon className="mb-4 h-5 w-5 text-primary" />
                     <div className="font-bold">{t.title}</div>
                     <p className="mt-3 text-sm leading-6 text-muted-foreground">{t.desc}</p>
-                    {!t.available && (
-                      <span className="mt-3 inline-block rounded-full bg-muted/40 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
-                        Coming soon
-                      </span>
-                    )}
                   </button>
                 );
               })}
