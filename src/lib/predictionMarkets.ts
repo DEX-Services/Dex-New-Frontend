@@ -94,13 +94,13 @@ export const formatPredictionVolume = (value: number) => new Intl.NumberFormat("
 export const formatPredictionDate = (value: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 
 export type PredictionSide = "YES" | "NO";
-export type PredictionOrderStatus = "Open" | "Won" | "Lost" | "Cancelled";
-export type PredictionOrderView = { id: string; marketId: string; question: string; side: PredictionSide; status: PredictionOrderStatus; placedAt: string; priceCents: number; shares: number; cost: number };
+export type PredictionOrderStatus = "Open" | "Won" | "Lost" | "Cancelled" | "Unfilled";
+export type PredictionOrderView = { id: string; marketId: string; question: string; side: PredictionSide; status: PredictionOrderStatus; placedAt: string; priceCents: number; shares: number; filledShares: number; cost: number };
 
 export function orderStatusBadgeClass(status: PredictionOrderStatus): string {
   if (status === "Open") return "bg-primary/15 text-primary border-primary/30";
   if (status === "Won") return "bg-buy/15 text-buy border-buy/30";
-  if (status === "Cancelled") return "bg-muted/40 text-muted-foreground border-border/50";
+  if (status === "Cancelled" || status === "Unfilled") return "bg-muted/40 text-muted-foreground border-border/50";
   return "bg-sell/15 text-sell border-sell/30";
 }
 

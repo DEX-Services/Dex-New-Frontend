@@ -7,8 +7,14 @@ import { getPredictionOrders, getPredictionWindow, type PredictionOrder, type Pr
 import { orderStatusBadgeClass, sidePillClass, type PredictionOrderStatus, type PredictionOrderView, type PredictionSide } from "@/lib/predictionMarkets";
 
 function deriveStatus(order: PredictionOrder, win: PredictionWindow | undefined): PredictionOrderStatus {
-  if (order.Status === "cancelled") return "Cancelled";
+  const filled = Number(order.FilledSize);
+  if (order.Status === "cancelled") {
+    return filled > 0 ? "Cancelled" : "Unfilled";
+  }
   if (!win || win.status !== "settled" || !win.targetPrice || !win.resolutionPrice) return "Open";
+  // The round locked with no counterparty for this order (or its
+  // remainder) — it was refunded, not settled, so it never won or lost.
+  if (filled <= 0) return "Unfilled";
   const won = Number(win.resolutionPrice) >= Number(win.targetPrice) ? "yes" : "no";
   return order.Side === won ? "Won" : "Lost";
 }
@@ -28,6 +34,7 @@ async function buildOrderViews(orders: PredictionOrder[]): Promise<PredictionOrd
   return orders.map((order) => {
     const win = windows.get(order.WindowID);
     const side: PredictionSide = order.Side === "yes" ? "YES" : "NO";
+    const filledShares = Number(order.FilledSize);
     return {
       id: String(order.ID),
       marketId: win ? `${win.market}-${win.duration}` : String(order.WindowID),
@@ -36,8 +43,12 @@ async function buildOrderViews(orders: PredictionOrder[]): Promise<PredictionOrd
       status: deriveStatus(order, win),
       placedAt: new Date(order.CreatedAt).toLocaleString(),
       priceCents: Math.round(Number(order.Price) * 100),
-      shares: Number(order.Size),
-      cost: Number(order.Price) * Number(order.Size),
+      // Show the filled portion, not the full requested size — an
+      // unfilled remainder was refunded and never became a real position,
+      // so counting it here would overstate what was actually at stake.
+      shares: filledShares,
+      filledShares,
+      cost: Number(order.Price) * filledShares,
     };
   });
 }
