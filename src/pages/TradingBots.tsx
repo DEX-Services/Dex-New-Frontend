@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -582,22 +581,25 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// AI Agent bot creation is disabled — it never created a real bot (no
+// botsApi call, pure simulated frontend state), so the button is disabled
+// rather than wired to the commented-out /ai-agent route. Re-enable by
+// restoring the onClick + route in App.tsx once a real AI-driven bot
+// creation flow exists.
 function CreateBotButton() {
-  const navigate = useNavigate();
   return (
     <button
       type="button"
-      onClick={() => navigate("/ai-agent")}
-      className="group relative isolate inline-flex h-11 items-center gap-2 overflow-hidden rounded-full border border-primary/35 bg-primary/10 px-4 text-sm font-bold text-primary transition-all hover:-translate-y-0.5 hover:border-primary/70 hover:bg-primary hover:text-primary-foreground hover:shadow-[0_18px_45px_hsl(var(--primary)/0.25)]"
-      aria-label="Create your own bot by yourself"
+      disabled
+      className="group relative isolate inline-flex h-11 cursor-not-allowed items-center gap-2 overflow-hidden rounded-full border border-border/50 bg-muted/20 px-4 text-sm font-bold text-muted-foreground opacity-60"
+      aria-label="Create AI Agent (coming soon)"
     >
-      <span className="absolute inset-y-0 -left-10 -z-10 w-8 rotate-12 bg-white/35 opacity-0 blur-sm transition-all duration-500 group-hover:left-[120%] group-hover:opacity-100" />
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:rotate-12 group-hover:scale-110 group-hover:bg-primary-foreground group-hover:text-primary">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/40 text-muted-foreground">
         <BotIcon className="h-4 w-4" />
       </span>
       <span>Create AI Agent</span>
       <span className="pointer-events-none absolute right-0 top-full mt-2 w-max max-w-[220px] translate-y-1 rounded-lg border border-border bg-popover px-3 py-2 text-xs font-semibold text-popover-foreground opacity-0 shadow-xl transition-all group-hover:translate-y-0 group-hover:opacity-100">
-        Create your own bot by yourself
+        Coming soon
       </span>
     </button>
   );

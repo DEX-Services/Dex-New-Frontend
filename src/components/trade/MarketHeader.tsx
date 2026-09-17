@@ -121,9 +121,9 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
         <Button
           variant="outline"
           size="sm"
-          onClick={() => navigate("/ai-agent")}
-          className="h-8 text-xs glass border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"
-          title="Open AI Agent"
+          disabled
+          className="h-8 text-xs glass border-border/40 text-muted-foreground opacity-60 cursor-not-allowed"
+          title="AI Agent (coming soon)"
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
           AI Agent

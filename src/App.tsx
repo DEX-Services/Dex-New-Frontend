@@ -16,7 +16,7 @@ import Settings from "./pages/Settings.tsx";
 import Profile from "./pages/Profile.tsx";
 import PropFirm from "./pages/PropFirm.tsx";
 import TradingBots from "./pages/TradingBots.tsx";
-import AIAgent from "./pages/AIAgent.tsx";
+// import AIAgent from "./pages/AIAgent.tsx"; // AI Agent bot creation disabled (frontend-only, no real bot backed it)
 import P2P from "./pages/P2P.tsx";
 import P2POrders from "./pages/P2POrders.tsx";
 import P2POrderDetail from "./pages/P2POrderDetail.tsx";
@@ -116,7 +116,7 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/trade" element={<Index />} />
           <Route path="/trading-bots" element={<TradingBots />} />
-          <Route path="/ai-agent" element={<AIAgent />} />
+          {/* <Route path="/ai-agent" element={<AIAgent />} /> */}{/* AI Agent bot creation disabled */}
           <Route path="/markets" element={<Markets />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
