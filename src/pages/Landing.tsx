@@ -44,7 +44,7 @@ export default function Landing() {
           <Link to="/prop" className="hover:text-foreground transition-colors">Prop Firm</Link>
           <Link to="/p2p" className="hover:text-foreground transition-colors">P2P</Link>
           <Link to="/token" className="hover:text-foreground transition-colors">Token</Link>
-          <Link to="/sip" className="hover:text-foreground transition-colors">SIP/SWP</Link>
+          {/* SIP/SWP link hidden 2026-09-17 (product decision) */}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export default function Landing() {
           <Link to="/prop" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
           <Link to="/p2p" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
           <Link to="/token" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Token</Link>
-          <Link to="/sip" className="text-muted-foreground hover:text-foreground font-medium py-2" onClick={() => setMobileMenuOpen(false)}>SIP/SWP</Link>
+          {/* SIP/SWP link hidden 2026-09-17 (product decision) */}
         </div>
       )}
 
@@ -197,14 +197,11 @@ export default function Landing() {
             <h2 className="text-3xl md:text-5xl font-black text-foreground">Trade Any Asset Class</h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
-              { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
-              { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
+              // 2026-09-17: Forex/Commodities/Stocks/SIP/SWP cards hidden (product
+              // decision — don't advertise unavailable products). Restore as needed.
+              { title: "Crypto", sub: "Spot & Futures", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35" },
               { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
               { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
             ].map((item) => (
@@ -555,7 +552,7 @@ export default function Landing() {
             <div className="space-y-3 text-sm text-muted-foreground">
               <Link to="/p2p" className="block hover:text-primary transition-colors">P2P</Link>
               <Link to="/token" className="block hover:text-primary transition-colors">Token</Link>
-              <Link to="/sip" className="block hover:text-primary transition-colors">DYP/SWAP</Link>
+              {/* SIP/SWP footer link hidden 2026-09-17 (product decision) */}
             </div>
           </div>
 

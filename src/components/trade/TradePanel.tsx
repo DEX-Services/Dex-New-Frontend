@@ -524,23 +524,15 @@ export function TradePanel({
     <div className="glass rounded-xl flex flex-col h-full overflow-y-auto overflow-x-hidden">
       <div className="px-3 pt-2.5">
         <Tabs value={mode} onValueChange={handleModeChange}>
-          <TabsList className="grid grid-cols-3 h-8 bg-muted/30 w-full rounded-lg p-0.5">
+          {/* Options tab HIDDEN (2026-09-17: same product decision as hiding
+              the Forex/Commodity/Stocks market tabs — don't advertise
+              unavailable markets). Trading remains disabled engine-side
+              (/order rejects OPTIONS orders outright). To restore: re-add
+              <TabsTrigger value="options" disabled ...>Options</TabsTrigger>
+              and change this grid back to grid-cols-3. */}
+          <TabsList className="grid grid-cols-2 h-8 bg-muted/30 w-full rounded-lg p-0.5">
             <TabsTrigger value="spot" className="h-7 text-xs font-semibold rounded-md">Spot</TabsTrigger>
             <TabsTrigger value="futures" className="h-7 text-xs font-semibold rounded-md">Futures</TabsTrigger>
-            {/* Options trading is DISABLED (product decision: crypto
-                spot/futures only for now) — the engine's /option-chain and
-                /spread routes are unregistered, and /order rejects OPTIONS
-                orders outright, so this tab is always disabled regardless
-                of underlying. Not removed: re-enabling is restoring the
-                backendOptionsMarketFor(baseAsset) check this replaced. */}
-            <TabsTrigger
-              value="options"
-              disabled
-              className="h-7 text-xs font-semibold rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Options trading isn't live on the exchange yet"
-            >
-              Options
-            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

@@ -25,22 +25,30 @@ type MarketIcon = ComponentType<{ className?: string }>;
 // comingSoon: crypto-only for the current launch (2026-09-11 product
 // decision) — see MarketList.tsx's identical flag for the full explanation
 // of what's disabled-not-deleted underneath these tabs.
+// Forex/Commodity/Stocks tabs removed and Options kind hidden (2026-09-17:
+// product decision — don't advertise unavailable markets with Soon badges,
+// same change as MarketList.tsx on the trade page). Commented out, not
+// deleted — restore these entries to bring the tabs back. The underlying
+// implementations still live (see backendMarkets.ts,
+// matching-engine/cmd/engine/markets.go's disabledMarkets, and
+// Price-Fetcher's DefaultInstruments).
 const ASSET_TABS: { id: AssetClass | "all"; label: string; icon: MarketIcon; kinds: (MarketKind | "all")[]; comingSoon?: boolean }[] = [
   { id: "all", label: "All", icon: Flame, kinds: ["all"] },
-  { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["all", "spot", "perp", "options"] },
-  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["all", "perp"], comingSoon: true },
-  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["all", "perp"], comingSoon: true },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "perp", "options"], comingSoon: true },
+  { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["all", "spot", "perp"] },
+  // { id: "forex", label: "Forex", icon: DollarSign, kinds: ["all", "perp"], comingSoon: true },
+  // { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["all", "perp"], comingSoon: true },
+  // { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["all", "perp", "options"], comingSoon: true },
 ];
 
 const KIND_LABEL: Record<string, string> = { all: "All", spot: "Spot", perp: "Future", options: "Options" };
 
 // Options trading is DISABLED (2026-09-11 product decision: crypto
-// spot/futures only for the current launch) — see MarketList.tsx's identical
-// flag and matching-engine/cmd/engine/markets.go's optionsEnabled for the
-// backend-side gate. Options is a MarketKind under the Crypto asset class,
-// not its own asset class, so it needs its own set here alongside
-// comingSoonAssets below.
+// spot/futures only for the current launch) — kept as a DATA-LEVEL filter
+// only (it removes options-category markets from the "All" table via
+// filteredMarkets below). The Options kind sub-tab itself is hidden by
+// dropping "options" from Crypto's kinds list above (2026-09-17), same as
+// the trade page. See matching-engine/cmd/engine/markets.go's optionsEnabled
+// for the backend-side gate.
 const COMING_SOON_KINDS = new Set<MarketKind>(["options"]);
 
 const Markets = () => {

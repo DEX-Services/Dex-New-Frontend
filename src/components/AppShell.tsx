@@ -22,7 +22,7 @@ const navItems = [
   { to: "/prediction", icon: TrendingUp, label: "Predict" },
   { to: "/token", icon: Coins, label: "Token" },
   { to: "/staking", icon: Lock, label: "Staking" },
-  { to: "/sip", icon: CalendarClock, label: "SIP/SWP" },
+  // { to: "/sip", icon: CalendarClock, label: "SIP/SWP" }, — hidden 2026-09-17 (product decision); route stays live in App.tsx for direct URLs
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

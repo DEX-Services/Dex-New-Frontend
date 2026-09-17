@@ -12,20 +12,28 @@ import { Input } from "@/components/ui/input";
 // see backendMarkets.ts, matching-engine/cmd/engine/markets.go's
 // disabledMarkets, and Price-Fetcher's DefaultInstruments for where the
 // underlying implementation still lives.
+// Forex/Commodity/Stocks removed from the visible tabs (2026-09-17: product
+// decision — don't advertise unavailable markets with SOON badges). The
+// backend implementations still live (see backendMarkets.ts,
+// matching-engine/cmd/engine/markets.go's disabledMarkets, and
+// Price-Fetcher's DefaultInstruments); restore their entries here to bring
+// the tabs back.
 const ASSET_TABS: { id: AssetClass; label: string; icon: any; kinds: MarketKind[]; comingSoon?: boolean }[] = [
-  { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["spot", "perp", "options"] },
-  { id: "forex", label: "Forex", icon: DollarSign, kinds: ["perp"], comingSoon: true },
-  { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["perp"], comingSoon: true },
-  { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["perp", "options"], comingSoon: true },
+  { id: "crypto", label: "Crypto", icon: Bitcoin, kinds: ["spot", "perp"] },
+  // { id: "forex", label: "Forex", icon: DollarSign, kinds: ["perp"], comingSoon: true },
+  // { id: "commodity", label: "Commodity", icon: Droplet, kinds: ["perp"], comingSoon: true },
+  // { id: "stocks", label: "Stocks", icon: Briefcase, kinds: ["perp", "options"], comingSoon: true },
 ];
 
 const KIND_LABEL: Record<MarketKind, string> = { spot: "Spot", perp: "Future", options: "Options" };
 
 // Options trading is DISABLED (2026-09-11 product decision: crypto
-// spot/futures only for the current launch) — same "Coming Soon" treatment
-// as the forex/commodity/stocks asset classes above, but at the MarketKind
-// level since Options is a sub-tab under Crypto, not its own asset class.
-// See matching-engine/cmd/engine/markets.go's optionsEnabled flag for the
+// spot/futures only for the current launch) — the Options sub-tab is now
+// HIDDEN entirely (2026-09-17) instead of shown with a •SOON badge, same
+// reasoning as the removed forex/commodity/stocks asset tabs above. Options
+// is kept in this set so any code path that lands on kind="options" still
+// gets the coming-soon blank state rather than an empty list. See
+// matching-engine/cmd/engine/markets.go's optionsEnabled flag for the
 // backend-side gate; nothing here is deleted.
 const COMING_SOON_KINDS = new Set<MarketKind>(["options"]);
 
