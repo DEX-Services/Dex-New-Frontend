@@ -102,7 +102,14 @@ export function PositionsPanel({
   const [myBots, setMyBots] = useState<BotDTO[]>([]);
   const [botsAuthed, setBotsAuthed] = useState(true);
 
-  const futuresOrders = orders.orders.filter(o => o.market === "FUTURES");
+  // Previously filtered to market === "FUTURES" only, so a resting SPOT
+  // order had nowhere in the UI to be cancelled or modified — the trade
+  // ticket could place one, but this was the only tab with cancel/modify
+  // controls and it silently excluded spot. useOrders/cancelOrder/
+  // modifyOrder are all market-agnostic (see useOrders.ts's OpenOrder type),
+  // so showing every open order here regardless of market is correct, not
+  // just a workaround.
+  const openOrders = orders.orders;
 
   const refetchPositions = useCallback(() => {
     if (!account) return;
@@ -438,8 +445,8 @@ export function PositionsPanel({
               <TabsTrigger value="positions" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Position <span className="ml-1.5 px-1.5 py-0.5 rounded bg-primary/20 text-[10px]">{positions.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="futuresOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
-                Futures Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{futuresOrders.length}</span>
+              <TabsTrigger value="openOrders" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
+                Open Orders <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-[10px]">{openOrders.length}</span>
               </TabsTrigger>
               <TabsTrigger value="automated" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary text-xs h-7">
                 Bot / AI Agent <span className="ml-1.5 px-1.5 py-0.5 rounded bg-secondary/15 text-secondary text-[10px]">{myBots.length}</span>
@@ -536,9 +543,9 @@ export function PositionsPanel({
           )}
         </TabsContent>
 
-        <TabsContent value="futuresOrders" className="flex-1 overflow-auto m-0">
-          {futuresOrders.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No open futures orders.</div>
+        <TabsContent value="openOrders" className="flex-1 overflow-auto m-0">
+          {openOrders.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center p-6 text-xs text-muted-foreground">No open orders.</div>
           ) : (
             <table className="w-full text-[11px] font-mono">
               <thead className="text-[10px] text-muted-foreground uppercase">
@@ -554,7 +561,7 @@ export function PositionsPanel({
                 </tr>
               </thead>
               <tbody>
-                {futuresOrders.map(o => (
+                {openOrders.map(o => (
                   <tr key={o.id} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="px-3 py-2 font-sans font-semibold">{o.symbol}</td>
                     <td className={o.side === "BUY" ? "text-buy" : "text-sell"}>{o.side}</td>
