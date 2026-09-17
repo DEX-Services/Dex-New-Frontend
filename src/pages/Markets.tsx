@@ -69,8 +69,11 @@ const Markets = () => {
     // (DefaultInstruments is empty) and options order submission is rejected
     // engine-side, so these would otherwise show as permanently
     // "unavailable"/tradable-looking rather than being cleanly absent.
+    // Also exclude any pair with no live index price at all — a disabled/
+    // never-listed instrument otherwise shows a permanent "—" row with an
+    // "unavailable" badge instead of being cleanly absent from the table.
     let list = markets.filter(
-      (market) => !comingSoonAssets.has(market.asset) && !COMING_SOON_KINDS.has(market.category)
+      (market) => !comingSoonAssets.has(market.asset) && !COMING_SOON_KINDS.has(market.category) && market.price !== null
     );
     if (asset !== "all") list = list.filter((market) => market.asset === asset);
     if (kind !== "all") list = list.filter((market) => market.category === kind);
@@ -225,9 +228,7 @@ const Markets = () => {
                   <th className="text-left px-4 py-3">Pair</th>
                   <th className="text-right">Index Price</th>
                   <th className="text-right">24h Change</th>
-                  <th className="text-right">Feed 24h Volume</th>
-                  <th className="text-right">Open Interest</th>
-                  <th className="text-right pr-4">Funding</th>
+                  <th className="text-right pr-4">24h Volume</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,11 +264,9 @@ const Markets = () => {
                         )}
                       </span>
                     </td>
-                    <td className="text-right font-mono text-muted-foreground">
+                    <td className="text-right pr-4 font-mono text-muted-foreground">
                       {market.volume24h === null ? "N/A" : `$${formatCompact(market.volume24h)}`}
                     </td>
-                    <td className="text-right font-mono text-muted-foreground">—</td>
-                    <td className="text-right pr-4 font-mono text-muted-foreground">—</td>
                   </tr>
                 ))}
               </tbody>
