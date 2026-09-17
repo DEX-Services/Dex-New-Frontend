@@ -714,7 +714,8 @@ export function PositionsPanel({
                   <th className="text-right">Avg Fill</th>
                   <th className="text-right">Fee</th>
                   <th className="text-right">Status</th>
-                  <th className="text-left pr-3">Reason</th>
+                  <th className="text-left">Reason</th>
+                  <th className="text-right pr-3">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -727,7 +728,15 @@ export function PositionsPanel({
                     <td className="text-right">{parseFloat(h.avgFillPrice) > 0 ? formatPrice(parseFloat(h.avgFillPrice)) : "—"}</td>
                     <td className="text-right text-muted-foreground">{parseFloat(h.feePaid) > 0 ? h.feePaid : "—"}</td>
                     <td className="text-right text-muted-foreground">{h.status}</td>
-                    <td className="text-left pr-3 text-muted-foreground truncate max-w-[220px]" title={h.rejectReason}>{h.rejectReason ?? "—"}</td>
+                    <td className="text-left text-muted-foreground truncate max-w-[220px]" title={h.rejectReason}>{h.rejectReason ?? "—"}</td>
+                    <td className="text-right pr-3">
+                      {h.status === "OPEN" && (
+                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                          title="Cancel order" onClick={() => handleCancel(h.symbol, h.market, h.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
