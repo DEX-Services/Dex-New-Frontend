@@ -724,17 +724,55 @@ export function PositionsPanel({
                     <td className="px-3 py-2">{new Date(h.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
                     <td className="font-sans font-semibold">{h.symbol}</td>
                     <td className={h.side === "BUY" ? "text-buy" : "text-sell"}>{h.side}</td>
-                    <td className="text-right">{h.filled}/{h.quantity}</td>
-                    <td className="text-right">{parseFloat(h.avgFillPrice) > 0 ? formatPrice(parseFloat(h.avgFillPrice)) : "—"}</td>
+                    <td className="text-right">
+                      {editingOrderId === h.id ? (
+                        <input value={editQty} onChange={(e) => setEditQty(e.target.value)}
+                          className="w-16 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                      ) : (
+                        <>{h.filled}/{h.quantity}</>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      {editingOrderId === h.id ? (
+                        parseFloat(h.price) > 0 ? (
+                          <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)}
+                            className="w-20 bg-muted/40 rounded px-1 text-right font-mono text-[11px]" />
+                        ) : (
+                          <span className="text-muted-foreground">MKT</span>
+                        )
+                      ) : (
+                        parseFloat(h.avgFillPrice) > 0 ? formatPrice(parseFloat(h.avgFillPrice)) : "—"
+                      )}
+                    </td>
                     <td className="text-right text-muted-foreground">{parseFloat(h.feePaid) > 0 ? h.feePaid : "—"}</td>
                     <td className="text-right text-muted-foreground">{h.status}</td>
                     <td className="text-left text-muted-foreground truncate max-w-[220px]" title={h.rejectReason}>{h.rejectReason ?? "—"}</td>
-                    <td className="text-right pr-3">
+                    <td className="text-right pr-3 flex items-center justify-end gap-1">
                       {h.status === "OPEN" && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
-                          title="Cancel order" onClick={() => handleCancel(h.symbol, h.market, h.id)}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                        editingOrderId === h.id ? (
+                          <>
+                            <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-buy"
+                              onClick={() => commitEdit({ id: h.id, symbol: h.symbol, market: h.market, side: h.side, price: parseFloat(h.price) > 0 ? h.price : undefined, qty: h.quantity })}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button size="icon" variant="ghost" disabled={savingEdit} className="h-6 w-6 text-muted-foreground hover:text-sell"
+                              onClick={cancelEdit}><X className="h-3 w-3" /></Button>
+                          </>
+                        ) : (
+                          <>
+                            {parseFloat(h.price) > 0 && (
+                              <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                title="Modify order (cancels and resubmits with your changes)"
+                                onClick={() => startEdit({ id: h.id, price: h.price, qty: h.quantity })}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            )}
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-sell"
+                              title="Cancel order" onClick={() => handleCancel(h.symbol, h.market, h.id)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )
                       )}
                     </td>
                   </tr>
