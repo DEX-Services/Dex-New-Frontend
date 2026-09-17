@@ -1,17 +1,15 @@
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { IndexedMarket, PRICE_FETCHER_BASES, useMarketIndexes } from "@/lib/useMarketIndexes";
+import { IndexedMarket, useMarketIndexes } from "@/lib/useMarketIndexes";
 import { AssetClass, formatCompact, formatPrice, MarketKind } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
 import {
-  AlertTriangle,
   Bitcoin,
   Briefcase,
   DollarSign,
   Droplet,
   Flame,
-  RefreshCw,
   Search,
   TrendingDown,
   TrendingUp,
@@ -52,7 +50,7 @@ const KIND_LABEL: Record<string, string> = { all: "All", spot: "Spot", perp: "Fu
 const COMING_SOON_KINDS = new Set<MarketKind>(["options"]);
 
 const Markets = () => {
-  const { markets, loading, error } = useMarketIndexes();
+  const { markets, loading } = useMarketIndexes();
   const [query, setQuery] = useState("");
   const [asset, setAsset] = useState<AssetClass | "all">("all");
   const [kind, setKind] = useState<MarketKind | "all">("all");
@@ -92,9 +90,6 @@ const Markets = () => {
   }, [markets]);
 
   const liveFeeds = uniqueFeeds.filter((market) => market.dataStatus === "live" && market.price !== null);
-  const staleCount = uniqueFeeds.filter((market) => market.dataStatus === "stale").length;
-  const unavailableCount = uniqueFeeds.filter((market) => market.dataStatus === "unavailable").length;
-  const totalVol = liveFeeds.reduce((sum, market) => sum + (market.volume24h ?? 0), 0);
   const ranked = liveFeeds.filter((market) => market.change24h !== null);
   const trending = [...ranked]
     .sort((left, right) => Math.abs(right.change24h ?? 0) - Math.abs(left.change24h ?? 0))
@@ -113,39 +108,7 @@ const Markets = () => {
       <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Markets</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Redis-backed index prices across {markets.length} instruments · {liveFeeds.length}/{PRICE_FETCHER_BASES.length} feeds live
-            {totalVol > 0 ? ` · $${formatCompact(totalVol)} reported 24h volume` : ""}
-          </p>
         </div>
-
-        {(loading || error || staleCount > 0 || unavailableCount > 0) && (
-          <div
-            className={cn(
-              "rounded-xl border px-4 py-3 text-sm flex items-start gap-3",
-              error
-                ? "border-destructive/30 bg-destructive/10 text-destructive"
-                : "border-border bg-muted/30 text-muted-foreground",
-            )}
-            role="status"
-          >
-            {loading ? (
-              <RefreshCw className="h-4 w-4 mt-0.5 animate-spin shrink-0" />
-            ) : (
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            )}
-            <div>
-              <p className="font-medium text-foreground">
-                {loading ? "Loading live market data…" : error ? "Live market feed unavailable" : "Some market feeds need attention"}
-              </p>
-              {!loading && (
-                <p className="text-xs mt-0.5">
-                  {error ?? `${staleCount} stale and ${unavailableCount} unavailable. No simulated prices are being shown.`}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="grid lg:grid-cols-3 gap-4">
           <ListCard title="Today's Top / Trending" items={trending} icon={Flame} loading={loading} />
