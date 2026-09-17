@@ -195,25 +195,28 @@ export default function Landing() {
           <div className="text-center space-y-3">
             <p className="text-cyan-600 dark:text-cyan-400 text-xs md:text-sm font-semibold tracking-[0.22em] uppercase">Everything In One Place</p>
             <h2 className="text-3xl md:text-5xl font-black text-foreground">Trade Any Asset Class</h2>
+            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 lg:hidden" />
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-4">
             {[
-              { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
-              { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
-              { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/35" },
-              { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35" },
-              { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35" },
-              { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35" },
+              { title: "Crypto", sub: "Spot, Futures & Options", icon: TrendingUp, color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-500/35", glow: "bg-cyan-500" },
+              { title: "Forex", sub: "Currency Pairs", icon: Globe, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35", glow: "bg-violet-500" },
+              { title: "Commodities", sub: "Gold, Oil, Gas & More", icon: Layers, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35", glow: "bg-emerald-500" },
+              { title: "Stocks", sub: "US & Global Equities", icon: TrendingUp, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35", glow: "bg-amber-500" },
+              { title: "SIP", sub: "Systematic Investment Plan", icon: Shield, color: "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 border-cyan-500/35", glow: "bg-cyan-500" },
+              { title: "SWP", sub: "Systematic Withdrawal Plan", icon: Zap, color: "text-violet-600 dark:text-violet-300 bg-violet-500/15 border-violet-500/35", glow: "bg-violet-500" },
+              { title: "AI Agent Trading", sub: "AI Automated Strategies", icon: Bot, color: "text-emerald-600 dark:text-emerald-300 bg-emerald-500/15 border-emerald-500/35", glow: "bg-emerald-500" },
+              { title: "Bot Trading", sub: "AI-Powered Bots", icon: Bot, color: "text-amber-600 dark:text-amber-300 bg-amber-500/15 border-amber-500/35", glow: "bg-amber-500" },
             ].map((item) => (
-              <div key={item.title} className="group rounded-2xl border border-border bg-background/75 p-5 md:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-                <div className={`h-10 w-10 rounded-xl border flex items-center justify-center mb-4 ${item.color} group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all`}>
+              <div key={item.title} className="group relative overflow-hidden rounded-2xl border border-border bg-background/75 p-4 md:p-5 lg:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
+                {/* Category glow accent — mobile & tablet only */}
+                <div className={`pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full blur-3xl opacity-30 lg:hidden ${item.glow}`} />
+                <div className={`h-12 w-12 lg:h-10 lg:w-10 rounded-xl border flex items-center justify-center mb-3 md:mb-4 lg:mb-4 ${item.color} group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all`}>
                   <item.icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-foreground text-2xl font-semibold mb-1">{item.title}</h3>
-                <p className="text-muted-foreground text-sm">{item.sub}</p>
+                <h3 className="text-foreground text-lg md:text-xl lg:text-2xl font-semibold mb-1">{item.title}</h3>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-sm">{item.sub}</p>
               </div>
             ))}
           </div>
@@ -223,67 +226,33 @@ export default function Landing() {
       {/* Features Section */}
       <section className="py-20 px-6 lg:px-10 bg-background">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16 space-y-4">
+          <div className="text-center mb-10 md:mb-16 space-y-4">
             <h2 className="text-4xl md:text-5xl font-black text-foreground">Built for serious traders</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            <div className="mx-auto h-1 w-24 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-violet-500 lg:hidden" />
+            <p className="text-sm md:text-lg text-muted-foreground max-w-2xl mx-auto">
               FROM FIRST TRADE TO FULL TIME PRO | ALL TOOLS INCLUDED
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Pro Charting */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <TrendingUp className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
+            {[
+              { title: "Pro Charting", sub: "Lightning-fast charts with 50+ indicators & drawing tools.", icon: TrendingUp, glow: "bg-cyan-500" },
+              { title: "Spot · Futures · Options", sub: "Trade every market type from one unified terminal.", icon: Layers, glow: "bg-violet-500" },
+              { title: "AI Agents & Bots", sub: "Automate strategies with AI-powered trading assistants.", icon: Bot, glow: "bg-emerald-500" },
+              { title: "Self-Custody", sub: "Connect MetaMask, Trust Wallet, Binance Wallet, Coinbase, and Bitget.", icon: Shield, glow: "bg-cyan-500" },
+              { title: "Multi-Asset", sub: "Crypto, Forex, Commodities and Stocks in one place.", icon: Globe, glow: "bg-violet-500" },
+              { title: "Up to 100× Leverage", sub: "Deep liquidity and ultra-low fees on every fill.", icon: Zap, glow: "bg-amber-500" },
+            ].map((item) => (
+              <div key={item.title} className="group relative overflow-hidden border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-4 md:p-5 lg:p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
+                {/* Category glow accent — mobile & tablet only */}
+                <div className={`pointer-events-none absolute -top-10 -right-10 h-24 w-24 rounded-full blur-3xl opacity-30 lg:hidden ${item.glow}`} />
+                <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-3 md:mb-4 lg:mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
+                  <item.icon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h3 className="text-base md:text-lg lg:text-xl font-bold text-foreground mb-2">{item.title}</h3>
+                <p className="text-muted-foreground text-xs md:text-sm lg:text-sm leading-relaxed">{item.sub}</p>
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Pro Charting</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Lightning-fast charts with 50+ indicators & drawing tools.</p>
-            </div>
-
-            {/* Spot · Futures · Options */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Layers className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Spot · Futures · Options</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Trade every market type from one unified terminal.</p>
-            </div>
-
-            {/* AI Agents & Bots */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Bot className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">AI Agents & Bots</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Automate strategies with AI-powered trading assistants.</p>
-            </div>
-
-            {/* Self-Custody */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Shield className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Self-Custody</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Connect MetaMask, Trust Wallet, Binance Wallet, Coinbase, and Bitget.</p>
-            </div>
-
-            {/* Multi-Asset */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Globe className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Multi-Asset</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Crypto, Forex, Commodities and Stocks in one place.</p>
-            </div>
-
-            {/* Up to 100× Leverage */}
-            <div className="group border border-border bg-gradient-to-br from-card to-muted/40 backdrop-blur rounded-2xl p-6 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 transition-all">
-              <div className="h-12 w-12 rounded-lg bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:shadow-lg group-hover:shadow-cyan-500/50 transition-all">
-                <Zap className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Up to 100× Leverage</h3>
-              <p className="text-muted-foreground text-sm leading-relaxed">Deep liquidity and ultra-low fees on every fill.</p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -529,9 +498,12 @@ export default function Landing() {
       </section> */}
 
       <footer className="border-t border-border bg-card px-6 py-10 lg:px-10">
-        <div className="mx-auto grid max-w-6xl gap-8 grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          <div className="space-y-4 col-span-2 md:col-span-1">
-            <Link to="/" className="inline-flex items-center gap-2">
+        {/* Gradient hairline accent — mobile & tablet only */}
+        <div className="mx-auto mb-8 h-px max-w-6xl bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent lg:hidden" />
+        <div className="mx-auto grid max-w-6xl gap-6 lg:gap-8 grid-cols-2 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="relative space-y-4 col-span-2 md:col-span-2 lg:col-span-1">
+            <div className="pointer-events-none absolute -top-6 -left-4 h-20 w-20 rounded-full bg-cyan-500/20 blur-3xl lg:hidden" />
+            <Link to="/" className="relative inline-flex items-center gap-2">
               <img src={logo} alt="BitDx logo" className="h-10 w-10 rounded-lg shadow-lg shadow-blue-500/20 object-contain" />
               <span className="font-bold text-xl tracking-tight text-foreground">BitDx</span>
             </Link>
@@ -541,38 +513,38 @@ export default function Landing() {
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Trade</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/trade" className="block hover:text-primary transition-colors">Trading Terminal</Link>
-              <Link to="/markets" className="block hover:text-primary transition-colors">Markets</Link>
-              <Link to="/copy" className="block hover:text-primary transition-colors">Copy Trading</Link>
-              <Link to="/prop" className="block hover:text-primary transition-colors">Prop Firm</Link>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Trade</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/trade" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Trading Terminal</Link>
+              <Link to="/markets" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Markets</Link>
+              <Link to="/copy" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Copy Trading</Link>
+              <Link to="/prop" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Prop Firm</Link>
             </div>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Products</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/p2p" className="block hover:text-primary transition-colors">P2P</Link>
-              <Link to="/token" className="block hover:text-primary transition-colors">Token</Link>
-              <Link to="/sip" className="block hover:text-primary transition-colors">DYP/SWAP</Link>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Products</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/p2p" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">P2P</Link>
+              <Link to="/token" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Token</Link>
+              <Link to="/sip" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">DYP/SWAP</Link>
             </div>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-bold text-foreground">Company</h3>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <Link to="/profile" className="block hover:text-primary transition-colors">Profile</Link>
-              <Link to="/refer" className="block hover:text-primary transition-colors">Refer</Link>
-              <Link to="/settings" className="block hover:text-primary transition-colors">Settings</Link>
-              <button onClick={() => setWalletOpen(true)} className="block text-left hover:text-primary transition-colors">Connect Wallet</button>
+            <h3 className="mb-3 lg:mb-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400 lg:text-sm lg:normal-case lg:tracking-normal lg:text-foreground">Company</h3>
+            <div className="space-y-1 lg:space-y-3 text-sm text-muted-foreground">
+              <Link to="/profile" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Profile</Link>
+              <Link to="/refer" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Refer</Link>
+              <Link to="/settings" className="block rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:hover:bg-transparent lg:hover:text-primary">Settings</Link>
+              <button onClick={() => setWalletOpen(true)} className="block w-full text-left rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-cyan-500/10 hover:text-cyan-600 dark:hover:text-cyan-400 lg:px-0 lg:py-0 lg:mx-0 lg:w-auto lg:hover:bg-transparent lg:hover:text-primary">Connect Wallet</button>
             </div>
           </div>
         </div>
 
-        <div className="mx-auto mt-10 flex max-w-6xl flex-col gap-4 border-t border-border pt-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto mt-10 flex max-w-6xl flex-col items-center gap-4 border-t border-border pt-6 text-center text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between lg:text-left">
           <p>© 2026 BitDx. All rights reserved.</p>
-          <div className="flex flex-wrap gap-x-5 gap-y-2">
+          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
             <a href="#" className="hover:text-primary transition-colors">Terms</a>
             <a href="#" className="hover:text-primary transition-colors">Privacy</a>
             <a href="#" className="hover:text-primary transition-colors">Risk Disclosure</a>
