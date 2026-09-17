@@ -30,7 +30,7 @@ import {
   type BotTemplate,
 } from "@/lib/botsApi";
 
-type BotCategory = "All" | "Spot" | "Futures" | "Options";
+type BotCategory = "All" | "Spot" | "Futures";
 
 // Fallback template metadata (title/desc/icon) used if the templates API is
 // unreachable, so the page still renders. The API is the source of truth for
@@ -144,7 +144,7 @@ export default function TradingBots() {
           <section className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex gap-6">
-                {(["All", "Spot", "Futures", "Options"] as const).map((item) => (
+                {(["All", "Spot", "Futures"] as const).map((item) => (
                   <button
                     key={item}
                     onClick={() => setCategory(item)}
