@@ -76,23 +76,38 @@ export function bi2xusdAmountFromFiat(fiatAmount:string|number,price:string|numb
 	if(!Number.isFinite(fiat)||!Number.isFinite(unitPrice)||fiat<=0||unitPrice<=0)return "0";
 	return (Math.floor((fiat/unitPrice)*1_000_000)/1_000_000).toFixed(6).replace(/\.?0+$/,"");
 }
-export function grossBI2XUSDAmountForNet(netAmount:string|number):string{
+// getP2PFeeRates fetches the caller's own discount-adjusted P2P fee rates
+// (P2P-M2 fix). The functions below all default their `feePct` parameter to
+// 1 (the platform base rate) so every existing call site keeps working
+// unchanged if it doesn't pass a rate — callers that show a fee-sensitive
+// figure to the user should fetch this once and pass the real rate instead
+// of relying on the default, since a discounted user's actual rate can be
+// lower than the flat 1% previously hardcoded everywhere here.
+export const getP2PFeeRates=()=>request<{buyerRate:string;sellerRate:string}>("/p2p/fee-rates");
+
+function feeRaw(amountRaw:bigint,feePct:number):bigint{
+	if(feePct<=0)return 0n;
+	return amountRaw*BigInt(Math.round(feePct*10_000))/1_000_000n;
+}
+export function grossBI2XUSDAmountForNet(netAmount:string|number,feePct=1):string{
 	const net=bi2xusdRawOrZero(netAmount);
 	if(net<=0n)return "0";
-	return formatBI2XUSDAmount((net+(net-1n)/99n).toString());
+	if(feePct<=0)return formatBI2XUSDAmount(net.toString());
+	const bps=BigInt(Math.round(feePct*10_000));
+	return formatBI2XUSDAmount((net*1_000_000n/(1_000_000n-bps)).toString());
 }
-export function netBI2XUSDAmountAfterBuyerFee(grossAmount:string|number):string{
+export function netBI2XUSDAmountAfterBuyerFee(grossAmount:string|number,feePct=1):string{
 	const gross=bi2xusdRawOrZero(grossAmount);
 	if(gross<=0n)return "0";
-	return formatBI2XUSDAmount((gross-gross/100n).toString());
+	return formatBI2XUSDAmount((gross-feeRaw(gross,feePct)).toString());
 }
-export function bi2xusdFeeAmount(grossAmount:string|number):string{
+export function bi2xusdFeeAmount(grossAmount:string|number,feePct=1):string{
 	const gross=bi2xusdRawOrZero(grossAmount);
-	return formatBI2XUSDAmount((gross/100n).toString());
+	return formatBI2XUSDAmount(feeRaw(gross,feePct).toString());
 }
-export function sellerBI2XUSDDebitWithFee(grossAmount:string|number):string{
+export function sellerBI2XUSDDebitWithFee(grossAmount:string|number,feePct=1):string{
 	const gross=bi2xusdRawOrZero(grossAmount);
-	return formatBI2XUSDAmount((gross+gross/100n).toString());
+	return formatBI2XUSDAmount((gross+feeRaw(gross,feePct)).toString());
 }
 function bi2xusdRawOrZero(value:string|number):bigint{
 	const text=typeof value==="number"?value.toFixed(6).replace(/\.?0+$/,""):value;

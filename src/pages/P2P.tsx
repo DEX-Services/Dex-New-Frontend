@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select,SelectContent,SelectItem,SelectTrigger,SelectValue } from "@/components/ui/select";
 import { ArrowRight,ClipboardList,Clock,Filter,Lock,Search,Shield,TrendingUp,Users,Wallet } from "lucide-react";
 import { useWallet } from "@/lib/useWallet";
-import { effectiveP2PMaxOrderFiat,formatINR,formatBI2XUSDAmount,getP2PListings,getP2PPrice,grossBI2XUSDAmountForNet,netBI2XUSDAmountAfterBuyerFee,parseBI2XUSDAmount,P2P_PAYMENT_METHODS,sellerBI2XUSDDebitWithFee,takeP2PListing,bi2xusdAmountFromFiat,bi2xusdFeeAmount,type P2PListing,type P2POrder,type P2PPaymentMethod } from "@/lib/p2pApi";
+import { effectiveP2PMaxOrderFiat,formatINR,formatBI2XUSDAmount,getP2PFeeRates,getP2PListings,getP2PPrice,grossBI2XUSDAmountForNet,netBI2XUSDAmountAfterBuyerFee,parseBI2XUSDAmount,P2P_PAYMENT_METHODS,sellerBI2XUSDDebitWithFee,takeP2PListing,bi2xusdAmountFromFiat,bi2xusdFeeAmount,type P2PListing,type P2POrder,type P2PPaymentMethod } from "@/lib/p2pApi";
 
 const message=(error:unknown)=>error instanceof Error?error.message:"Something went wrong";
 const validBI2XUSDInput=(value:string)=>/^\d*(?:\.\d{0,6})?$/.test(value);
@@ -32,6 +32,11 @@ export default function P2P(){
 	const [selectedPayment,setSelectedPayment]=useState<P2PPaymentMethod>("UPI");
 	const [acting,setActing]=useState(false);
 	const [order,setOrder]=useState<P2POrder|null>(null);
+	// Real discount-adjusted rates (P2P-M2); default to the platform base 1%
+	// until the fetch resolves so the UI shows a correct number immediately
+	// for undiscounted users and briefly, harmlessly, for discounted ones.
+	const [feeRates,setFeeRates]=useState({buyerRate:1,sellerRate:1});
+	useEffect(()=>{getP2PFeeRates().then(r=>setFeeRates({buyerRate:Number(r.buyerRate)*100,sellerRate:Number(r.sellerRate)*100})).catch(()=>{})},[]);
 	const setAmount=(value:string)=>{if(validBI2XUSDInput(value))setAmountState(value)};
 	const setQuantity=(value:string)=>{if(validBI2XUSDInput(value))setQuantityState(value)};
 	function updateQuickBI2XUSD(value:string){if(!validBI2XUSDInput(value))return;setQuickBI2XUSD(value);setQuickINR(value&&Number(price)>0?(Number(value)*Number(price)).toFixed(2):"")}
@@ -66,20 +71,23 @@ export default function P2P(){
 			{/* <MarketSnapshot listings={listings}/> */}
 			</div></div>
 		{/* <HowItWorks/> */}
-	</div></div><TradeDialog ad={selected} quantity={quantity} setQuantity={setQuantity} payment={selectedPayment} setPayment={setSelectedPayment} order={order} error={error} acting={acting} userId={userId} onTake={take} onClose={()=>{setSelected(null);setOrder(null);setError("")}}/></AppShell>;
+	</div></div><TradeDialog ad={selected} quantity={quantity} setQuantity={setQuantity} payment={selectedPayment} setPayment={setSelectedPayment} order={order} error={error} acting={acting} userId={userId} feeRates={feeRates} onTake={take} onClose={()=>{setSelected(null);setOrder(null);setError("")}}/></AppShell>;
 }
 
-function TradeDialog({ad,quantity,setQuantity,payment,setPayment,order,error,acting,userId,onTake,onClose}:{ad:P2PListing|null;quantity:string;setQuantity:(v:string)=>void;payment:P2PPaymentMethod;setPayment:(v:P2PPaymentMethod)=>void;order:P2POrder|null;error:string;acting:boolean;userId?:string;onTake:()=>void;onClose:()=>void}){
+function TradeDialog({ad,quantity,setQuantity,payment,setPayment,order,error,acting,userId,feeRates,onTake,onClose}:{ad:P2PListing|null;quantity:string;setQuantity:(v:string)=>void;payment:P2PPaymentMethod;setPayment:(v:P2PPaymentMethod)=>void;order:P2POrder|null;error:string;acting:boolean;userId?:string;feeRates:{buyerRate:number;sellerRate:number};onTake:()=>void;onClose:()=>void}){
 	const [linkedInputs,setLinkedInputs]=useState({adId:"",fiat:"0.00",receive:"0"});
 	const amount=Number(quantity||0);
+	const viewerAction=ad?.side==="SELL"?"Buy":"Sell";
+	// The viewer is a buyer when taking a SELL ad, a seller when taking a BUY
+	// ad — pick the matching side's real rate (P2P-M2).
+	const feePct=viewerAction==="Buy"?feeRates.buyerRate:feeRates.sellerRate;
 	const fiatInput=linkedInputs.adId===ad?.id?linkedInputs.fiat:(amount*Number(ad?.price||0)).toFixed(2);
-	const receiveInput=linkedInputs.adId===ad?.id?linkedInputs.receive:netBI2XUSDAmountAfterBuyerFee(amount);
+	const receiveInput=linkedInputs.adId===ad?.id?linkedInputs.receive:netBI2XUSDAmountAfterBuyerFee(amount,feePct);
 	const gross=amount*Number(ad?.price||0);
 	const remaining=Number(formatBI2XUSDAmount(ad?.remainingRaw||"0"));
 	const remainingAfter=remaining-amount;
 	const effectiveMaximum=ad?effectiveP2PMaxOrderFiat(ad):0;
-	const fee=bi2xusdFeeAmount(quantity);
-	const viewerAction=ad?.side==="SELL"?"Buy":"Sell";
+	const fee=bi2xusdFeeAmount(quantity,feePct);
 	const remainderBelowMinimum=!!ad&&remainingAfter>0&&remainingAfter*Number(ad.price)<Number(ad.minOrderFiat);
 	const validationMessage=!ad||amount<=0?"":amount>remaining?`Only ${formatBI2XUSDAmount(ad.remainingRaw)} BI2XUSD is available.`:gross<Number(ad.minOrderFiat)?`The minimum order is ${formatINR(ad.minOrderFiat)}.`:gross>effectiveMaximum?`The maximum order is ${formatINR(effectiveMaximum)}.`:remainderBelowMinimum?`This would leave ${Number(remainingAfter.toFixed(6))} BI2XUSD, below the ad minimum. ${viewerAction} the full ${formatBI2XUSDAmount(ad.remainingRaw)} BI2XUSD or leave at least ${Number((Number(ad.minOrderFiat)/Number(ad.price)).toFixed(6))} BI2XUSD for another order.`:"";
 	const valid=!!ad&&userId!==ad.creatorId&&amount>0&&!validationMessage;
@@ -87,24 +95,24 @@ function TradeDialog({ad,quantity,setQuantity,payment,setPayment,order,error,act
 		if(!validBI2XUSDInput(value))return;
 		const nextQuantity=bi2xusdAmountFromFiat(value,ad?.price||0);
 		setQuantity(nextQuantity);
-		setLinkedInputs({adId:ad?.id??"",fiat:value,receive:netBI2XUSDAmountAfterBuyerFee(nextQuantity)});
+		setLinkedInputs({adId:ad?.id??"",fiat:value,receive:netBI2XUSDAmountAfterBuyerFee(nextQuantity,feePct)});
 	}
 	function updateNetBI2XUSD(value:string){
 		if(!validBI2XUSDInput(value))return;
-		const nextQuantity=grossBI2XUSDAmountForNet(value);
+		const nextQuantity=grossBI2XUSDAmountForNet(value,feePct);
 		setQuantity(nextQuantity);
 		setLinkedInputs({adId:ad?.id??"",fiat:(Number(nextQuantity)*Number(ad?.price||0)).toFixed(2),receive:value});
 	}
 	function updateGrossBI2XUSD(value:string){
 		if(!validBI2XUSDInput(value))return;
 		setQuantity(value);
-		setLinkedInputs({adId:ad?.id??"",fiat:(Number(value||0)*Number(ad?.price||0)).toFixed(2),receive:netBI2XUSDAmountAfterBuyerFee(value)});
+		setLinkedInputs({adId:ad?.id??"",fiat:(Number(value||0)*Number(ad?.price||0)).toFixed(2),receive:netBI2XUSDAmountAfterBuyerFee(value,feePct)});
 	}
 	function normalizeFiatInvestment(){updateFiatInvestment((Number(fiatInput)||0).toFixed(2))}
 	function normalizeNetBI2XUSD(){updateNetBI2XUSD(String(Number(receiveInput)||0))}
 	function normalizeGrossBI2XUSD(){updateGrossBI2XUSD(String(Number(quantity)||0))}
 	function close(){setLinkedInputs({adId:"",fiat:"0.00",receive:"0"});onClose()}
-	return <TradeDialogView ad={ad} quantity={quantity} fiatInput={fiatInput} receiveInput={receiveInput} payment={payment} setPayment={setPayment} order={order} error={error} acting={acting} userId={userId} onTake={onTake} onClose={close} gross={gross} effectiveMaximum={effectiveMaximum} fee={fee} viewerAction={viewerAction} valid={valid} validationMessage={validationMessage} updateFiatInvestment={updateFiatInvestment} updateNetBI2XUSD={updateNetBI2XUSD} updateGrossBI2XUSD={updateGrossBI2XUSD} normalizeFiatInvestment={normalizeFiatInvestment} normalizeNetBI2XUSD={normalizeNetBI2XUSD} normalizeGrossBI2XUSD={normalizeGrossBI2XUSD}/>;
+	return <TradeDialogView ad={ad} quantity={quantity} fiatInput={fiatInput} receiveInput={receiveInput} payment={payment} setPayment={setPayment} order={order} error={error} acting={acting} userId={userId} onTake={onTake} onClose={close} gross={gross} effectiveMaximum={effectiveMaximum} fee={fee} feePct={feePct} viewerAction={viewerAction} valid={valid} validationMessage={validationMessage} updateFiatInvestment={updateFiatInvestment} updateNetBI2XUSD={updateNetBI2XUSD} updateGrossBI2XUSD={updateGrossBI2XUSD} normalizeFiatInvestment={normalizeFiatInvestment} normalizeNetBI2XUSD={normalizeNetBI2XUSD} normalizeGrossBI2XUSD={normalizeGrossBI2XUSD}/>;
 }
 
 type TradeDialogViewProps={
@@ -123,6 +131,7 @@ type TradeDialogViewProps={
 	gross:number;
 	effectiveMaximum:number;
 	fee:string;
+	feePct:number;
 	viewerAction:"Buy"|"Sell";
 	valid:boolean;
 	validationMessage:string;
@@ -134,7 +143,7 @@ type TradeDialogViewProps={
 	normalizeGrossBI2XUSD:()=>void;
 };
 
-function TradeDialogView({ad,quantity,fiatInput,receiveInput,payment,setPayment,order,error,acting,userId,onTake,onClose,gross,effectiveMaximum,fee,viewerAction,valid,validationMessage,updateFiatInvestment,updateNetBI2XUSD,updateGrossBI2XUSD,normalizeFiatInvestment,normalizeNetBI2XUSD,normalizeGrossBI2XUSD}:TradeDialogViewProps){
+function TradeDialogView({ad,quantity,fiatInput,receiveInput,payment,setPayment,order,error,acting,userId,onTake,onClose,gross,effectiveMaximum,fee,feePct,viewerAction,valid,validationMessage,updateFiatInvestment,updateNetBI2XUSD,updateGrossBI2XUSD,normalizeFiatInvestment,normalizeNetBI2XUSD,normalizeGrossBI2XUSD}:TradeDialogViewProps){
 	return <Dialog open={!!ad} onOpenChange={open=>!open&&onClose()}>
 		<DialogContent className="max-w-lg">
 			<DialogHeader><DialogTitle>{order?"Order created":`${viewerAction} BI2XUSD ${ad?.side==="SELL"?"from":"to"} ${ad?.username??""}`}</DialogTitle></DialogHeader>
@@ -180,11 +189,11 @@ function TradeDialogView({ad,quantity,fiatInput,receiveInput,payment,setPayment,
 				</div>
 				<div className="rounded-xl border p-4 text-sm">
 					<Row label={viewerAction==="Buy"?"You pay externally":"You receive externally"} value={formatINR(gross)}/>
-					<Row label={`${viewerAction} fee (1%)`} value={`${fee} BI2XUSD`}/>
-					<Row label={viewerAction==="Buy"?"You receive":"Total BI2XUSD escrowed"} value={`${viewerAction==="Buy"?netBI2XUSDAmountAfterBuyerFee(quantity):sellerBI2XUSDDebitWithFee(quantity)} BI2XUSD`}/>
+					<Row label={`${viewerAction} fee (${feePct}%)`} value={`${fee} BI2XUSD`}/>
+					<Row label={viewerAction==="Buy"?"You receive":"Total BI2XUSD escrowed"} value={`${viewerAction==="Buy"?netBI2XUSDAmountAfterBuyerFee(quantity,feePct):sellerBI2XUSDDebitWithFee(quantity,feePct)} BI2XUSD`}/>
 				</div>
 				{error&&<p className="text-sm text-destructive">{error}</p>}
-				<Button className={`w-full ${viewerAction==="Buy"?"bg-buy text-buy-foreground":"bg-red-500 text-white"}`} disabled={!valid||acting} onClick={onTake}>{acting?"Creating order…":viewerAction==="Buy"?`Buy ${netBI2XUSDAmountAfterBuyerFee(quantity)} BI2XUSD`:`Sell ${quantity || "0"} BI2XUSD`}</Button>
+				<Button className={`w-full ${viewerAction==="Buy"?"bg-buy text-buy-foreground":"bg-red-500 text-white"}`} disabled={!valid||acting} onClick={onTake}>{acting?"Creating order…":viewerAction==="Buy"?`Buy ${netBI2XUSDAmountAfterBuyerFee(quantity,feePct)} BI2XUSD`:`Sell ${quantity || "0"} BI2XUSD`}</Button>
 			</div>)}
 		</DialogContent>
 	</Dialog>;

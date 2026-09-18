@@ -127,6 +127,17 @@ export function TradePanel({
   // BOTH are enabled (a ratio needs two sides), so it's hidden otherwise.
   const [tpEnabled, setTpEnabled] = useState(false);
   const [slEnabled, setSlEnabled] = useState(false);
+  // Spot sell entries reject an attached TP/SL server-side (backend only
+  // supports TP/SL on spot BUY entries, and on futures); previously the
+  // toggles stayed enabled here so a user filled out TP/SL for a spot sell
+  // and only found out it was rejected after submitting. Force both off
+  // whenever the form is in that state, matching the toggles being hidden.
+  useEffect(() => {
+    if (isSpotSell) {
+      setTpEnabled(false);
+      setSlEnabled(false);
+    }
+  }, [isSpotSell]);
   const [tp, setTp] = useState((price * 1.05).toFixed(2));
   const [sl, setSl] = useState((price * 0.97).toFixed(2));
   // TP/SL can be entered as either an absolute price OR a percentage, with
@@ -450,13 +461,34 @@ export function TradePanel({
             // the order succeeded, the toast confirmed it, but no TP ever
             // existed. Stop-loss stays STOP (it closes only once the market
             // moves AGAINST the position past a trigger).
-            tpEnabled ? { ...parentOrder, side: exitSide, type: "LIMIT", price: tp, qty: "0" } : undefined,
-            slEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: sl, qty: "0" } : undefined)
+            // qty here is intentionally the parent's requested size, not a
+            // placeholder (TRD-M2): the engine always re-sizes a TP/SL leg
+            // to the entry's actual filled quantity (see attached.Group's
+            // ProtectedQty) regardless of what's sent, but sending the real
+            // requested size instead of a "0" stand-in keeps the wire
+            // payload self-describing rather than silently-always-ignored.
+            tpEnabled ? { ...parentOrder, side: exitSide, type: "LIMIT", price: tp } : undefined,
+            slEnabled ? { ...parentOrder, side: exitSide, type: "STOP", stopPrice: sl } : undefined)
         : await orders.place(parentOrder);
       toast.success(`${side.toUpperCase()} ${orderType.toUpperCase()} placed`, {
         description: `Order ${res.orderId.slice(0, 8)} · status ${res.status} · filled ${res.filled}`,
       });
 
+      // TRD-M1: a TP/SL leg can fail to place (e.g. the shared reservation
+      // fails) while the entry itself still succeeds — the engine's response
+      // only sets takeProfitId/stopLossId for legs that actually activated,
+      // so an enabled-but-missing id here means silent, unprotected
+      // exposure the success toast above would otherwise hide entirely.
+      if (hasTpsl) {
+        const missing: string[] = [];
+        if (tpEnabled && !res.takeProfitId) missing.push("Take Profit");
+        if (slEnabled && !res.stopLossId) missing.push("Stop Loss");
+        if (missing.length > 0) {
+          toast.warning(`${missing.join(" and ")} not attached`, {
+            description: "The entry order placed, but the requested protection could not be set up. Add it manually from your open positions.",
+          });
+        }
+      }
     } catch (err) {
       toast.error("Order failed", { description: err instanceof Error ? err.message : String(err) });
     }
@@ -818,7 +850,7 @@ export function TradePanel({
           <div className="mt-1 text-[11px] text-muted-foreground">Min. notional {marketMetadata?.minNotional ?? "—"}</div>
         </div>
 
-        {!isOptions && (
+        {!isOptions && !isSpotSell && (
           <div className="space-y-1.5 pt-1.5 border-t border-border/50">
             <span className="text-xs font-semibold">TP/SL (optional)</span>
             {/* Last column widened from a fixed 48px to minmax(64px,auto):

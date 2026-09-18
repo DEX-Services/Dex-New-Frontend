@@ -59,7 +59,22 @@ export type TradeDTO = {
 };
 export type TradesResponse = { symbol: string; market: string; trades: TradeDTO[] };
 
-export type OrderResponse = { orderId: string; status: string; filled: string; trades: number };
+export type OrderResponse = {
+  orderId: string;
+  status: string;
+  filled: string;
+  trades: number;
+  // Set only by /trade/attached-order (TRD-M1): groupId is present only if
+  // the entry actually activated a protection group; takeProfitId/stopLossId
+  // are each present only if that specific leg was placed. Previously these
+  // were returned by the backend but never typed or checked here, so a leg
+  // that silently failed to place (the shared reservation failing, e.g.)
+  // still showed a plain "order placed" toast with no indication that no
+  // TP/SL was actually attached.
+  groupId?: string;
+  takeProfitId?: string;
+  stopLossId?: string;
+};
 
 export type BalanceResponse = {
   account: string;
