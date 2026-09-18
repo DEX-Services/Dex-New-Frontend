@@ -21,6 +21,7 @@ import {
   getP2POrderMessages,
   getP2POrderProofs,
   markP2POrderPaid,
+  p2pOrderStreamURL,
   p2pProofURL,
   releaseP2POrder,
   sendP2POrderMessage,
@@ -69,7 +70,37 @@ export default function P2POrderDetail() {
     }
   }, [orderId, userId]);
 
-  useEffect(() => { void load(); const poll = window.setInterval(() => void load(), 5000); return () => window.clearInterval(poll); }, [load]);
+  // P2P-L2: the order's own status now arrives pushed over SSE instead of
+  // being re-fetched on a timer. Messages/proofs/events have no push
+  // mechanism of their own, so they still refresh on an interval — kept at
+  // 15s (was folded into the same 5s poll as the order) since chat/proof
+  // updates are far less time-sensitive than "did my counterparty pay yet".
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const poll = window.setInterval(() => {
+      if (!userId || !orderId) return;
+      Promise.all([getP2POrderMessages(orderId), getP2POrderProofs(orderId), getP2POrderEvents(orderId)])
+        .then(([messageResult, proofResult, eventResult]) => {
+          setMessages(messageResult.messages);
+          setProofs(proofResult.proofs);
+          setEvents(eventResult.events);
+        })
+        .catch(() => { /* transient poll failure — next tick or the SSE-driven order update will recover */ });
+    }, 15000);
+    return () => window.clearInterval(poll);
+  }, [orderId, userId]);
+  useEffect(() => {
+    if (!orderId || !userId) return;
+    const source = new EventSource(p2pOrderStreamURL(orderId));
+    source.onmessage = (event) => {
+      try {
+        setOrder(JSON.parse(event.data) as P2POrder);
+      } catch { /* malformed push — ignore, next real update will correct it */ }
+    };
+    // EventSource retries automatically on a dropped connection; no
+    // reconnect logic needed here beyond letting the browser do it.
+    return () => source.close();
+  }, [orderId, userId]);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
 
   const buyer = order?.buyerId === userId;

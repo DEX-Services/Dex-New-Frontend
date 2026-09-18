@@ -46,6 +46,12 @@ export const sendP2POrderMessage=(orderId:string,body:string)=>request<{message:
 export const getP2POrderProofs=(orderId:string)=>request<{proofs:P2POrderProof[]}>(`/p2p/order/proofs?orderId=${encodeURIComponent(orderId)}`);
 export async function uploadP2POrderProof(orderId:string,file:File){const body=new FormData();body.append("orderId",orderId);body.append("proof",file);return request<{proof:P2POrderProof}>("/p2p/order/proofs",{method:"POST",body})}
 export const p2pProofURL=(proofId:string)=>`${P2P_API_URL}/p2p/order/proofs/download?proofId=${encodeURIComponent(proofId)}`;
+// P2P-L2: order status updates are pushed over SSE instead of polled.
+// EventSource sends cookies automatically for same-site requests (the
+// `credentials:"include"` used by request() has no EventSource equivalent,
+// but session auth here is the dex_session cookie, which EventSource
+// includes by default for a same-origin/same-site URL).
+export const p2pOrderStreamURL=(orderId:string)=>`${P2P_API_URL}/p2p/order/stream?orderId=${encodeURIComponent(orderId)}`;
 export const getP2POrderEvents=(orderId:string)=>request<{events:P2POrderEvent[]}>(`/p2p/order/events?orderId=${encodeURIComponent(orderId)}`);
 export const fundP2PWallet=(asset:P2PAsset,amountRaw:string)=>request<{balance:P2PWalletBalance}>("/p2p/wallet/fund",json({asset,amountRaw,idempotencyKey:idempotencyKey()}));
 export const createP2PListing=(side:P2PAdSide,amountRaw:string,minOrderFiat:string,maxOrderFiat:string,paymentMethods:P2PPaymentMethod[],username?:string)=>request<{listing:P2PListing}>("/p2p/listings",json({asset:"BI2XUSD",side,amountRaw,minOrderFiat,maxOrderFiat,paymentMethods,username}));
