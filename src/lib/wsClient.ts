@@ -1,3 +1,5 @@
+import { getWsAuthToken } from "@/lib/wsAuthToken";
+
 export type WSOrder = {
   id: string;
   status: string;
@@ -159,9 +161,19 @@ class WSClient {
     }
 
     this.setStatus("connecting");
+    // ?token= identifies this connection's account to the engine (see
+    // internal/wsauth), so events belonging to this user's own account
+    // arrive with a real accountId instead of the redacted "" everyone else
+    // gets — see hub.go's broadcast. Omitted entirely when not logged in or
+    // the token isn't available (e.g. after a page reload — the token lives
+    // only in memory, see wsAuthToken.ts) rather than sent as empty, since
+    // the engine treats a missing/invalid token as "unauthenticated" either
+    // way and there's no reason to leak that a connection attempted auth.
+    const token = getWsAuthToken();
+    const url = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL;
     let socket: WebSocket;
     try {
-      socket = new WebSocket(WS_URL);
+      socket = new WebSocket(url);
     } catch {
       this.scheduleReconnect();
       return;

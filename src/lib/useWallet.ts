@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { getNonce, getWalletBalances, login as apiLogin, logout as apiLogout, me } from "@/lib/authApi";
+import { setWsAuthToken } from "@/lib/wsAuthToken";
 
 export type WalletId = "metamask" | "trust" | "binance" | "coinbase" | "bitget";
 
@@ -408,7 +409,8 @@ function consumePendingReferralCode(): string {
 async function authenticateWithBackend(provider: Eip1193Provider, source: WalletId, address: string) {
   const { message } = await getNonce(address);
   const signature = (await requestWithTimeout(provider, "personal_sign", [message, address])) as string;
-  const { user } = await apiLogin(address, signature, source, consumePendingReferralCode());
+  const { user, token } = await apiLogin(address, signature, source, consumePendingReferralCode());
+  setWsAuthToken(token);
   setState({ userId: user.id });
 }
 
@@ -419,6 +421,7 @@ async function disconnect() {
   detachProvider(provider);
   activeProvider = null;
   clearPersistedSession();
+  setWsAuthToken(null);
   state = { connected: false, walletId: undefined, address: undefined, userId: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
   emit();
 
