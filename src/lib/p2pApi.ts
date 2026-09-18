@@ -27,7 +27,15 @@ export const getP2PPrice=(asset:P2PAsset)=>request<{price:P2PPrice}>(`/p2p/price
 export const getP2PWallet=()=>request<{balance?:P2PWalletBalance;balances?:P2PWalletBalance[]}>("/p2p/wallet");
 export const getP2PProfile=()=>request<{profile:P2PProfile}>("/p2p/profile");
 export const establishP2PUsername=(username:string)=>request<{profile:P2PProfile}>("/p2p/profile",json({username}));
-export const getP2PListings=()=>request<{listings:P2PListing[]}>("/p2p/listings");
+// limit/offset are optional (P2P-L1): omitted, this returns the backend's
+// default first page instead of every listing unbounded.
+export const getP2PListings=(limit?:number,offset?:number)=>{
+	const params=new URLSearchParams();
+	if(limit!==undefined)params.set("limit",String(limit));
+	if(offset!==undefined)params.set("offset",String(offset));
+	const qs=params.toString();
+	return request<{listings:P2PListing[];total:number}>(`/p2p/listings${qs?`?${qs}`:""}`);
+};
 export const getMyP2PListings=()=>request<{listings:P2PListing[]}>("/p2p/my-listings");
 export const getP2POrders=()=>request<{orders:P2POrder[]}>("/p2p/orders");
 export const getP2POrder=(orderId:string)=>request<{order:P2POrder}>(`/p2p/order?orderId=${encodeURIComponent(orderId)}`);

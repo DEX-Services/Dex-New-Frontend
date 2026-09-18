@@ -42,7 +42,13 @@ export default function P2P(){
 	function updateQuickBI2XUSD(value:string){if(!validBI2XUSDInput(value))return;setQuickBI2XUSD(value);setQuickINR(value&&Number(price)>0?(Number(value)*Number(price)).toFixed(2):"")}
 	function updateQuickINR(value:string){if(!validFiatInput(value))return;setQuickINR(value);setQuickBI2XUSD(value&&Number(price)>0?bi2xusdAmountFromFiat(value,price):"")}
 
-	const load=useCallback(async()=>{try{setLoading(true);setError("");const [{price:today},{listings:ads}]=await Promise.all([getP2PPrice("BI2XUSD"),getP2PListings()]);setPrice(today.price);setPriceDate(today.priceDate);setListings(ads)}catch(e){setError(message(e))}finally{setLoading(false)}},[]);
+	// P2P-L1: getP2PListings is now paginated server-side (default page size
+	// 100, was unbounded); this page's own filtering (side/payment/amount)
+	// still runs client-side over that one page rather than being pushed to
+	// the server, so a market with more than 100 active ads for one side
+	// would need real infinite-scroll/paging here to see the rest — accepted
+	// for now since P2P volume is nowhere near that, revisit if it grows.
+	const load=useCallback(async()=>{try{setLoading(true);setError("");const [{price:today},{listings:ads}]=await Promise.all([getP2PPrice("BI2XUSD"),getP2PListings(100,0)]);setPrice(today.price);setPriceDate(today.priceDate);setListings(ads)}catch(e){setError(message(e))}finally{setLoading(false)}},[]);
 	useEffect(()=>{void load()},[load]);
 	const wantedSide=action==="BUY"?"SELL":"BUY";
 	const visible=useMemo(()=>listings.filter(ad=>{const requested=Number(amount||0);const fiat=requested*Number(ad.price);return ad.side===wantedSide&&(payment==="All"||ad.paymentMethods.includes(payment as P2PPaymentMethod))&&(!requested||(Number(formatBI2XUSDAmount(ad.remainingRaw))>=requested&&fiat>=Number(ad.minOrderFiat)&&fiat<=effectiveP2PMaxOrderFiat(ad)))}),[listings,wantedSide,payment,amount]);
