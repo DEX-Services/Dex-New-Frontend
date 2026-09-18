@@ -116,6 +116,10 @@ export const cancelPredictionOrder = (orderId: number) =>
 export const sellPredictionPosition = (windowId: number, side: PredictionSide, size: string, minPrice: string) =>
   request<{ orderId: number; filledSize: string }>("/prediction/positions/sell", json({ windowId, side, size, minPrice }));
 
-export const getPredictionOrders = () => request<PredictionOrder[] | null>("/prediction/orders");
+// Backend now always returns [] instead of Go's default null-for-nil-slice
+// marshaling (PRED-L2) — kept as PredictionOrder[] here (not | null) so this
+// type reflects that guarantee; existing `?? []` call sites still work fine
+// against a non-null array.
+export const getPredictionOrders = () => request<PredictionOrder[]>("/prediction/orders");
 
 export const getPredictionPositions = () => request<PredictionPosition[]>("/prediction/positions");

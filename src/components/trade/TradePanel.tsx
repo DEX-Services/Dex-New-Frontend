@@ -162,14 +162,15 @@ export function TradePanel({
   const [chain, setChain] = useState<OptionChainEntry[]>([]);
   const editedStrikeRef = useRef(false);
 
-  // A contract picked from Index.tsx's option-chain table drives the entry
-  // form directly: switch into Options mode and prefill strike/type/side so
-  // clicking a bid/ask cell in the chain is a one-click way to start that
-  // order, rather than requiring the user to re-enter the same strike here.
+  // TRD-L1: the Options tab's TabsTrigger is disabled (options orders are
+  // rejected server-side regardless), but this effect used to still fire
+  // from a click in Index.tsx's option-chain table, force-switching into
+  // that same disabled mode via setMode/onModeChange — a dead path a user
+  // could still reach even though the tab itself was unclickable. Left as
+  // prefilling optType/strike only (harmless bookkeeping if this feature is
+  // ever re-enabled) without actually forcing the panel into Options mode.
   useEffect(() => {
     if (!selectedOption) return;
-    setMode("options");
-    onModeChange?.("options");
     setOptType(selectedOption.optionType === "CALL" ? "call" : "put");
     editedStrikeRef.current = true;
     setStrike(selectedOption.strike);
