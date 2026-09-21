@@ -31,6 +31,7 @@ import {
   type PropFirmProgram,
   type PropFirmSize,
 } from "@/lib/propFirmPlans";
+import { purchasePropFirmAccount, type PropFirmPurchaseResult } from "@/lib/propFirmApi";
 
 type PurchaseStep = "configure" | "review" | "payment" | "ready";
 
@@ -55,6 +56,8 @@ export function PropFirmPurchaseDialog({
   const [size, setSize] = useState<PropFirmSize>(initialSize);
   const [processing, setProcessing] = useState(false);
   const [copied, setCopied] = useState<"login" | "password" | null>(null);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [result, setResult] = useState<PropFirmPurchaseResult | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -63,6 +66,8 @@ export function PropFirmPurchaseDialog({
     setSize(initialSize);
     setProcessing(false);
     setCopied(null);
+    setPurchaseError(null);
+    setResult(null);
   }, [open, initialProgram, initialSize]);
 
   const price = useMemo(() => getPropFirmPrice(program, size), [program, size]);
@@ -74,12 +79,18 @@ export function PropFirmPurchaseDialog({
     window.setTimeout(() => setCopied(null), 1800);
   }
 
-  function simulateVerifiedPayment() {
+  async function confirmPurchase() {
     setProcessing(true);
-    window.setTimeout(() => {
-      setProcessing(false);
+    setPurchaseError(null);
+    try {
+      const purchaseResult = await purchasePropFirmAccount(program, size);
+      setResult(purchaseResult);
       setStep("ready");
-    }, 1100);
+    } catch (err) {
+      setPurchaseError(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   function goBack() {
@@ -103,8 +114,8 @@ export function PropFirmPurchaseDialog({
           <DialogDescription>
             {step === "configure" && "Select a program and account size. You can review everything before checkout."}
             {step === "review" && "Confirm the selection below before continuing to the payment provider."}
-            {step === "payment" && "This frontend demo simulates the server-confirmed payment and provisioning stage."}
-            {step === "ready" && "These are demonstration credentials for previewing the separate PropFirm website."}
+            {step === "payment" && "Confirming will debit your BI2XUSD wallet and provision a real PropFirm account."}
+            {step === "ready" && "Save these credentials now — the password is shown only once."}
           </DialogDescription>
         </DialogHeader>
 
@@ -189,25 +200,25 @@ export function PropFirmPurchaseDialog({
           {step === "payment" && (
             <div className="space-y-5">
               <div className="grid gap-3">
-                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><CreditCard className="h-4 w-4" /></span><span><strong className="block text-sm">Payment provider checkout</strong><small className="text-muted-foreground">The provider will securely collect {formatUsd(price)}.</small></span></div>
-                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><ShieldCheck className="h-4 w-4" /></span><span><strong className="block text-sm">Server confirmation</strong><small className="text-muted-foreground">The backend verifies the provider webhook, amount, and selected product.</small></span></div>
-                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><LockKeyhole className="h-4 w-4" /></span><span><strong className="block text-sm">Account provisioning</strong><small className="text-muted-foreground">Only after verification are the PropFirm account and credentials created.</small></span></div>
+                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><CreditCard className="h-4 w-4" /></span><span><strong className="block text-sm">Wallet debit</strong><small className="text-muted-foreground">{formatUsd(price)} in BI2XUSD is debited from your exchange wallet.</small></span></div>
+                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><ShieldCheck className="h-4 w-4" /></span><span><strong className="block text-sm">Purchase recorded</strong><small className="text-muted-foreground">The exchange keeps a durable record of this purchase before provisioning.</small></span></div>
+                <div className="flex gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><LockKeyhole className="h-4 w-4" /></span><span><strong className="block text-sm">Account provisioning</strong><small className="text-muted-foreground">A real BitDX Prop Firm account and one-time credentials are created.</small></span></div>
               </div>
-              <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-xs text-warning">
-                Demo only: no payment will be taken. The button below simulates a verified backend response.
-              </div>
+              {purchaseError && (
+                <div className="rounded-xl border border-sell/30 bg-sell/10 p-4 text-xs text-sell">{purchaseError}</div>
+              )}
             </div>
           )}
 
-          {step === "ready" && (
+          {step === "ready" && result && (
             <div className="space-y-5 text-center">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl border border-buy/30 bg-buy/10 text-buy"><CheckCircle2 className="h-8 w-8" /></div>
-              <div><h3 className="text-xl font-bold">PropFirm account created</h3><p className="mt-1 text-sm text-muted-foreground">{formatPropFirmProgram(program)} · {formatAccountSize(size)} · Demo account</p></div>
+              <div><h3 className="text-xl font-bold">PropFirm account created</h3><p className="mt-1 text-sm text-muted-foreground">{formatPropFirmProgram(program)} · {formatAccountSize(size)}</p></div>
               <div className="mx-auto max-w-md space-y-3 text-left">
-                <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Login ID</small><strong className="font-mono text-sm">PF-DEMO-105827</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("login", "PF-DEMO-105827")} aria-label="Copy login ID">{copied === "login" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>
-                <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Temporary password</small><strong className="font-mono text-sm">Demo@1234</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("password", "Demo@1234")} aria-label="Copy temporary password">{copied === "password" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>
+                <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Login ID</small><strong className="font-mono text-sm">{result.username}</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("login", result.username)} aria-label="Copy login ID">{copied === "login" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>
+                <div className="flex items-center justify-between rounded-xl border border-border bg-card p-3"><span><small className="block text-[10px] uppercase tracking-wider text-muted-foreground">Password</small><strong className="font-mono text-sm">{result.password}</strong></span><Button variant="ghost" size="icon" onClick={() => copyCredential("password", result.password)} aria-label="Copy password">{copied === "password" ? <Check className="h-4 w-4 text-buy" /> : <Copy className="h-4 w-4" />}</Button></div>
               </div>
-              <p className="text-xs text-muted-foreground">Real credentials must be generated securely by the backend, displayed once or delivered through an activation link, and never stored permanently in browser code.</p>
+              <p className="text-xs text-muted-foreground">This password will not be shown again — store it now.</p>
             </div>
           )}
         </div>
@@ -218,7 +229,7 @@ export function PropFirmPurchaseDialog({
           </div>
           {step === "configure" && <Button className="bg-gradient-primary text-primary-foreground" onClick={() => setStep("review")}>Review purchase <ArrowRight className="ml-2 h-4 w-4" /></Button>}
           {step === "review" && <Button className="bg-gradient-primary text-primary-foreground" onClick={() => setStep("payment")}>Continue to payment <ArrowRight className="ml-2 h-4 w-4" /></Button>}
-          {step === "payment" && <Button className="bg-gradient-primary text-primary-foreground" onClick={simulateVerifiedPayment} disabled={processing}>{processing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Provisioning demo account…</> : <>Simulate verified payment <ArrowRight className="ml-2 h-4 w-4" /></>}</Button>}
+          {step === "payment" && <Button className="bg-gradient-primary text-primary-foreground" onClick={confirmPurchase} disabled={processing}>{processing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing…</> : <>Confirm purchase <ArrowRight className="ml-2 h-4 w-4" /></>}</Button>}
           {step === "ready" && <Button className="bg-gradient-primary text-primary-foreground" asChild><a href={propFirmUrl} target="_blank" rel="noreferrer">Open PropFirm <ExternalLink className="ml-2 h-4 w-4" /></a></Button>}
         </div>
       </DialogContent>
