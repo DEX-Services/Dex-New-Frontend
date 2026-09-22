@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { submitOrder, cancelOrder, getOrders, SubmitOrderParams } from "./apiClient";
 import { wsClient, WSEvent } from "./wsClient";
 import { wallet } from "./useWallet";
+import { usePollingResource } from "./usePollingResource";
 
 export type OpenOrder = {
   id: string;
@@ -56,35 +57,6 @@ export function useOrders(account: string) {
       });
   }, [account, applySnapshot]);
 
-  // Refetch coalescing: at most one getOrders() per 750ms with a trailing
-  // call. Before this, the WS effect called refetch() on EVERY order event we
-  // didn't already have — and the stream broadcasts all accounts' MM churn
-  // (~9 events/s), so a user with the trade page open re-pulled their whole
-  // order list nearly continuously.
-  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refetchPending = useRef(false);
-  const throttledRefetch = useCallback(() => {
-    if (refetchTimer.current) {
-      refetchPending.current = true;
-      return;
-    }
-    void refetch();
-    refetchTimer.current = setTimeout(() => {
-      refetchTimer.current = null;
-      if (refetchPending.current) {
-        refetchPending.current = false;
-        throttledRefetch();
-      }
-    }, 750);
-  }, [refetch]);
-
-  // Initial load + reload when the account changes.
-  useEffect(() => {
-    ordersRef.current = new Map();
-    publish();
-    refetch();
-  }, [account, refetch, publish]);
-
   // Safety-net poll: this app's WebSocket client is never actually connected
   // at runtime (confirmed live 2026-09-14 — zero WS entries in the browser's
   // Network tab across a full session, every reload; every other "live"
@@ -94,11 +66,28 @@ export function useOrders(account: string) {
   // would never self-correct: the "Live deltas from the WS stream" effect
   // below is registering a listener on a connection that doesn't exist.
   // 5s matches the interval already used for positions/bots elsewhere.
+  //
+  // usePollingResource (PERFORMANCE-CODE-REVIEW-FINDINGS.md frontend items
+  // #2/#3/#7/#8) replaces the hand-rolled setInterval + a separate
+  // 750ms-coalesced throttledRefetch that used to live here: triggerRefetch
+  // below IS the coalesced trigger, and the hook additionally backs off up
+  // to 60s while idle (an account with no order activity no longer re-GETs
+  // /orders every 5s forever) and pauses outright while the tab is hidden.
+  const { triggerRefetch, refetchNow } = usePollingResource({
+    baseIntervalMs: 5000,
+    maxIntervalMs: 60000,
+    coalesceMs: 750,
+    fetcher: refetch,
+    enabled: Boolean(account),
+  });
+
+  // Initial load + reload when the account changes.
   useEffect(() => {
-    if (!account) return;
-    const interval = setInterval(() => void refetch(), 5000);
-    return () => clearInterval(interval);
-  }, [account, refetch]);
+    ordersRef.current = new Map();
+    publish();
+    refetchNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetchNow's identity is stable per (account-derived) enabled/baseIntervalMs, re-running per account is the intent
+  }, [account, publish]);
 
   // Live deltas from the WS stream.
   useEffect(() => {
@@ -123,13 +112,13 @@ export function useOrders(account: string) {
         // device/tab). We only have partial fields from the event; refetch
         // to fill in the rest authoritatively rather than render a
         // half-order. Coalesced so a burst still costs one request.
-        throttledRefetch();
+        triggerRefetch();
         return;
       }
       publish();
     });
     return unsub;
-  }, [publish, refetch, throttledRefetch, account]);
+  }, [publish, triggerRefetch, account]);
 
   // Subscription filtering: request the streams this account actively trades
   // on (initial load + as orders are observed), so the hub can stop fanning
@@ -144,10 +133,10 @@ export function useOrders(account: string) {
   // resync from the authoritative HTTP endpoint (throttled like the rest).
   useEffect(() => {
     const unsub = wsClient.onGap(() => {
-      throttledRefetch();
+      triggerRefetch();
     });
     return unsub;
-  }, [throttledRefetch]);
+  }, [triggerRefetch]);
 
   const place = useCallback(
     async (p: Omit<SubmitOrderParams, "account">) => {

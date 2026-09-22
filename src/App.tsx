@@ -1,4 +1,4 @@
-import { useLayoutEffect, useEffect, useState } from "react";
+import { useLayoutEffect, useEffect, useState, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { setAuthExpiredHandler } from "@/lib/apiClient";
@@ -6,47 +6,58 @@ import { stashPendingReferralCode } from "@/lib/useWallet";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Landing from "./pages/Landing.tsx";
-import Index from "./pages/Index.tsx";
-import Markets from "./pages/Markets.tsx";
-import Portfolio from "./pages/Portfolio.tsx";
-import Leaderboard from "./pages/Leaderboard.tsx";
-// import CopyTrade from "./pages/CopyTrade.tsx"; // Copy Trading hidden
-import Settings from "./pages/Settings.tsx";
-import Profile from "./pages/Profile.tsx";
-import PropFirm from "./pages/PropFirm.tsx";
-import TradingBots from "./pages/TradingBots.tsx";
-// import AIAgent from "./pages/AIAgent.tsx"; // AI Agent bot creation disabled (frontend-only, no real bot backed it)
-import P2P from "./pages/P2P.tsx";
-import P2POrders from "./pages/P2POrders.tsx";
-import P2POrderDetail from "./pages/P2POrderDetail.tsx";
-import P2PAdvertiser from "./pages/P2PAdvertiser.tsx";
-import P2PWallet from "./pages/P2PWallet.tsx";
-import Token from "./pages/Token.tsx";
-import Staking from "./pages/Staking.tsx";
-import Refer from "./pages/Refer.tsx";
-import SIP from "./pages/SIP.tsx";
-import FeeTierSubscription from "./pages/FeeTierSubscription.tsx";
-import Prediction from "./pages/Prediction.tsx";
-import PredictionMarketDetail from "./pages/PredictionMarketDetail.tsx";
-import PredictionOrders from "./pages/PredictionOrders.tsx";
-import Affiliate from "./pages/Affiliate.tsx";
-import Support from "./pages/Support.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import AdminLogin from "./pages/AdminLogin.tsx";
-import AdminDashboard from "./pages/AdminDashboard.tsx";
-import AdminProfile from "./pages/AdminProfile.tsx";
-import AdminMarketMakers from "./pages/AdminMarketMakers.tsx";
-import AdminMarketMakerPnl from "./pages/AdminMarketMakerPnl.tsx";
-import AdminSpreadControl from "./pages/AdminSpreadControl.tsx";
-import AdminFeeControl from "./pages/AdminFeeControl.tsx";
-import AdminAffiliateLinks from "./pages/AdminAffiliateLinks.tsx";
-import AdminFeeRevenue from "./pages/AdminFeeRevenue.tsx";
-import AdminTestBalances from "./pages/AdminTestBalances.tsx";
-import AdminP2PAppeals from "./pages/AdminP2PAppeals.tsx";
-import AdminBI2XTokenDetails from "./pages/AdminBI2XTokenDetails.tsx";
-import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 import { readTheme, type ThemeMode } from "@/lib/theme";
+
+// Every route is loaded lazily (React.lazy + Suspense below) rather than
+// eagerly imported here — see PERFORMANCE-CODE-REVIEW-FINDINGS.md frontend
+// item #1. App.tsx used to eagerly import all 30+ pages (incl. every admin
+// page), producing a single ~1.72 MB JS bundle downloaded and parsed before
+// first paint regardless of which route the visitor actually landed on.
+// Splitting per route means a visitor only pays for the page they open;
+// React Router's own code-splitting guide recommends exactly this pattern.
+const Landing = lazy(() => import("./pages/Landing.tsx"));
+const Index = lazy(() => import("./pages/Index.tsx"));
+const Markets = lazy(() => import("./pages/Markets.tsx"));
+const Portfolio = lazy(() => import("./pages/Portfolio.tsx"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard.tsx"));
+// const CopyTrade = lazy(() => import("./pages/CopyTrade.tsx")); // Copy Trading hidden
+const Settings = lazy(() => import("./pages/Settings.tsx"));
+const Profile = lazy(() => import("./pages/Profile.tsx"));
+const PropFirm = lazy(() => import("./pages/PropFirm.tsx"));
+const TradingBots = lazy(() => import("./pages/TradingBots.tsx"));
+// const AIAgent = lazy(() => import("./pages/AIAgent.tsx")); // AI Agent bot creation disabled (frontend-only, no real bot backed it)
+const P2P = lazy(() => import("./pages/P2P.tsx"));
+const P2POrders = lazy(() => import("./pages/P2POrders.tsx"));
+const P2POrderDetail = lazy(() => import("./pages/P2POrderDetail.tsx"));
+const P2PAdvertiser = lazy(() => import("./pages/P2PAdvertiser.tsx"));
+const P2PWallet = lazy(() => import("./pages/P2PWallet.tsx"));
+const Token = lazy(() => import("./pages/Token.tsx"));
+const Staking = lazy(() => import("./pages/Staking.tsx"));
+const Refer = lazy(() => import("./pages/Refer.tsx"));
+const SIP = lazy(() => import("./pages/SIP.tsx"));
+const FeeTierSubscription = lazy(() => import("./pages/FeeTierSubscription.tsx"));
+const Prediction = lazy(() => import("./pages/Prediction.tsx"));
+const PredictionMarketDetail = lazy(() => import("./pages/PredictionMarketDetail.tsx"));
+const PredictionOrders = lazy(() => import("./pages/PredictionOrders.tsx"));
+const Affiliate = lazy(() => import("./pages/Affiliate.tsx"));
+const Support = lazy(() => import("./pages/Support.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin.tsx"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
+const AdminProfile = lazy(() => import("./pages/AdminProfile.tsx"));
+const AdminMarketMakers = lazy(() => import("./pages/AdminMarketMakers.tsx"));
+const AdminMarketMakerPnl = lazy(() => import("./pages/AdminMarketMakerPnl.tsx"));
+const AdminSpreadControl = lazy(() => import("./pages/AdminSpreadControl.tsx"));
+const AdminFeeControl = lazy(() => import("./pages/AdminFeeControl.tsx"));
+const AdminAffiliateLinks = lazy(() => import("./pages/AdminAffiliateLinks.tsx"));
+const AdminFeeRevenue = lazy(() => import("./pages/AdminFeeRevenue.tsx"));
+const AdminTestBalances = lazy(() => import("./pages/AdminTestBalances.tsx"));
+const AdminP2PAppeals = lazy(() => import("./pages/AdminP2PAppeals.tsx"));
+const AdminBI2XTokenDetails = lazy(() => import("./pages/AdminBI2XTokenDetails.tsx"));
+// AdminProtectedRoute is a small layout/guard component, not a page — kept
+// eager since every /admin/* route needs it immediately and it adds
+// negligible weight to the main bundle.
+import { AdminProtectedRoute } from "@/components/admin/AdminProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +114,16 @@ function ThemeAwareSonner() {
   return <Sonner theme={theme === "light" ? "light" : "dark"} position="top-right" />;
 }
 
+/** Minimal full-viewport loading state shown only while a lazy route chunk
+ *  is actually being fetched/parsed (React only renders this fallback for
+ *  chunks not already cached by the browser/module loader) — deliberately
+ *  unstyled/near-invisible rather than a branded spinner, since it's on
+ *  screen for a very short time on a fast connection and must not itself
+ *  cause layout shift against whatever the page below renders. */
+function RouteFallback() {
+  return <div className="min-h-screen" aria-hidden="true" />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider delayDuration={200}>
@@ -112,6 +133,7 @@ const App = () => (
         <ScrollToTop />
         <AuthExpiryWatcher />
         <ReferralCodeCapture />
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/trade" element={<Index />} />
@@ -155,6 +177,7 @@ const App = () => (
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
