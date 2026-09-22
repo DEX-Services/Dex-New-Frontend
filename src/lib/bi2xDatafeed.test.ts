@@ -138,4 +138,42 @@ describe("createBI2XDatafeed", () => {
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain("countback=5000");
   });
+
+  // Regression test for PERFORMANCE-CODE-REVIEW-FINDINGS.md frontend item
+  // #7: subscribeBars' shared poll used to run every 3s unconditionally,
+  // even while the chart's tab was backgrounded. It must now stop firing
+  // while document.hidden is true and resume (with an immediate tick) the
+  // moment visibility returns.
+  it("pauses the shared 3s poll while the tab is hidden and resumes on visibility return", async () => {
+    const fetchMock = mockFetchJSON({ s: "ok", t: [1000], o: [1], h: [1.1], l: [0.9], c: [1.05], v: [10] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const df = createBI2XDatafeed();
+    const guid = "test-pause-resume";
+    const onTick = vi.fn();
+    df.subscribeBars({} as any, "1", onTick, guid);
+
+    // Initial subscribeBars tick fires immediately (microtask), before any
+    // fake-timer advance.
+    await vi.runOnlyPendingTimersAsync();
+    const callsAfterSubscribe = fetchMock.mock.calls.length;
+    expect(callsAfterSubscribe).toBeGreaterThan(0);
+
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    // Advance well past several would-be poll intervals; no new fetch calls
+    // should happen while hidden.
+    await vi.advanceTimersByTimeAsync(3000 * 5);
+    expect(fetchMock.mock.calls.length).toBe(callsAfterSubscribe);
+
+    // Returning to visible fires an immediate tick and resumes the interval.
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.runOnlyPendingTimersAsync();
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterSubscribe);
+
+    df.unsubscribeBars(guid);
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
 });

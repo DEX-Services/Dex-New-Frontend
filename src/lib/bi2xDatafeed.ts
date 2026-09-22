@@ -129,17 +129,48 @@ async function fetchJSON<T>(url: string): Promise<T> {
 // Price-Fetcher's config.go BitDxFeedPoll default) — polling faster than
 // the upstream feed itself updates would just repeat the same tick.
 const POLL_MS = 3000;
-const pollRegistry = new Map<string, { timer: ReturnType<typeof setInterval>; listeners: Map<string, SubscribeBarsCallback>; lastBarTime: number }>();
+type PollEntry = {
+  timer: ReturnType<typeof setInterval> | null;
+  listeners: Map<string, SubscribeBarsCallback>;
+  lastBarTime: number;
+  tick: () => Promise<void>;
+};
+const pollRegistry = new Map<string, PollEntry>();
+
+// Pause every resolution's poll while the tab is hidden and resume (with an
+// immediate tick, same as usePollingResource's visibility handling) when it
+// becomes visible again — see PERFORMANCE-CODE-REVIEW-FINDINGS.md frontend
+// item #7: this poll previously never paused, so a backgrounded chart tab
+// kept hitting the BI2X chart proxy every 3s indefinitely. One listener for
+// the whole module (not per-resolution) is enough since it just iterates
+// pollRegistry's current entries.
+let visibilityListenerAttached = false;
+function ensureVisibilityListener(): void {
+  if (visibilityListenerAttached || typeof document === "undefined") return;
+  visibilityListenerAttached = true;
+  document.addEventListener("visibilitychange", () => {
+    for (const entry of pollRegistry.values()) {
+      if (document.hidden) {
+        if (entry.timer) {
+          clearInterval(entry.timer);
+          entry.timer = null;
+        }
+      } else if (!entry.timer) {
+        void entry.tick();
+        entry.timer = setInterval(() => void entry.tick(), POLL_MS);
+      }
+    }
+  });
+}
 
 function startPolling(resolution: ResolutionString, guid: string, onTick: SubscribeBarsCallback): void {
   const key = resolution;
   let entry = pollRegistry.get(key);
   if (!entry) {
     const listeners = new Map<string, SubscribeBarsCallback>();
-    const barMs = RESOLUTION_TO_MS[resolution] ?? 60_000;
-    const state = { timer: null as unknown as ReturnType<typeof setInterval>, listeners, lastBarTime: 0 };
+    const state: PollEntry = { timer: null, listeners, lastBarTime: 0, tick: async () => {} };
 
-    const tick = async () => {
+    state.tick = async () => {
       try {
         const nowSec = Math.floor(Date.now() / 1000);
         const res = await fetchJSON<UDFHistoryResponse>(
@@ -170,8 +201,11 @@ function startPolling(resolution: ResolutionString, guid: string, onTick: Subscr
       }
     };
 
-    state.timer = setInterval(tick, POLL_MS);
-    void tick(); // first tick immediately, don't wait a full interval
+    if (typeof document === "undefined" || !document.hidden) {
+      state.timer = setInterval(() => void state.tick(), POLL_MS);
+    }
+    void state.tick(); // first tick immediately, don't wait a full interval
+    ensureVisibilityListener();
     entry = state;
     pollRegistry.set(key, entry);
   }
@@ -181,7 +215,7 @@ function startPolling(resolution: ResolutionString, guid: string, onTick: Subscr
 function stopPolling(guid: string): void {
   for (const [key, entry] of pollRegistry.entries()) {
     if (entry.listeners.delete(guid) && entry.listeners.size === 0) {
-      clearInterval(entry.timer);
+      if (entry.timer) clearInterval(entry.timer);
       pollRegistry.delete(key);
     }
   }

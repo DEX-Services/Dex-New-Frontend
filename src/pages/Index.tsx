@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatPrice, MarketKind } from "@/lib/mockData";
 import { backendMarketFor, backendOptionsMarketFor } from "@/lib/backendMarkets";
 import { useOrderBook, useRecentTrades } from "@/lib/useOrderBook";
+import { OrderBookRow } from "@/components/trade/OrderBookRow";
 import { useOrders } from "@/lib/useOrders";
 import { useAccount } from "@/lib/account";
 import { getOptionChain, OptionChainEntry } from "@/lib/apiClient";
@@ -787,18 +788,16 @@ function RightColumn({ symbol, price, selectedOption, tradeMode, onTradeModeChan
 
               {/* Asks — rendered bottom-up */}
               <div className="flex-1 flex flex-col-reverse overflow-hidden min-h-0">
-                {book.asks.slice(0, 10).map((a, i) => {
-                  const depthPct = (a.total / maxAskTotal) * 100;
-                  return (
-                    <div key={i} className="relative grid grid-cols-3 gap-1 px-2 flex-1 items-center hover:bg-muted/20 cursor-pointer">
-                      <div className="absolute inset-y-0 right-0 pointer-events-none"
-                        style={{ width: `${depthPct}%`, background: "linear-gradient(to left, hsl(var(--sell)/0.45), hsl(var(--sell)/0.05))" }} />
-                      <span className="relative text-sell">{formatPrice(a.price)}</span>
-                      <span className="relative text-right">{a.size.toFixed(3)}</span>
-                      <span className="relative text-right text-muted-foreground">{a.total.toFixed(2)}</span>
-                    </div>
-                  );
-                })}
+                {book.asks.slice(0, 10).map((a) => (
+                  <OrderBookRow
+                    key={a.price}
+                    price={a.price}
+                    size={a.size}
+                    total={a.total}
+                    depthPct={(a.total / maxAskTotal) * 100}
+                    side="sell"
+                  />
+                ))}
               </div>
 
               {/* Spread row */}
@@ -809,18 +808,16 @@ function RightColumn({ symbol, price, selectedOption, tradeMode, onTradeModeChan
 
               {/* Bids */}
               <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-                {book.bids.slice(0, 10).map((b, i) => {
-                  const depthPct = (b.total / maxBidTotal) * 100;
-                  return (
-                    <div key={i} className="relative grid grid-cols-3 gap-1 px-2 flex-1 items-center hover:bg-muted/20 cursor-pointer">
-                      <div className="absolute inset-y-0 right-0 pointer-events-none"
-                        style={{ width: `${depthPct}%`, background: "linear-gradient(to left, hsl(var(--buy)/0.45), hsl(var(--buy)/0.05))" }} />
-                      <span className="relative text-buy">{formatPrice(b.price)}</span>
-                      <span className="relative text-right">{b.size.toFixed(3)}</span>
-                      <span className="relative text-right text-muted-foreground">{b.total.toFixed(2)}</span>
-                    </div>
-                  );
-                })}
+                {book.bids.slice(0, 10).map((b) => (
+                  <OrderBookRow
+                    key={b.price}
+                    price={b.price}
+                    size={b.size}
+                    total={b.total}
+                    depthPct={(b.total / maxBidTotal) * 100}
+                    side="buy"
+                  />
+                ))}
               </div>
             </div>
           ) : (
