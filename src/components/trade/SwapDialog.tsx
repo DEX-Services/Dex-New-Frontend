@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUpDown,
@@ -19,7 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { swapAssets } from "@/lib/authApi";
+import { getSwapPoolMax, swapAssets } from "@/lib/authApi";
 import { wallet, useWallet } from "@/lib/useWallet";
 import { cn } from "@/lib/utils";
 
@@ -181,7 +181,37 @@ export function SwapDialog({
   const creditedAmount = creditedFor(amount, feeBps);
   const outputAmount = creditedAmount ?? 0;
   const fromBalance = balances.find((b) => b.asset === fromToken.symbol)?.available ?? 0;
-  const insufficient = creditedAmount !== null && creditedAmount <= 0 ? true : numericAmount > fromBalance;
+
+  // Swap liquidity pool cap: only the BI2XUSD -> USDT/USDC direction is
+  // capped (see Dex-Backend's swappable/reserve split — USDT/USDC -> BI2XUSD
+  // has no pool ceiling, it's what FEEDS the pool). null while unknown
+  // (not yet fetched, or this direction has no cap) so the UI never shows a
+  // false "0 available" before the real figure loads.
+  const isSwappingOutOfBi2xusd = fromSymbol === "BI2XUSD";
+  const [poolCap, setPoolCap] = useState<number | null>(null);
+  useEffect(() => {
+    if (!open || !isSwappingOutOfBi2xusd) {
+      setPoolCap(null);
+      return;
+    }
+    let cancelled = false;
+    getSwapPoolMax(toSymbol)
+      .then((res) => {
+        if (!cancelled) setPoolCap(Number.parseFloat(res.maxSwappable) || 0);
+      })
+      .catch(() => {
+        if (!cancelled) setPoolCap(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isSwappingOutOfBi2xusd, toSymbol]);
+
+  const exceedsPool = isSwappingOutOfBi2xusd && poolCap !== null && outputAmount > poolCap;
+  const insufficient =
+    creditedAmount !== null && creditedAmount <= 0
+      ? true
+      : numericAmount > fromBalance || exceedsPool;
   const canSwap = creditedAmount !== null && creditedAmount > 0 && !insufficient && !submitting;
 
   // Allowed choices per side, restricted to the backend's directional pair
@@ -223,6 +253,18 @@ export function SwapDialog({
   };
 
   const handleMax = () => {
+    if (isSwappingOutOfBi2xusd && poolCap !== null) {
+      // The pool cap limits the OUTPUT (post-fee) amount, but the input
+      // field holds the source (BI2XUSD) amount pre-fee — invert
+      // creditedFor's fee math to find the largest source amount whose
+      // credited output still fits the pool: source = output / (1 - feeBps/10000).
+      // Floored (not rounded) so the resulting credited amount, after the
+      // backend's own floor-based fee calc, never exceeds poolCap by a
+      // fraction-of-a-unit rounding difference.
+      const maxSourceForPool = feeBps > 0 ? poolCap / (1 - feeBps / 10000) : poolCap;
+      setAmount(amountForInput(Math.min(fromBalance, maxSourceForPool)));
+      return;
+    }
     setAmount(amountForInput(fromBalance));
   };
 
@@ -232,7 +274,11 @@ export function SwapDialog({
       return;
     }
     if (insufficient) {
-      toast.error(`Insufficient ${fromToken.symbol} balance`);
+      toast.error(
+        exceedsPool && numericAmount <= fromBalance
+          ? `Exceeds current swap liquidity — max swappable now is ${formatAmount(poolCap ?? 0)} ${toToken.symbol}`
+          : `Insufficient ${fromToken.symbol} balance`,
+      );
       return;
     }
 
@@ -288,6 +334,21 @@ export function SwapDialog({
               </button>
             </div>
 
+            {isSwappingOutOfBi2xusd && (
+              <div className="mb-3 -mt-1 text-xs text-muted-foreground">
+                {poolCap === null ? (
+                  "Checking swap liquidity…"
+                ) : (
+                  <>
+                    Max swappable now:{" "}
+                    <span className={cn("font-mono", exceedsPool && "text-sell")}>
+                      {formatAmount(poolCap)} {toToken.symbol}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <TokenSelect value={fromSymbol} options={fromOptions} onChange={handleFromChange} />
               <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -319,7 +380,9 @@ export function SwapDialog({
 
             {insufficient && (
               <p className="mt-3 text-xs text-sell">
-                Amount exceeds your available {fromToken.symbol} balance.
+                {exceedsPool && numericAmount <= fromBalance
+                  ? `Amount exceeds the current swap liquidity — max swappable now is ${formatAmount(poolCap ?? 0)} ${toToken.symbol}.`
+                  : `Amount exceeds your available ${fromToken.symbol} balance.`}
               </p>
             )}
           </section>
@@ -393,6 +456,8 @@ export function SwapDialog({
           >
             {!numericAmount ? (
               "Enter Amount"
+            ) : exceedsPool && numericAmount <= fromBalance ? (
+              "Exceeds Swap Liquidity"
             ) : insufficient ? (
               "Insufficient Balance"
             ) : submitting ? (

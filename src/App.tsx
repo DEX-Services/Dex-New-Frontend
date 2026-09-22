@@ -49,6 +49,7 @@ const AdminMarketMakers = lazy(() => import("./pages/AdminMarketMakers.tsx"));
 const AdminMarketMakerPnl = lazy(() => import("./pages/AdminMarketMakerPnl.tsx"));
 const AdminSpreadControl = lazy(() => import("./pages/AdminSpreadControl.tsx"));
 const AdminFeeControl = lazy(() => import("./pages/AdminFeeControl.tsx"));
+const AdminSwapPool = lazy(() => import("./pages/AdminSwapPool.tsx"));
 const AdminAffiliateLinks = lazy(() => import("./pages/AdminAffiliateLinks.tsx"));
 const AdminFeeRevenue = lazy(() => import("./pages/AdminFeeRevenue.tsx"));
 const AdminTestBalances = lazy(() => import("./pages/AdminTestBalances.tsx"));
@@ -168,6 +169,7 @@ const App = () => (
             <Route path="/admin/market-makers/pnl" element={<AdminMarketMakerPnl />} />
             <Route path="/admin/market-makers/spread" element={<AdminSpreadControl />} />
             <Route path="/admin/fees" element={<AdminFeeControl />} />
+            <Route path="/admin/swap-pool" element={<AdminSwapPool />} />
             <Route path="/admin/affiliate-links" element={<AdminAffiliateLinks />} />
             <Route path="/admin/fee-revenue" element={<AdminFeeRevenue />} />
             <Route path="/admin/test-balances" element={<AdminTestBalances />} />

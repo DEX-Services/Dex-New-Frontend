@@ -184,6 +184,25 @@ export function setAdminFeeRate(key: FeeConfigKey, rate: string) {
   });
 }
 
+// Swap liquidity pool: USDT/USDC each carry a swappable/reserve split (60%
+// of every USDT/USDC -> BI2XUSD swap lands in swappable, 40% in reserve — a
+// pure ledger split, the funds themselves stay in the same platform wallet).
+// Reserve is a one-way accumulation: this page can only top up swappable,
+// never move reserve into it — see Dex-Backend's AdminTopUpSwapPool doc
+// comment for why that's enforced at the API/SQL level, not just the UI.
+export type SwapPoolRow = { asset: string; swappable: string; reserve: string };
+
+export function getAdminSwapPool() {
+  return adminReq<{ pools: SwapPoolRow[] }>("/admin/swap-pool");
+}
+
+export function adminTopUpSwapPool(asset: string, amount: string) {
+  return adminReq<{ asset: string; swappable: string; reserve: string }>("/admin/swap-pool/topup", {
+    method: "POST",
+    body: JSON.stringify({ asset, amount }),
+  });
+}
+
 // Referral & affiliate admin controls — see REFERRAL-AFFILIATE-PLAN.md.
 // Referral % is one global setting; affiliate links each carry their own
 // admin-set share_pct, fixed for the link's lifetime once created.

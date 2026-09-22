@@ -91,5 +91,17 @@ export function swapAssets(sourceAsset: string, destinationAsset: string, amount
   });
 }
 
+// Returns the amount of `asset` currently available in that asset's
+// swappable pool — the exact figure a BI2XUSD -> USDT/USDC swap is capped
+// at right now (see Dex-Backend's swap_pool_balances / DebitSwapPoolCapped).
+// `asset` must be "USDT" or "USDC" (BI2XUSD -> BI2XUSD has no pool). Called
+// before a user confirms a BI2XUSD -> stablecoin swap so the cap is visible
+// upfront rather than only surfacing as a submit-time rejection — the
+// server-side check in Swap is still the real enforcement point, since this
+// figure can go stale between the read and the actual swap.
+export function getSwapPoolMax(asset: string) {
+  return authReq<{ asset: string; maxSwappable: string }>(`/wallet/swap/max?asset=${encodeURIComponent(asset)}`);
+}
+
 
 
