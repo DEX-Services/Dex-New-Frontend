@@ -139,6 +139,84 @@ async function syncBalancesWithBackend() {
   return balances;
 }
 
+// Balance polling: before this, `available` only ever updated when a
+// specific action (place/cancel order, swap, transfer) explicitly called
+// syncBalancesWithBackend right after itself — everywhere else (a Predict
+// order locking funds, an admin credit, a resting limit order that fills
+// hours or days later) left the last-fetched figure on screen indefinitely
+// with no way to self-correct short of a manual page reload. A user reading
+// a stale "available" that's actually higher than what they can really
+// spend is exactly the kind of thing that must not happen on a trading
+// platform — this closes that gap for every action, not just the ones some
+// feature happened to remember to refresh after.
+//
+// Deliberately module-level, not a React hook (usePollingResource, used
+// elsewhere for exactly this poll/backoff/visibility shape, can't be used
+// here — this store is a plain module singleton, not a component), but
+// mirrors that hook's behavior: a short baseline interval while connected,
+// exponential backoff up to a ceiling while nothing changes, reset back to
+// baseline by any action that's already known to move a balance (so the
+// user's OWN order/swap/transfer still updates promptly, this poll is only
+// the safety net for everything else), and a full pause while the tab is
+// hidden with an immediate refresh on return.
+const BALANCE_POLL_BASE_MS = 5000;
+const BALANCE_POLL_MAX_MS = 30000;
+let balancePollIntervalMs = BALANCE_POLL_BASE_MS;
+let balancePollTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearBalancePoll() {
+  if (balancePollTimer) {
+    clearTimeout(balancePollTimer);
+    balancePollTimer = null;
+  }
+}
+
+function scheduleBalancePoll() {
+  clearBalancePoll();
+  if (!state.connected || (typeof document !== "undefined" && document.hidden)) return;
+  balancePollTimer = setTimeout(() => {
+    syncBalancesWithBackend()
+      .catch(() => {
+        // Transient failure (network blip, momentary backend slowness):
+        // leave the last-known balances on screen rather than clearing
+        // them, and just try again on the next tick.
+      })
+      .finally(() => {
+        balancePollIntervalMs = Math.min(balancePollIntervalMs * 2, BALANCE_POLL_MAX_MS);
+        scheduleBalancePoll();
+      });
+  }, balancePollIntervalMs);
+}
+
+// Called by refreshBalances (i.e. every existing "just did something that
+// moves a balance" call site already in this file/other features) so a
+// user's own action both refreshes immediately AND resets the poll back to
+// the short baseline interval — otherwise an account that had been idle
+// long enough to back off to BALANCE_POLL_MAX_MS would keep polling that
+// slowly even right after the user's own trade, defeating the point of
+// resetting on real activity.
+function markBalanceActivity() {
+  balancePollIntervalMs = BALANCE_POLL_BASE_MS;
+  if (balancePollTimer) scheduleBalancePoll();
+}
+
+async function refreshBalancesAndMarkActive() {
+  const result = await syncBalancesWithBackend();
+  markBalanceActivity();
+  return result;
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearBalancePoll();
+    } else if (state.connected) {
+      markBalanceActivity();
+      syncBalancesWithBackend().catch(() => {});
+    }
+  });
+}
+
 const STORAGE_KEY = "dexai.wallet.session.v1";
 const DISCONNECT_KEY = "dexai.wallet.disconnected.v1";
 const CONNECT_REQUEST_TIMEOUT_MS = 15000;
@@ -152,8 +230,23 @@ const announcedProviders = new Map<string, Eip6963ProviderDetail>();
 
 const emit = () => listeners.forEach((l) => l());
 const setState = (next: Partial<WalletState>) => {
+  const wasConnected = state.connected;
   state = { ...state, ...next };
   emit();
+  // Start/stop the balance poll on every connected-state transition, from
+  // this single choke point, rather than at each of the several call sites
+  // that can flip `connected` (accountsChanged, connect(), restoreSession())
+  // — a future call site that sets connected:true and forgets to also start
+  // polling would silently reintroduce the exact "stale until reload" bug
+  // this feature exists to close. disconnect() bypasses setState entirely
+  // (see its own comment on writing `state =` directly for ordering
+  // reasons) and stops the poll itself.
+  if (state.connected && !wasConnected) {
+    markBalanceActivity();
+    scheduleBalancePoll();
+  } else if (!state.connected && wasConnected) {
+    clearBalancePoll();
+  }
 };
 
 function getWindowEthereum() {
@@ -423,6 +516,7 @@ async function disconnect() {
   clearPersistedSession();
   setWsAuthToken(null);
   state = { connected: false, walletId: undefined, address: undefined, userId: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
+  clearBalancePoll();
   emit();
 
   if (provider) {
@@ -487,7 +581,7 @@ export const wallet = {
   disconnect,
   restoreSession,
   sendTransfer,
-  refreshBalances: syncBalancesWithBackend,
+  refreshBalances: refreshBalancesAndMarkActive,
   clearError() {
     setState({ error: undefined });
   },

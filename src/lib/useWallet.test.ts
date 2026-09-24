@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { wallet, shortAddress, WALLETS } from "./useWallet";
 
 function createProvider(flags: { metaMask?: boolean; coinbase?: boolean; bitget?: boolean; trust?: boolean; binance?: boolean; accounts?: string[] }) {
@@ -185,6 +185,133 @@ describe("wallet state", () => {
     expect(usdc?.amount).toBeCloseTo(20.669);
     expect(usdc?.locked).toBeCloseTo(16);
     expect(usdc?.available).toBeCloseTo(4.669);
+  });
+});
+
+// These are a regression test for a real gap: before this feature, `available`
+// only ever updated when a specific action (place/cancel order, swap,
+// transfer) explicitly called refreshBalances right after itself. Anything
+// else that locked or moved funds elsewhere — a Predict order, an admin
+// credit, a resting limit order that fills later — left the last-fetched
+// figure on screen indefinitely with no way to self-correct short of a
+// manual page reload, which on a trading platform risks a user believing
+// they have more spendable balance than they actually do.
+describe("wallet balance polling", () => {
+  function balanceFetchMock(balance = "1000000") {
+    return vi.fn(async () => new Response(JSON.stringify({
+      balances: { USDC: balance, USDT: "0" },
+      locked: { USDC: "0", USDT: "0" },
+      withdrawalLocked: { USDC: "0", USDT: "0" },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+  }
+
+  async function connectProvider() {
+    const provider = createProvider({ metaMask: true, accounts: ["0xcccc000000000000000000000000000000000003"] });
+    Object.defineProperty(window as any, "ethereum", { configurable: true, value: provider });
+    // connect() awaits a real promise chain (requestWithTimeout ->
+    // provider.request) before setState({connected: true, ...}) runs, which
+    // is what actually starts the poll — under fake timers that promise
+    // chain still needs a real await here to resolve, since
+    // advanceTimersByTimeAsync only drives timers, not unrelated pending
+    // microtasks from a call the test never awaited.
+    await wallet.connect("metamask");
+    return provider;
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.restoreAllMocks();
+    wallet.disconnect();
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  afterEach(() => {
+    wallet.disconnect();
+    vi.useRealTimers();
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  it("polls balances automatically after connecting, without any explicit refresh call", async () => {
+    vi.useFakeTimers();
+    const fetchMock = balanceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    await connectProvider();
+
+    // The scheduled poll's first tick fires after the 5s baseline interval
+    // — nothing before that is expected (connect()'s own balance fetch is
+    // gated behind authenticateWithBackend, which fails fast in this test
+    // environment with no real backend, so it never reaches fetch at all;
+    // this test isolates the scheduled poll specifically, not that path).
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+    const callsAfterFirstPoll = fetchMock.mock.calls.length;
+
+    // A second tick must still be scheduled after the first fires.
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirstPoll);
+  });
+
+  it("stops polling once disconnected", async () => {
+    vi.useFakeTimers();
+    const fetchMock = balanceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    await connectProvider();
+    await vi.advanceTimersByTimeAsync(5000);
+    const callsBeforeDisconnect = fetchMock.mock.calls.length;
+    expect(callsBeforeDisconnect).toBeGreaterThan(0);
+
+    await wallet.disconnect();
+    const callsAfterDisconnect = fetchMock.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(fetchMock.mock.calls.length).toBe(callsAfterDisconnect);
+  });
+
+  it("pauses polling while the tab is hidden and resumes immediately on visibility return", async () => {
+    vi.useFakeTimers();
+    const fetchMock = balanceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    await connectProvider();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(0);
+
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    const callsWhileHiddenStart = fetchMock.mock.calls.length;
+
+    await vi.advanceTimersByTimeAsync(30000);
+    expect(fetchMock.mock.calls.length).toBe(callsWhileHiddenStart);
+
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsWhileHiddenStart);
+  });
+
+  it("refreshBalances resets the poll back to the short interval even after backoff", async () => {
+    vi.useFakeTimers();
+    const fetchMock = balanceFetchMock();
+    vi.stubGlobal("fetch", fetchMock);
+    await connectProvider();
+
+    // Let the poll back off across several idle ticks (5s, then doubling:
+    // 10s, 20s) so its interval grows past the 5s baseline before the
+    // manual refresh below is expected to reset it.
+    await vi.advanceTimersByTimeAsync(5000 + 10000 + 20000);
+    const callsAfterBackoff = fetchMock.mock.calls.length;
+    expect(callsAfterBackoff).toBeGreaterThan(0);
+
+    // A user's own action (order/swap/etc.) calls refreshBalances directly —
+    // this must both fetch immediately AND reset the interval, so the very
+    // next scheduled poll is back at the short baseline, not still backed off.
+    await wallet.refreshBalances();
+    const callsAfterManualRefresh = fetchMock.mock.calls.length;
+    expect(callsAfterManualRefresh).toBeGreaterThan(callsAfterBackoff);
+
+    // If the reset worked, the next poll fires at the 5s baseline, not the
+    // 40s+ the backoff had grown to.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterManualRefresh);
   });
 });
 
