@@ -176,10 +176,15 @@ export default function Token() {
               </div>
 
               <div className="flex items-center gap-2 pt-3 border-t border-border/50">
-                <CopyAddress addr="0x9f3s...A219" />
-                <button className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                  Etherscan <ExternalLink className="h-2.5 w-2.5" />
-                </button>
+                <CopyAddress addr="0x3669c824A12db3C90528B1D1659a0bc913739071" />
+                <a
+                  href="https://snowtrace.io/token/0x3669c824A12db3C90528B1D1659a0bc913739071?type=erc20&chainid=43114"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  Snowtrace <ExternalLink className="h-2.5 w-2.5" />
+                </a>
               </div>
             </div>
 
