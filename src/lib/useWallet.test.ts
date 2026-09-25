@@ -1,6 +1,47 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { wallet, shortAddress, WALLETS } from "./useWallet";
 
+// EthereumProvider.init() normally opens a real relay-server connection —
+// stub it with a fake provider exposing the same request/on/removeListener
+// shape as the injected-provider mocks below, plus WalletConnect-specific
+// bits (connect(), disconnect(), a "display_uri" event, and an `accounts`
+// property restoreSession reads to confirm a persisted WC session is live).
+function createWalletConnectProvider(opts: { accounts?: string[]; startConnected?: boolean } = {}) {
+  const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+  const finalAccounts = opts.accounts ?? ["0x9999000000000000000000000000000000000009"];
+  const provider = {
+    // A fresh WalletConnect provider has no session/accounts until connect()
+    // resolves — matches the real SDK, and exercises useWallet.ts's "call
+    // connect() before eth_requestAccounts" branch. startConnected:true
+    // simulates a restored/already-paired session instead.
+    accounts: opts.startConnected ? finalAccounts : ([] as string[]),
+    request: vi.fn(async ({ method }: { method: string }) => {
+      if (method === "eth_requestAccounts" || method === "eth_accounts") {
+        return finalAccounts;
+      }
+      return null;
+    }),
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)!.add(handler);
+    }),
+    removeListener: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      listeners.get(event)?.delete(handler);
+    }),
+    connect: vi.fn(async function (this: { accounts: string[] }) {
+      listeners.get("display_uri")?.forEach((handler) => handler("wc:fake-pairing-uri@2"));
+      this.accounts = finalAccounts;
+    }),
+    disconnect: vi.fn(async () => {}),
+  };
+  return provider as any;
+}
+
+const walletConnectInitMock = vi.fn();
+vi.mock("@walletconnect/ethereum-provider", () => ({
+  EthereumProvider: { init: (...args: unknown[]) => walletConnectInitMock(...args) },
+}));
+
 function createProvider(flags: { metaMask?: boolean; coinbase?: boolean; bitget?: boolean; trust?: boolean; binance?: boolean; accounts?: string[] }) {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   const provider = {
@@ -28,10 +69,14 @@ function createProvider(flags: { metaMask?: boolean; coinbase?: boolean; bitget?
 }
 
 describe("wallet state", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     window.localStorage.clear();
     vi.restoreAllMocks();
-    wallet.disconnect();
+    walletConnectInitMock.mockReset();
+    // Clear the module-level cached WalletConnect provider singleton so each
+    // test's fresh walletConnectInitMock mock is actually exercised, rather
+    // than a previous test's already-resolved provider being reused.
+    await wallet.disconnect();
   });
 
   it("shortens addresses consistently", () => {
@@ -169,7 +214,61 @@ describe("wallet state", () => {
   });
 
   it("exposes only supported wallets in the modal list", () => {
-    expect(WALLETS.map((wallet) => wallet.id)).toEqual(["metamask", "trust", "binance", "coinbase", "bitget"]);
+    expect(WALLETS.map((wallet) => wallet.id)).toEqual(["metamask", "trust", "binance", "coinbase", "bitget", "walletconnect"]);
+  });
+
+  it("connects via WalletConnect and goes through the shared attach/auth path", async () => {
+    const wc = createWalletConnectProvider({ accounts: ["0x9999000000000000000000000000000000000009"] });
+    walletConnectInitMock.mockResolvedValue(wc);
+
+    await wallet.connect("walletconnect");
+
+    expect(walletConnectInitMock).toHaveBeenCalled();
+    expect(wc.request).toHaveBeenCalledWith({ method: "eth_requestAccounts", params: undefined });
+    expect(wallet.get().walletId).toBe("walletconnect");
+    expect(wallet.get().address).toBe("0x9999000000000000000000000000000000000009");
+  });
+
+  it("tears down the WalletConnect session on disconnect", async () => {
+    const wc = createWalletConnectProvider();
+    walletConnectInitMock.mockResolvedValue(wc);
+
+    await wallet.connect("walletconnect");
+    await wallet.disconnect();
+
+    expect(wc.disconnect).toHaveBeenCalled();
+    expect(wallet.get().connected).toBe(false);
+  });
+
+  it("deep-links a mobile-only wallet (e.g. Bitget Wallet) via its WalletConnect pairing URI", async () => {
+    // Uses "bitget", not "trust" — an earlier test in this file announces a
+    // fake Trust Wallet provider via the module-level EIP-6963 registry,
+    // which (correctly) has no expiry/cleanup, so matchProvider("trust")
+    // would find it here too and this test wouldn't exercise the no-injected-
+    // provider deep-link path it's meant to cover. Bitget has no such
+    // announced provider anywhere else in this file.
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" });
+    // No window.ethereum injected at all, matching a normal mobile browser.
+    Object.defineProperty(window as any, "ethereum", { configurable: true, value: undefined });
+
+    const wc = createWalletConnectProvider({ accounts: ["0xdead000000000000000000000000000000dead"] });
+    walletConnectInitMock.mockResolvedValue(wc);
+
+    const originalLocation = window.location;
+    // @ts-expect-error - deleting to redefine as a writable stub for this test only
+    delete window.location;
+    window.location = { ...originalLocation, href: "" } as Location;
+
+    await wallet.connect("bitget");
+
+    expect(wc.connect).toHaveBeenCalled();
+    expect(window.location.href).toBe(
+      "https://bkcode.vip/wc?uri=" + encodeURIComponent("wc:fake-pairing-uri@2"),
+    );
+    expect(wallet.get().walletId).toBe("bitget");
+    expect(wallet.get().address).toBe("0xdead000000000000000000000000000000dead");
+
+    window.location = originalLocation;
   });
 
   it("subtracts pending withdrawal holds from available balance", async () => {

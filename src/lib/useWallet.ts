@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from "react";
+import { EthereumProvider } from "@walletconnect/ethereum-provider";
 import { getNonce, getWalletBalances, login as apiLogin, logout as apiLogout, me } from "@/lib/authApi";
 import { setWsAuthToken } from "@/lib/wsAuthToken";
 
-export type WalletId = "metamask" | "trust" | "binance" | "coinbase" | "bitget";
+export type WalletId = "metamask" | "trust" | "binance" | "coinbase" | "bitget" | "walletconnect";
 
 export type WalletInfo = {
   id: WalletId;
@@ -14,11 +15,31 @@ export type WalletInfo = {
 
 export const WALLETS: WalletInfo[] = [
   { id: "metamask", name: "MetaMask", tag: "Most popular", desc: "Connect via the MetaMask browser extension", popular: true },
-  { id: "trust", name: "Trust Wallet", tag: "Popular", desc: "Connect via the Trust Wallet browser extension", popular: true },
+  { id: "trust", name: "Trust Wallet", tag: "Popular", desc: "Connect via the Trust Wallet app", popular: true },
   { id: "binance", name: "Binance Wallet", tag: "Popular", desc: "Connect via the Binance Wallet browser extension", popular: true },
   { id: "coinbase", name: "Coinbase Wallet", tag: "Easy", desc: "Connect via the Coinbase Wallet extension", popular: true },
-  { id: "bitget", name: "Bitget Wallet", tag: "Easy", desc: "Connect via the Bitget Wallet extension", popular: true },
+  { id: "bitget", name: "Bitget Wallet", tag: "Easy", desc: "Connect via the Bitget Wallet app", popular: true },
+  { id: "walletconnect", name: "WalletConnect", tag: "Any wallet", desc: "Scan a QR code (desktop) or connect from any mobile wallet", popular: false },
 ];
+
+// Wallets without a browser extension injecting window.ethereum on mobile
+// (i.e. every entry here except "walletconnect" itself) get a direct deep
+// link into their own app, built from a WalletConnect pairing URI, instead
+// of falling back to the generic WalletConnect QR modal — this matches the
+// "tap Trust Wallet, it opens Trust Wallet" UX rather than "tap Trust
+// Wallet, get a QR code to scan with some other device."
+const WALLET_DEEPLINK_SCHEMES: Partial<Record<WalletId, (wcUri: string) => string>> = {
+  trust: (uri) => `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`,
+  bitget: (uri) => `https://bkcode.vip/wc?uri=${encodeURIComponent(uri)}`,
+  binance: (uri) => `bnc://app.binance.com/mp/app?appId=wc&uri=${encodeURIComponent(uri)}`,
+  coinbase: (uri) => `https://go.cb-w.com/wc?uri=${encodeURIComponent(uri)}`,
+  metamask: (uri) => `https://metamask.app.link/wc?uri=${encodeURIComponent(uri)}`,
+};
+
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
 
 // locked = tradingLocked + withdrawalLocked, kept for existing callers that
 // only care about the combined figure. tradingLocked/withdrawalLocked are
@@ -340,6 +361,59 @@ function matchProvider(source: WalletId): Eip1193Provider | null {
   return null;
 }
 
+// Lazily created, cached singleton — EthereumProvider.init() spins up a
+// relay-server connection and pairing state, so it's expensive to create
+// and must be reused (not re-init'd) across a connect/disconnect/reconnect
+// cycle within the same page load.
+let walletConnectProviderPromise: ReturnType<typeof EthereumProvider.init> | null = null;
+
+function getFujiChainId(): number {
+  const raw = import.meta.env.VITE_FUJI_CHAIN_ID;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) ? parsed : 43113;
+}
+
+async function getWalletConnectProvider() {
+  if (!walletConnectProviderPromise) {
+    const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+    if (!projectId) throw new Error("WalletConnect is not configured (missing VITE_WALLETCONNECT_PROJECT_ID)");
+    walletConnectProviderPromise = EthereumProvider.init({
+      projectId,
+      chains: [getFujiChainId()],
+      showQrModal: true,
+      metadata: {
+        name: "BitDx",
+        description: "BitDx",
+        url: typeof window !== "undefined" ? window.location.origin : "https://bitdx.me",
+        icons: [],
+      },
+    });
+  }
+  return (await walletConnectProviderPromise) as unknown as Eip1193Provider;
+}
+
+// Used for the "tap a specific wallet on mobile" path (see
+// WALLET_DEEPLINK_SCHEMES): builds a fresh, un-modal'd WalletConnect
+// provider so its pairing URI can be captured off the "display_uri" event
+// and turned into that wallet's own deep link, instead of showing the
+// generic QR modal. Deliberately NOT the cached singleton above — this one
+// is only used to obtain a URI and is discarded/reused per connect attempt.
+async function createWalletConnectProviderForDeepLink() {
+  const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
+  if (!projectId) throw new Error("WalletConnect is not configured (missing VITE_WALLETCONNECT_PROJECT_ID)");
+  return EthereumProvider.init({
+    projectId,
+    chains: [getFujiChainId()],
+    showQrModal: false,
+    metadata: {
+      name: "BitDx",
+      description: "BitDx",
+      url: typeof window !== "undefined" ? window.location.origin : "https://bitdx.me",
+      icons: [],
+    },
+  });
+}
+
 function detachProvider(provider: Eip1193Provider | null | undefined) {
   if (!provider || !provider.removeListener) return;
   const handlers = providerListeners.get(provider as object);
@@ -440,8 +514,52 @@ export function getConnectedProvider() {
   return activeProvider ?? state.provider ?? null;
 }
 
+// Deep-links out to a specific wallet's app using a WalletConnect pairing
+// URI, then waits for that same provider to finish connecting (the wallet
+// app calls back into the WC relay after the user approves, same as if the
+// generic QR modal had been scanned). Only reachable on mobile, and only
+// for wallets with a known deep-link scheme — see WALLET_DEEPLINK_SCHEMES.
+async function connectViaWalletDeepLink(source: WalletId) {
+  const buildLink = WALLET_DEEPLINK_SCHEMES[source];
+  if (!buildLink) return null;
+
+  const provider = await createWalletConnectProviderForDeepLink();
+  const wcEvents = provider as unknown as { on: (event: string, handler: (...args: unknown[]) => void) => void };
+  const opened = new Promise<void>((resolve) => {
+    wcEvents.on("display_uri", (uri: unknown) => {
+      if (typeof uri !== "string") return;
+      window.location.href = buildLink(uri);
+      resolve();
+    });
+  });
+
+  await provider.connect();
+  await opened;
+  return provider as unknown as Eip1193Provider;
+}
+
 async function connect(source: WalletId) {
-  const provider = matchProvider(source);
+  let provider: Eip1193Provider | null;
+
+  if (source === "walletconnect") {
+    provider = await getWalletConnectProvider();
+    // Unlike an injected provider, a fresh (or previously-disconnected)
+    // WalletConnect provider has no live session yet — eth_requestAccounts
+    // via the shared request() path below throws "Please call connect()
+    // before request()" until .connect() has opened the QR modal/pairing
+    // and a session exists. An already-restored session (accounts already
+    // populated) skips straight to the shared eth_requestAccounts call,
+    // which then resolves immediately from the existing session.
+    const wcAccounts = (provider as unknown as { accounts?: string[] }).accounts;
+    if (!wcAccounts || wcAccounts.length === 0) {
+      await (provider as unknown as { connect: () => Promise<void> }).connect();
+    }
+  } else if (isMobileDevice() && !matchProvider(source)) {
+    provider = await connectViaWalletDeepLink(source);
+  } else {
+    provider = matchProvider(source);
+  }
+
   if (!provider) {
     setState({ error: `${WALLETS.find((w) => w.id === source)?.name ?? "Selected wallet"} provider not found`, pending: null });
     throw new Error("Provider not found");
@@ -509,17 +627,33 @@ async function authenticateWithBackend(provider: Eip1193Provider, source: Wallet
 
 async function disconnect() {
   const provider = getConnectedProvider();
+  const walletId = state.walletId;
 
   // Clear local state immediately so network cleanup cannot erase a newer connection.
   detachProvider(provider);
   activeProvider = null;
+  // Reset the cached WC provider singleton on every disconnect, not just a
+  // WalletConnect one — a WC connect attempt abandoned mid-flow (e.g. the
+  // user closes the QR modal) can leave a half-initialized/stale provider
+  // promise cached, which the next connect() call should not reuse.
+  walletConnectProviderPromise = null;
   clearPersistedSession();
   setWsAuthToken(null);
   state = { connected: false, walletId: undefined, address: undefined, userId: undefined, balances: DEFAULT_BALANCES, error: undefined, pending: null, restored: true, provider: null };
   clearBalancePoll();
   emit();
 
-  if (provider) {
+  if (walletId === "walletconnect" && provider) {
+    // A WC session is tracked relay-side, not just locally — leaving it
+    // open would keep showing "connected" in the wallet app even though
+    // this site has moved on, so it needs its own explicit teardown rather
+    // than just the generic wallet_revokePermissions call below.
+    try {
+      await (provider as unknown as { disconnect: () => Promise<void> }).disconnect();
+    } catch {
+      // Session may already be closed relay-side; not fatal to local disconnect.
+    }
+  } else if (provider) {
     try {
       await requestWithTimeout(provider, "wallet_revokePermissions", [{ eth_accounts: {} }]);
     } catch {
@@ -536,8 +670,16 @@ async function restoreSession() {
   if (!canRestoreWallet()) return null;
   const stored = loadSession();
   if (!stored) return null;
-  const provider = matchProvider(stored.walletId);
+  // WalletConnect's own SDK persists its session (pairing + accounts) across
+  // reloads internally; re-init'ing it here reconnects to that existing
+  // session rather than scanning window.ethereum, which a WC connection
+  // never touches.
+  const provider = stored.walletId === "walletconnect" ? await getWalletConnectProvider() : matchProvider(stored.walletId);
   if (!provider) return null;
+  if (stored.walletId === "walletconnect") {
+    const wcAccounts = (provider as unknown as { accounts?: string[] }).accounts;
+    if (!wcAccounts || wcAccounts.length === 0) return null;
+  }
 
   const accounts = (await requestWithTimeout(provider, "eth_accounts")) as string[] | unknown;
   const address = Array.isArray(accounts) ? accounts[0] : undefined;
