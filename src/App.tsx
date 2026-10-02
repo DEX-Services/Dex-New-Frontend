@@ -18,6 +18,7 @@ import { readTheme, type ThemeMode } from "@/lib/theme";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const Index = lazy(() => import("./pages/Index.tsx"));
 const Markets = lazy(() => import("./pages/Markets.tsx"));
+const PnL = lazy(() => import("./pages/PnL.tsx"));
 const Portfolio = lazy(() => import("./pages/Portfolio.tsx"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard.tsx"));
 // const CopyTrade = lazy(() => import("./pages/CopyTrade.tsx")); // Copy Trading hidden
@@ -144,6 +145,7 @@ const App = () => (
           <Route path="/trading-bots" element={<TradingBots />} />
           {/* <Route path="/ai-agent" element={<AIAgent />} /> */}{/* AI Agent bot creation disabled */}
           <Route path="/markets" element={<Markets />} />
+          <Route path="/pnl" element={<PnL />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* <Route path="/copy" element={<CopyTrade />} /> Copy Trading hidden */}
