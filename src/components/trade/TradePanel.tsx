@@ -87,7 +87,8 @@ export function TradePanel({
   const [marginMode, setMarginMode] = useState<MarginMode>("isolated");
   const [leverage, setLeverage] = useState(10);
   const [reduceOnly, setReduceOnly] = useState(false);
-  const [slippageBps, setSlippageBps] = useState("50");
+  // Fixed default cap sent with market orders; no longer user-editable.
+  const slippageBps = "50";
   const [marketConfirmOpen, setMarketConfirmOpen] = useState(false);
   const [leverageInput, setLeverageInput] = useState("10");
   const [isCustomLeverageOpen, setIsCustomLeverageOpen] = useState(false);
@@ -805,13 +806,6 @@ export function TradePanel({
               <input type="checkbox" checked={reduceOnly} onChange={e => setReduceOnly(e.target.checked)} className="accent-primary" />
               Reduce only
             </label>
-            {orderType === "market" && (
-              <label className="flex items-center gap-1 rounded-md border border-border bg-muted/20 px-2 text-xs text-muted-foreground">
-                Max slippage
-                <Input value={slippageBps} onChange={e => setSlippageBps(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="h-7 border-0 bg-transparent px-1 text-right font-mono text-xs" aria-label="Maximum market-order slippage in basis points" />
-                bps
-              </label>
-            )}
           </div>
         )}
 
