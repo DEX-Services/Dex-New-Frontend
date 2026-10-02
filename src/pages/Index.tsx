@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom";
 import { useMarketMetadata } from "@/lib/useMarketMetadata";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
