@@ -870,7 +870,10 @@ const Index = () => {
   // BI2X-BI2XUSD, not BTC-BI2XUSD (removed 2026-09-13) — the trade page opens
   // to SPOT by default (see tradeMode below), so the default symbol must be
   // one of the surviving SPOT markets.
-  const [symbol, setSymbol] = useState("BI2X-BI2XUSD");
+  // Markets page deep-links here as /trade?symbol=…&mode=spot|futures.
+  const [searchParams] = useSearchParams();
+  const linkedSymbol = searchParams.get("symbol");
+  const [symbol, setSymbol] = useState(linkedSymbol || "BI2X-BI2XUSD");
   const [collapsed, setCollapsed] = useState(false);
   // True while the user is browsing a coming-soon tab/kind in MarketList
   // (Forex, Commodity, Stocks, or Options) — independent of `symbol`, since
@@ -903,7 +906,10 @@ const Index = () => {
   const isOptionsMarket = market?.category === "options";
   const baseAsset = market?.base ?? symbol.split("-")[0] ?? "";
   const backendOptions = backendOptionsMarketFor(baseAsset);
-  const [tradeMode, setTradeMode] = useState<MarketMode>("spot");
+  const linkedMode = searchParams.get("mode");
+  const [tradeMode, setTradeMode] = useState<MarketMode>(
+    linkedMode === "futures" || linkedMode === "options" ? linkedMode : "spot",
+  );
   // MarketList's Spot/Future sub-tab (MarketKind: "spot"|"perp"|"options") and
   // TradePanel's Spot/Futures/Options tab (MarketMode: "spot"|"futures"|
   // "options") name the futures case differently ("perp" vs "futures") but
