@@ -22,6 +22,13 @@ export type MarketMode = "spot" | "futures" | "options";
 type MarginMode = "isolated" | "cross";
 type OptionType = "call" | "put";
 
+// Manual numeric inputs: keep digits and a single decimal point only.
+function sanitizeDecimal(value: string): string {
+  const stripped = value.replace(/[^0-9.]/g, "");
+  const dot = stripped.indexOf(".");
+  return dot === -1 ? stripped : stripped.slice(0, dot + 1) + stripped.slice(dot + 1).replace(/\./g, "");
+}
+
 export function TradePanel({
   symbol,
   price,
@@ -517,7 +524,7 @@ export function TradePanel({
   };
   const handleLeverageInputChange = (value: string) => {
     if (!isIsolatedMargin) return;
-    const cleaned = value.replace(/x/gi, "");
+    const cleaned = sanitizeDecimal(value);
     if (cleaned === "") {
       setLeverageInput(cleaned);
       return;
@@ -536,7 +543,8 @@ export function TradePanel({
     setLeverageValue(Number.isFinite(numericValue) ? numericValue : leverage);
     setIsCustomLeverageOpen(false);
   };
-  const handleSizeInputChange = (value: string) => {
+  const handleSizeInputChange = (raw: string) => {
+    const value = sanitizeDecimal(raw);
     if (value === "") {
       setSizeInput(value);
       return;
@@ -666,7 +674,7 @@ export function TradePanel({
             <Input
               value={limitPrice}
               onFocus={() => { editedPriceRef.current = true; }}
-              onChange={e => { editedPriceRef.current = true; setLimitPrice(e.target.value); }}
+              onChange={e => { editedPriceRef.current = true; setLimitPrice(sanitizeDecimal(e.target.value)); }}
               className="h-9 rounded-lg font-mono text-sm bg-muted/30 border-border px-3"
             />
           </div>
@@ -678,7 +686,7 @@ export function TradePanel({
               <div className="text-xs text-muted-foreground mb-1.5">Strike</div>
               <Input
                 value={strike}
-                onChange={e => { editedStrikeRef.current = true; setStrike(e.target.value); }}
+                onChange={e => { editedStrikeRef.current = true; setStrike(sanitizeDecimal(e.target.value)); }}
                 className="h-10 rounded-xl font-mono text-sm bg-muted/30 border-border px-3"
               />
             </div>
@@ -869,7 +877,7 @@ export function TradePanel({
                 aria-label="Enable take profit"
               />
               <span className="text-xs">Take Profit</span>
-              <Input disabled={!tpEnabled} value={tp} onChange={e => setTp(e.target.value)}
+              <Input disabled={!tpEnabled} value={tp} onChange={e => setTp(sanitizeDecimal(e.target.value))}
                 className="h-7 rounded-md font-mono text-xs text-buy px-2" />
               <div className="flex items-center gap-0.5">
                 <span className="text-xs text-buy font-mono">+</span>
@@ -877,8 +885,9 @@ export function TradePanel({
                   disabled={!tpEnabled}
                   value={tpPctInput}
                   onChange={e => {
-                    setTpPctInput(e.target.value);
-                    const pct = parseFloat(e.target.value);
+                    const clean = sanitizeDecimal(e.target.value);
+                    setTpPctInput(clean);
+                    const pct = parseFloat(clean);
                     if (Number.isFinite(pct) && price > 0) {
                       editedTpPctRef.current = true;
                       setTp(percentToTpPrice(pct).toFixed(2));
@@ -899,7 +908,7 @@ export function TradePanel({
                 aria-label="Enable stop loss"
               />
               <span className="text-xs">Stop Loss</span>
-              <Input disabled={!slEnabled} value={sl} onChange={e => setSl(e.target.value)}
+              <Input disabled={!slEnabled} value={sl} onChange={e => setSl(sanitizeDecimal(e.target.value))}
                 className="h-7 rounded-md font-mono text-xs text-sell px-2" />
               <div className="flex items-center gap-0.5">
                 <span className="text-xs text-sell font-mono">-</span>
@@ -907,8 +916,9 @@ export function TradePanel({
                   disabled={!slEnabled}
                   value={slPctInput}
                   onChange={e => {
-                    setSlPctInput(e.target.value);
-                    const pct = parseFloat(e.target.value);
+                    const clean = sanitizeDecimal(e.target.value);
+                    setSlPctInput(clean);
+                    const pct = parseFloat(clean);
                     if (Number.isFinite(pct) && price > 0) {
                       editedSlPctRef.current = true;
                       setSl(percentToSlPrice(pct).toFixed(2));
