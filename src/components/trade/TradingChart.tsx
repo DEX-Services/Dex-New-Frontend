@@ -159,6 +159,7 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
   // after the reconstruction effect just built it with the current theme)
   // apart from "a real toggle happened while the widget was already up".
   const widgetThemeRef = useRef<ThemeMode | null>(null);
+  const persistRef = useRef<(() => void) | null>(null);
   const [theme, setTheme] = useState<ThemeMode>(readTheme);
   const isCrypto = marketFor(symbol)?.asset === "crypto" || !marketFor(symbol);
   const base = (marketFor(symbol)?.base ?? symbol.split("-")[0]).toUpperCase();
@@ -254,16 +255,47 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
 
     if (isCrypto) {
       const isBi2x = isBI2X(symbol);
+      // The library has no storage of its own, so persist the chart state
+      // (drawings, indicators) per symbol in localStorage and restore it
+      // through `saved_data` on the next construction.
+      const storageKey = `dex-chart-state-v1:${symbol}`;
+      let savedData: object | undefined;
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) savedData = JSON.parse(raw);
+      } catch {
+        savedData = undefined;
+      }
+      const persist = () => {
+        try {
+          widgetRef.current?.save?.((state: object) => {
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(state));
+            } catch {
+              // Storage full or blocked — drawings just won't persist.
+            }
+          });
+        } catch {
+          // Widget not ready or already torn down.
+        }
+      };
+      persistRef.current = persist;
       loadAdvancedChartingLibrary().then(() => {
         if (cancelled || !window.TradingView) return;
         widgetRef.current = new window.TradingView.widget({
           ...commonOptions,
+          ...(savedData ? { saved_data: savedData } : {}),
+          auto_save_delay: 1,
           symbol: isBi2x ? "BI2X" : base,
           datafeed: isBi2x ? createBI2XDatafeed() : createBinanceDatafeed(),
           library_path: "/charting_library/",
           studies_overrides: {},
         });
         widgetThemeRef.current = initialTheme;
+        widgetRef.current.onChartReady(() => {
+          if (cancelled) return;
+          widgetRef.current.subscribe("onAutoSaveNeeded", persist);
+        });
       });
     } else {
       // tv.js's free embed widget resolves its container by id string at
@@ -285,8 +317,14 @@ function ChartPane({ symbol, timeframe }: { symbol: string; timeframe: string })
       });
     }
 
+    const onUnload = () => persistRef.current?.();
+    window.addEventListener("beforeunload", onUnload);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("beforeunload", onUnload);
+      persistRef.current?.();
+      persistRef.current = null;
       if (widgetRef.current?.remove && container.isConnected) {
         try {
           widgetRef.current.remove();
