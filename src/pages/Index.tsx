@@ -1,3 +1,4 @@
+import { useMarketMetadata } from "@/lib/useMarketMetadata";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MarketList } from "@/components/trade/MarketList";
@@ -344,6 +345,7 @@ function TradeCalculatorModal({
   price: number;
   onClose: () => void;
 }) {
+  const marketMetadata = useMarketMetadata(symbol);
   const [tab, setTab] = useState<CalculatorTab>("pnl");
   const [side, setSide] = useState<"long" | "short">("long");
   const [leverage, setLeverage] = useState("10");
@@ -375,6 +377,19 @@ function TradeCalculatorModal({
   const averageNotional = rows.reduce((sum, row) => sum + ((parseFloat(row.entry) || 0) * (parseFloat(row.qty) || 0)), 0);
   const averageEntry = averageQty ? averageNotional / averageQty : 0;
   const maxPosition = 10_000_000 * leverageNum;
+  // Same formula as TradePanel: liquidation at (margin + PnL) / notional = MMR.
+  const mmr = Number(marketMetadata?.maintenanceMarginRatePct ?? 0) / 100;
+  const hasLiqPrice = entryNum > 0 && leverageNum > 1;
+  const liqPrice = !hasLiqPrice
+    ? 0
+    : side === "long"
+      ? (entryNum * (1 - 1 / leverageNum)) / (1 - mmr)
+      : (entryNum * (1 + 1 / leverageNum)) / (1 + mmr);
+  const liqValue = entryNum <= 0
+    ? "--"
+    : hasLiqPrice
+      ? `${liqPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${quoteAsset}`
+      : "No risk at 1x";
 
   const inputClass = "h-10 w-full rounded-md border border-border/50 bg-muted/35 px-3 font-mono text-sm font-bold text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary";
   const labelClass = "mb-1.5 flex items-center justify-between text-xs font-semibold text-muted-foreground";
@@ -397,6 +412,7 @@ function TradeCalculatorModal({
           <ResultRow label="Target Price" value={`${targetPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${quoteAsset}`} valueClass="text-primary" />
           <ResultRow label="Profit/Loss" value={`${targetPnl.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${quoteAsset}`} valueClass={resultValueClass(targetPnl)} />
           <ResultRow label="Profit/Loss%" value={`${targetPnlPct.toFixed(2)}%`} valueClass={resultValueClass(targetPnl)} />
+          <ResultRow label="Liquidation Price" value={liqValue} valueClass="text-sell" />
         </>
       );
     }
@@ -407,6 +423,7 @@ function TradeCalculatorModal({
         <ResultRow label="Profit/Loss" value={`${pnl.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${quoteAsset}`} valueClass={resultValueClass(pnl)} />
         <ResultRow label="Profit/Loss%" value={`${pnlPct.toFixed(2)}%`} valueClass={resultValueClass(pnl)} />
         <ResultRow label="ROI" value={`${roi.toFixed(2)}%`} valueClass={resultValueClass(roi)} />
+        <ResultRow label="Liquidation Price" value={liqValue} valueClass="text-sell" />
       </>
     );
   };
