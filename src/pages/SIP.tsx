@@ -489,10 +489,7 @@ export default function SIP() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Asset">
-                  <select className="w-full h-10 rounded-md bg-muted/30 border border-border px-3 text-sm" defaultValue="BI2X">
-                    <option value="BI2X">BI2X</option>
-                  </select>
-                  <span className="mt-1 block text-[10px] text-muted-foreground">Only BI2X is available for SIP/SWP right now.</span>
+                  <div className="flex w-full h-10 items-center rounded-md bg-muted/30 border border-border px-3 text-sm">BI2X</div>
                 </Field>
                 <Field label={activeTab === "sip" ? "Amount per cycle (USD)" : "Withdrawal per cycle (USD)"}>
                   <Input
