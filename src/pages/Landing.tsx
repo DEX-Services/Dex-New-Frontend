@@ -44,7 +44,7 @@ export default function Landing() {
           <Link to="/prop" className="hover:text-foreground transition-colors">Prop Firm</Link>
           <Link to="/p2p" className="hover:text-foreground transition-colors">P2P</Link>
           <Link to="/token" className="hover:text-foreground transition-colors">Token</Link>
-          {/* SIP/SWP link hidden 2026-09-17 (product decision) */}
+          <Link to="/sip" className="hover:text-foreground transition-colors">SIP/SWP</Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export default function Landing() {
           <Link to="/prop" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Prop Firm</Link>
           <Link to="/p2p" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>P2P</Link>
           <Link to="/token" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>Token</Link>
-          {/* SIP/SWP link hidden 2026-09-17 (product decision) */}
+          <Link to="/sip" className="text-muted-foreground hover:text-foreground font-medium py-2 border-b border-border/60" onClick={() => setMobileMenuOpen(false)}>SIP/SWP</Link>
         </div>
       )}
 
@@ -552,7 +552,7 @@ export default function Landing() {
             <div className="space-y-3 text-sm text-muted-foreground">
               <Link to="/p2p" className="block hover:text-primary transition-colors">P2P</Link>
               <Link to="/token" className="block hover:text-primary transition-colors">Token</Link>
-              {/* SIP/SWP footer link hidden 2026-09-17 (product decision) */}
+              <Link to="/sip" className="block hover:text-primary transition-colors">SIP/SWP</Link>
             </div>
           </div>
 
