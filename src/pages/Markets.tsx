@@ -131,19 +131,18 @@ const Markets = () => {
                   <button
                     key={item.id}
                     onClick={() => { setAsset(item.id); setKind("all"); }}
+                    disabled={item.comingSoon}
+                    aria-disabled={item.comingSoon}
                     className={cn(
                       "relative px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all",
-                      asset === item.id
-                        ? "bg-primary/15 text-primary border border-primary/30"
-                        : "text-muted-foreground hover:bg-muted/40",
+                      item.comingSoon
+                        ? "text-muted-foreground/40 cursor-not-allowed"
+                        : asset === item.id
+                          ? "bg-primary/15 text-primary border border-primary/30"
+                          : "text-muted-foreground hover:bg-muted/40",
                     )}
                   >
                     <item.icon className="h-3.5 w-3.5" /> {item.label}
-                    {item.comingSoon && (
-                      <span className="px-1.5 py-px rounded-full bg-warning/15 text-warning text-[9px] font-bold leading-none">
-                        Soon
-                      </span>
-                    )}
                   </button>
                 ))}
               </div>
