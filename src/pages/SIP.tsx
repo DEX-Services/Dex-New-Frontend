@@ -94,8 +94,8 @@ const MOCK_PLANS: Plan[] = [
   {
     id: "1",
     type: "sip",
-    name: "BTC Growth Plan",
-    asset: "BTC",
+    name: "BI2X Growth Plan",
+    asset: "BI2X",
     amount: 1000,
     frequency: "Monthly",
     startDate: "2026-01-01",
@@ -110,8 +110,8 @@ const MOCK_PLANS: Plan[] = [
   {
     id: "2",
     type: "sip",
-    name: "ETH Weekly SIP",
-    asset: "ETH",
+    name: "BI2X Weekly SIP",
+    asset: "BI2X",
     amount: 250,
     frequency: "Weekly",
     startDate: "2026-02-01",
@@ -126,8 +126,8 @@ const MOCK_PLANS: Plan[] = [
   {
     id: "3",
     type: "swp",
-    name: "Monthly Withdrawal",
-    asset: "DEXUSD",
+    name: "BI2X Monthly Withdrawal",
+    asset: "BI2X",
     amount: 500,
     frequency: "Monthly",
     startDate: "2026-03-01",
@@ -142,8 +142,8 @@ const MOCK_PLANS: Plan[] = [
   {
     id: "4",
     type: "swp",
-    name: "SOL Income Plan",
-    asset: "SOL",
+    name: "BI2X Income Plan",
+    asset: "BI2X",
     amount: 200,
     frequency: "Weekly",
     startDate: "2026-01-15",
@@ -158,11 +158,11 @@ const MOCK_PLANS: Plan[] = [
 ];
 
 const EXECUTION_HISTORY = [
-  { date: "2026-05-01", amount: 1000, status: "completed", price: 62400 },
-  { date: "2026-04-01", amount: 1000, status: "completed", price: 59100 },
-  { date: "2026-03-01", amount: 1000, status: "completed", price: 61200 },
-  { date: "2026-02-01", amount: 1000, status: "completed", price: 57800 },
-  { date: "2026-01-01", amount: 1000, status: "completed", price: 55300 },
+  { date: "2026-05-01", amount: 1000, status: "completed", price: 4.62 },
+  { date: "2026-04-01", amount: 1000, status: "completed", price: 4.41 },
+  { date: "2026-03-01", amount: 1000, status: "completed", price: 4.55 },
+  { date: "2026-02-01", amount: 1000, status: "completed", price: 4.28 },
+  { date: "2026-01-01", amount: 1000, status: "completed", price: 4.12 },
 ];
 
 export default function SIP() {
@@ -489,12 +489,10 @@ export default function SIP() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Field label="Asset">
-                  <select className="w-full h-10 rounded-md bg-muted/30 border border-border px-3 text-sm">
-                    <option>BTC</option>
-                    <option>ETH</option>
-                    <option>SOL</option>
-                    <option>DEXUSD</option>
+                  <select className="w-full h-10 rounded-md bg-muted/30 border border-border px-3 text-sm" defaultValue="BI2X">
+                    <option value="BI2X">BI2X</option>
                   </select>
+                  <span className="mt-1 block text-[10px] text-muted-foreground">Only BI2X is available for SIP/SWP right now.</span>
                 </Field>
                 <Field label={activeTab === "sip" ? "Amount per cycle (USD)" : "Withdrawal per cycle (USD)"}>
                   <Input
