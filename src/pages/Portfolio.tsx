@@ -31,15 +31,6 @@ const ASSET_BREAKDOWN = [
   { asset: "Others", value: 988, pct: 3, color: "hsl(220 20% 45%)" },
 ];
 
-const FROZEN_AMOUNT = [
-  { bucket: "Spot", value: 8240 },
-  { bucket: "Future", value: 5932 },
-  { bucket: "Option", value: 2480 },
-  { bucket: "P2P", value: 3615 },
-  { bucket: "Copy Trading", value: 4180 },
-  { bucket: "Funding A/C", value: 3025 },
-];
-
 const TRANSACTIONS = [
   { id: "T001", type: "Deposit", asset: "USDT", amount: "+5,000", date: "2026-05-10", status: "completed", network: "TRC-20" },
   { id: "T002", type: "Withdraw", asset: "USDT", amount: "-2,000", date: "2026-05-08", status: "completed", network: "ERC-20" },
@@ -141,7 +132,27 @@ const Portfolio = () => {
 
   const totalValue = positions.reduce((s, p) => s + p.value, 0) + spotHoldings.reduce((s, h) => s + h.value, 0);
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
-  const totalFrozen = FROZEN_AMOUNT.reduce((sum, item) => sum + item.value, 0);
+
+  // Real per-area wallet breakdown (Phase 6 of
+  // ~/.claude/plans/wallet-separation.md) — replaces the old fabricated
+  // FROZEN_AMOUNT bucket list. Spot's own total (holdings' locked/reserved
+  // across every asset, valued at 1:1 since these are all BI2XUSD-
+  // denominated raw figures from the wallet, not priced holdings) is
+  // included alongside Futures/Staking/Prediction so the card reads as one
+  // consistent "where is my money" view instead of mixing a priced-holdings
+  // figure with raw wallet totals.
+  const areaBreakdown = useMemo(() => {
+    const spotTotal = walletState.balances.reduce((sum, b) => sum + b.amount, 0);
+    const areas = walletState.balancesByArea;
+    return [
+      { area: "Spot", total: spotTotal, known: true },
+      { area: "Futures", total: areas.FUTURES?.total ?? 0, known: areas.FUTURES !== undefined },
+      { area: "Staking", total: areas.STAKING?.total ?? 0, known: areas.STAKING !== undefined },
+      { area: "Prediction", total: areas.PREDICTION?.total ?? 0, known: areas.PREDICTION !== undefined },
+    ];
+  }, [walletState.balances, walletState.balancesByArea]);
+  const totalAcrossAreas = areaBreakdown.reduce((sum, a) => sum + (a.known ? a.total : 0), 0);
+
   const dbBalances = useMemo(() => {
     const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
     // BI2XUSD is the tradable balance every market actually settles in; USDC/
@@ -190,17 +201,21 @@ const Portfolio = () => {
           <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Available Balance" icon={Wallet} />
         </div>
 
-        {/* Frozen amount allocation */}
+        {/* Per-area wallet breakdown — Spot/Futures/Staking/Prediction, each
+            its own funding pool (Phase 6 of
+            ~/.claude/plans/wallet-separation.md). An area showing "—"
+            means it couldn't be loaded just now (e.g. the engine briefly
+            unreachable for Futures), not that it's genuinely zero. */}
         <div className="glass rounded-xl p-4 border border-primary/25">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Frozen Amount</h3>
-            <span className="text-xs text-muted-foreground">Total frozen: <span className="font-mono text-foreground">${totalFrozen.toLocaleString()}</span></span>
+            <h3 className="font-semibold flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Wallet Areas</h3>
+            <span className="text-xs text-muted-foreground">Total: <span className="font-mono text-foreground">{formatTokenAmount(totalAcrossAreas)}</span></span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {FROZEN_AMOUNT.map((item) => (
-              <div key={item.bucket} className="glass rounded-lg p-2.5">
-                <div className="text-[10px] text-muted-foreground">{item.bucket}</div>
-                <div className="font-mono font-bold text-sm mt-0.5">${item.value.toLocaleString()}</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {areaBreakdown.map((item) => (
+              <div key={item.area} className="glass rounded-lg p-2.5">
+                <div className="text-[10px] text-muted-foreground">{item.area}</div>
+                <div className="font-mono font-bold text-sm mt-0.5">{item.known ? formatTokenAmount(item.total) : "—"}</div>
               </div>
             ))}
           </div>
