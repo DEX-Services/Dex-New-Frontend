@@ -507,3 +507,61 @@ export type StakingEvent = {
 export function getStakingHistory(limit = 100) {
   return tradeReq<{ events: StakingEvent[] | null }>(`/staking/history?limit=${limit}`);
 }
+
+// ─── Wallet-area transfers ──────────────────────────────────────────────────
+// Each area's balance lives in a different backend store (Spot/Futures are
+// partitioned inside the matching-engine's own ledger; Staking/Prediction/
+// P2P are separate Postgres-only wallets with their own fund/unfund
+// endpoints, modeled on P2P's original pattern — see
+// ~/.claude/plans/wallet-separation.md). There is no single "transfer
+// anything to anything" backend endpoint: the Portfolio page's transfer UI
+// composes these primitives itself (direct for Spot<->Futures, fund/unfund
+// for Spot<->{Staking,Prediction,P2P}, and two hops through Spot for any
+// other pair, e.g. Futures->Staking).
+const transferIdempotencyKey = () =>
+  globalThis.crypto?.randomUUID?.() ?? `xfer-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+export type WalletTransferResult = { transfer: unknown };
+
+// Direct Spot<->Futures transfer, BI2XUSD only, via the engine's own ledger.
+export function walletTransfer(fromMarket: "SPOT" | "FUTURES", toMarket: "SPOT" | "FUTURES", amount: string) {
+  return tradeReq<WalletTransferResult>("/wallet/transfer", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fromMarket, toMarket, asset: "BI2XUSD", amount }),
+  });
+}
+
+type WalletAreaBalance = { availableRaw: string; reservedRaw: string; totalRaw: string };
+
+// Staking wallet: BI2XUSD only, main(Spot)<->Staking.
+export function fundStakingWallet(amountRaw: string) {
+  return tradeReq<{ balance: WalletAreaBalance }>("/staking/wallet/fund", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amountRaw, idempotencyKey: transferIdempotencyKey() }),
+  });
+}
+export function unfundStakingWallet(amountRaw: string) {
+  return tradeReq<{ balance: WalletAreaBalance }>("/staking/wallet/unfund", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amountRaw, idempotencyKey: transferIdempotencyKey() }),
+  });
+}
+
+// Prediction wallet: BI2XUSD only, main(Spot)<->Prediction.
+export function fundPredictionWallet(amountRaw: string) {
+  return tradeReq<{ balance: WalletAreaBalance }>("/wallet/prediction/fund", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amountRaw, idempotencyKey: transferIdempotencyKey() }),
+  });
+}
+export function unfundPredictionWallet(amountRaw: string) {
+  return tradeReq<{ balance: WalletAreaBalance }>("/wallet/prediction/unfund", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amountRaw, idempotencyKey: transferIdempotencyKey() }),
+  });
+}
