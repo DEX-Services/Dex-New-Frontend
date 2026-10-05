@@ -9,27 +9,18 @@ import { Button } from "@/components/ui/button";
 import { TransferDialog } from "@/components/wallet/TransferDialog";
 import { wallet, useWallet } from "@/lib/useWallet";
 import { useAccount } from "@/lib/account";
-import { getPositions, FuturesPositionDTO } from "@/lib/apiClient";
+import { getPositions, getPnlHistory, FuturesPositionDTO, RealizedPnlDTO } from "@/lib/apiClient";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { resolveMarkPrice } from "@/components/trade/PositionsPanel";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
 import { wsClient, WSEvent } from "@/lib/wsClient";
 
-// Everything below this line used to be the whole page's data model:
-// fabricated positions, a fabricated asset-value breakdown, fabricated
-// frozen-fund buckets, and fabricated transaction rows. None of it
-// corresponded to anything in this account. It's being replaced piece by
-// piece below with real data (spot holdings from useWallet, futures
-// positions from getPositions) — Asset Breakdown, Frozen Amount and
-// Transaction History are still mock and not part of this change; a real
-// deposit/withdraw ledger would need its own backend endpoint.
-const ASSET_BREAKDOWN = [
-  { asset: "DEXUSD", value: 12006, pct: 42, color: "hsl(145 65% 52%)" },
-  { asset: "BTC", value: 9524, pct: 38, color: "hsl(38 90% 55%)" },
-  { asset: "ETH", value: 6318, pct: 25, color: "hsl(225 70% 65%)" },
-  { asset: "SOL", value: 3762, pct: 15, color: "hsl(280 80% 65%)" },
-  { asset: "USDT", value: 2006, pct: 7, color: "hsl(178 70% 50%)" },
-  { asset: "Others", value: 988, pct: 3, color: "hsl(220 20% 45%)" },
+// Fixed palette cycled by index — enough distinct hues that a real holding
+// list (however many assets it turns out to have) never repeats a color
+// for a visually different segment of the breakdown bar.
+const BREAKDOWN_COLORS = [
+  "hsl(145 65% 52%)", "hsl(38 90% 55%)", "hsl(225 70% 65%)", "hsl(280 80% 65%)",
+  "hsl(178 70% 50%)", "hsl(0 70% 60%)", "hsl(48 90% 55%)", "hsl(260 60% 60%)",
 ];
 
 const Portfolio = () => {
@@ -40,8 +31,27 @@ const Portfolio = () => {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferMode, setTransferMode] = useState<"deposit" | "withdraw">("deposit");
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
+  const [realizedPnl, setRealizedPnl] = useState<RealizedPnlDTO[]>([]);
 
   const openTransfer = (m: "deposit" | "withdraw") => { setTransferMode(m); setTransferOpen(true); };
+
+  // Real realized-PnL event log (same endpoint the dedicated PnL page uses)
+  // — this is what the Equity Curve and Win Rate/Avg Trade stats below are
+  // built from, replacing what used to be a Math.random() walk and two
+  // permanently-blank "—" stats. One page's worth (most recent 200) is
+  // plenty for a summary chart; the full paginated log already has its own
+  // page (PnL.tsx) for anyone who wants to dig through every entry.
+  useEffect(() => {
+    if (!account) {
+      setRealizedPnl([]);
+      return;
+    }
+    let cancelled = false;
+    getPnlHistory({ limit: 200 })
+      .then((r) => { if (!cancelled) setRealizedPnl(r.entries ?? []); })
+      .catch(() => { if (!cancelled) setRealizedPnl([]); });
+    return () => { cancelled = true; };
+  }, [account]);
 
   // Real open futures positions (moved here from the trade page's Positions
   // panel, which still shows the same data while you're actively trading a
@@ -123,6 +133,57 @@ const Portfolio = () => {
   }, [walletState.balances, markets]);
 
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
+
+  // Real equity curve: cumulative realized PnL over time (oldest first —
+  // getPnlHistory returns newest first), with current unrealized PnL
+  // appended as the live final point. This is a REALIZED-PnL curve, not a
+  // full account-value-over-time curve — the backend has no balance-
+  // snapshot history to build that from — but it's genuine trade outcomes,
+  // not fabricated data. Empty when the account has no closed trades yet.
+  const equityPoints = useMemo(() => {
+    const chronological = [...realizedPnl].reverse();
+    let running = 0;
+    const points = chronological.map((p) => (running += parseFloat(p.pnl) || 0));
+    points.push(running + totalPnl);
+    return points;
+  }, [realizedPnl, totalPnl]);
+
+  // Real Win Rate / Avg Trade from the same realized-PnL log the dedicated
+  // PnL page uses — these used to be permanently "—" placeholders.
+  const tradeStats = useMemo(() => {
+    const pnls = realizedPnl.map((p) => parseFloat(p.pnl) || 0);
+    const wins = pnls.filter((n) => n > 0).length;
+    const losses = pnls.filter((n) => n < 0).length;
+    const winRate = wins + losses ? (wins / (wins + losses)) * 100 : null;
+    const avgTrade = pnls.length ? pnls.reduce((s, n) => s + n, 0) / pnls.length : null;
+    return { winRate, avgTrade, closedCount: pnls.length };
+  }, [realizedPnl]);
+
+  // Real asset breakdown: every priced holding across Spot (spotHoldings)
+  // and open Futures notional (positions), replacing the old hardcoded
+  // ASSET_BREAKDOWN mock list. A futures position's "value" here is its
+  // notional (mark * size), same figure the Open table used to show, not
+  // its margin — consistent with how spotHoldings values a spot holding at
+  // its full market value, not what was paid for it.
+  const assetBreakdown = useMemo(() => {
+    const bySymbol = new Map<string, number>();
+    for (const h of spotHoldings) {
+      if (h.value > 0) bySymbol.set(h.asset, (bySymbol.get(h.asset) ?? 0) + h.value);
+    }
+    for (const p of positions) {
+      const base = p.symbol.split("-")[0] ?? p.symbol;
+      if (p.value > 0) bySymbol.set(base, (bySymbol.get(base) ?? 0) + p.value);
+    }
+    const total = Array.from(bySymbol.values()).reduce((s, v) => s + v, 0);
+    return Array.from(bySymbol.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([asset, value], i) => ({
+        asset,
+        value,
+        pct: total > 0 ? (value / total) * 100 : 0,
+        color: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length],
+      }));
+  }, [spotHoldings, positions]);
 
   // Real per-area wallet breakdown (Phase 6 of
   // ~/.claude/plans/wallet-separation.md) — replaces the old fabricated
@@ -217,18 +278,22 @@ const Portfolio = () => {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <EquityChart pnl={totalPnl} />
-          </div>
-          <div className="glass rounded-xl p-5">
-            <h3 className="font-semibold mb-4 flex items-center gap-2"><PieChart className="h-4 w-4 text-primary" /> Asset Breakdown</h3>
+        <EquityChart points={equityPoints} pnl={totalPnl} winRate={tradeStats.winRate} avgTrade={tradeStats.avgTrade} />
+
+        {/* Asset Breakdown — real priced holdings (Spot balances + open
+            Futures notional), not the old hardcoded mock list. Moved below
+            the Equity Curve per request. */}
+        <div className="glass rounded-xl p-5">
+          <h3 className="font-semibold mb-4 flex items-center gap-2"><PieChart className="h-4 w-4 text-primary" /> Asset Breakdown</h3>
+          {assetBreakdown.length === 0 ? (
+            <div className="text-center text-xs text-muted-foreground py-6">No priced holdings yet — your Spot balances and open Futures positions will show up here.</div>
+          ) : (
             <div className="space-y-2.5">
-              {ASSET_BREAKDOWN.map(a => (
+              {assetBreakdown.map(a => (
                 <div key={a.asset}>
                   <div className="flex justify-between text-xs mb-1">
                     <span className="font-medium">{a.asset}</span>
-                    <span className="text-muted-foreground">${a.value.toLocaleString()} · {a.pct}%</span>
+                    <span className="text-muted-foreground">${a.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} · {a.pct.toFixed(1)}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${a.pct}%`, background: a.color }} />
@@ -236,17 +301,7 @@ const Portfolio = () => {
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-border/40 grid grid-cols-2 gap-3 text-xs">
-              <div className="glass rounded-lg p-3 text-center">
-                <div className="text-muted-foreground mb-1">24h Change</div>
-                <div className="font-bold text-buy">+$342.18</div>
-              </div>
-              <div className="glass rounded-lg p-3 text-center">
-                <div className="text-muted-foreground mb-1">7d Change</div>
-                <div className="font-bold text-buy">+$1,240.50</div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Spot Holdings — moved here from the trade page's Positions panel
@@ -318,65 +373,71 @@ function StatCard({ label, value, sub, icon: Icon, tone, highlight }: { label: s
   );
 }
 
-function EquityChart({ pnl }: { pnl: number }) {
+// points: cumulative realized PnL, oldest first, with the current
+// unrealized PnL appended as the live final point (see equityPoints' own
+// doc comment on why this is a realized-PnL curve, not a full account-value
+// history). Needs at least 2 points to draw a line; fewer (an account with
+// no closed trades yet) shows an empty-state message instead of a
+// misleadingly flat/fabricated line.
+function EquityChart({ points, pnl, winRate, avgTrade }: { points: number[]; pnl: number; winRate: number | null; avgTrade: number | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [data] = useState(() => {
-    const arr: number[] = [];
-    let v = 22000;
-    for (let i = 0; i < 60; i++) { v += (Math.random() - 0.45) * 400; arr.push(v); }
-    return arr;
-  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas || !container || points.length < 2) return;
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
     canvas.style.width = `${rect.width}px`; canvas.style.height = `${rect.height}px`;
     const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, rect.width, rect.height);
     ctx.scale(dpr, dpr);
     const W = rect.width, H = rect.height;
-    const fullData = [...data, 25000 + pnl];
-    const min = Math.min(...fullData), max = Math.max(...fullData);
+    const min = Math.min(...points, 0), max = Math.max(...points, 0);
     const range = (max - min) || 1;
+    const lineColor = pnl >= 0 ? "hsl(145 65% 52%)" : "hsl(0 70% 60%)";
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "hsl(186 100% 55% / 0.4)"); grad.addColorStop(1, "hsl(186 100% 55% / 0)");
+    grad.addColorStop(0, pnl >= 0 ? "hsl(145 65% 52% / 0.35)" : "hsl(0 70% 60% / 0.35)");
+    grad.addColorStop(1, pnl >= 0 ? "hsl(145 65% 52% / 0)" : "hsl(0 70% 60% / 0)");
+    const yFor = (v: number) => H - ((v - min) / range) * H * 0.85 - 10;
     ctx.beginPath();
-    fullData.forEach((v, i) => { const x = (i / (fullData.length - 1)) * W; const y = H - ((v - min) / range) * H * 0.85 - 10; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    points.forEach((v, i) => { const x = (i / (points.length - 1)) * W; const y = yFor(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
     ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
     ctx.beginPath();
-    fullData.forEach((v, i) => { const x = (i / (fullData.length - 1)) * W; const y = H - ((v - min) / range) * H * 0.85 - 10; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-    ctx.strokeStyle = "hsl(186 100% 55%)"; ctx.lineWidth = 2; ctx.shadowColor = "hsl(186 100% 55% / 0.6)"; ctx.shadowBlur = 10; ctx.stroke();
-  }, [data, pnl]);
+    points.forEach((v, i) => { const x = (i / (points.length - 1)) * W; const y = yFor(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.shadowColor = lineColor; ctx.shadowBlur = 8; ctx.stroke();
+  }, [points, pnl]);
 
   return (
     <div className="glass rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Equity Curve</h3>
-        <div className="flex gap-1">
-          {["1D", "7D", "30D", "All"].map((p, i) => (
-            <button key={p} className={cn("px-2 py-1 text-[10px] rounded", i === 1 ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40")}>{p}</button>
-          ))}
-        </div>
+        <span className="text-[10px] text-muted-foreground">Cumulative realized PnL</span>
       </div>
       <div ref={containerRef} className="h-48 relative">
-        <canvas ref={canvasRef} className="absolute inset-0" />
+        {points.length < 2 ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">No closed trades yet — this fills in as you trade.</div>
+        ) : (
+          <canvas ref={canvasRef} className="absolute inset-0" />
+        )}
       </div>
-      {/* Win Rate / Avg. Trade need a full realized-trade-history aggregation
-          this page doesn't have (see getPnlHistory on the trade page for the
-          per-trade realized log) — shown as "—" rather than a fabricated
-          number. Unrealized PnL is real: the same total as the Open
-          Positions table above. */}
       <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
         <div className="glass rounded-lg p-2 text-center">
           <div className="text-muted-foreground text-[10px]">Unrealized PnL</div>
           <div className={cn("font-bold mt-0.5", pnl >= 0 ? "text-buy" : "text-sell")}>{pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}</div>
         </div>
-        <div className="glass rounded-lg p-2 text-center"><div className="text-muted-foreground text-[10px]">Win Rate</div><div className="font-bold mt-0.5 text-muted-foreground">—</div></div>
-        <div className="glass rounded-lg p-2 text-center"><div className="text-muted-foreground text-[10px]">Avg. Trade</div><div className="font-bold mt-0.5 text-muted-foreground">—</div></div>
+        <div className="glass rounded-lg p-2 text-center">
+          <div className="text-muted-foreground text-[10px]">Win Rate</div>
+          <div className="font-bold mt-0.5">{winRate === null ? "—" : `${winRate.toFixed(1)}%`}</div>
+        </div>
+        <div className="glass rounded-lg p-2 text-center">
+          <div className="text-muted-foreground text-[10px]">Avg. Trade</div>
+          <div className={cn("font-bold mt-0.5", avgTrade === null ? "text-muted-foreground" : avgTrade >= 0 ? "text-buy" : "text-sell")}>
+            {avgTrade === null ? "—" : `${avgTrade >= 0 ? "+" : ""}$${avgTrade.toFixed(2)}`}
+          </div>
+        </div>
       </div>
     </div>
   );
