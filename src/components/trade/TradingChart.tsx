@@ -474,7 +474,7 @@ function MaximizedChartOverlay({
         <ChartGrid symbol={symbol} />
 
         {canTrade && (
-          <div className="absolute top-4 right-8 z-10 flex flex-col items-end gap-2">
+          <div className="absolute top-14 right-20 z-10 flex flex-col items-end gap-2">
             <div className="flex gap-2">
               <Button
                 onClick={() => setOpenSide(openSide === "buy" ? null : "buy")}
