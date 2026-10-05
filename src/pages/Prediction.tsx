@@ -1,11 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, TrendingUp } from "lucide-react";
+import { ClipboardList, TrendingUp, SlidersHorizontal } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PredictionMarketCard } from "@/components/prediction/PredictionMarketCard";
 import { Button } from "@/components/ui/button";
-import { getPredictionWindows, type PredictionWindow } from "@/lib/predictionApi";
+import { cn } from "@/lib/utils";
+import { getPredictionWindows, type PredictionWindow, type PredictionMarketSymbol } from "@/lib/predictionApi";
 import { predictionMarketId, type PredictionMarket } from "@/lib/predictionMarkets";
+
+const DURATION_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "5", label: "5 Minutes" },
+  { value: "15", label: "15 Minutes" },
+] as const;
+type DurationFilter = (typeof DURATION_FILTERS)[number]["value"];
+
+const ASSET_FILTERS = [
+  { value: "all", label: "All Assets" },
+  { value: "BTC", label: "Bitcoin" },
+  { value: "ETH", label: "Ethereum" },
+  { value: "SOL", label: "Solana" },
+] as const;
+type AssetFilter = "all" | PredictionMarketSymbol;
 
 function windowToCardMarket(win: PredictionWindow): PredictionMarket {
   const yes = win.status === "committed" ? 0.5 : undefined;
@@ -36,6 +52,8 @@ function windowToCardMarket(win: PredictionWindow): PredictionMarket {
 export default function Prediction() {
   const navigate = useNavigate();
   const [markets, setMarkets] = useState<PredictionMarket[]>([]);
+  const [durationFilter, setDurationFilter] = useState<DurationFilter>("all");
+  const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
 
   useEffect(() => {
     document.title = "Prediction Markets | BitDx";
@@ -59,9 +77,17 @@ export default function Prediction() {
     };
   }, []);
 
+  const filteredMarkets = useMemo(() => {
+    return markets.filter((m) => {
+      if (durationFilter !== "all" && m.intervalMinutes !== Number(durationFilter)) return false;
+      if (assetFilter !== "all" && m.symbol !== assetFilter) return false;
+      return true;
+    });
+  }, [markets, durationFilter, assetFilter]);
+
   return (
     <AppShell>
-      <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
+      <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight"><TrendingUp className="h-7 w-7 text-primary" />Prediction Markets</h1>
@@ -70,14 +96,103 @@ export default function Prediction() {
           <Button variant="outline" className="shrink-0 gap-2" onClick={() => navigate("/prediction/orders")}><ClipboardList className="h-4 w-4" />My Orders</Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {markets.map((market) => <PredictionMarketCard key={market.id} market={market} />)}
-        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr] lg:items-start">
+          <PredictionFilters
+            durationFilter={durationFilter}
+            onDurationChange={setDurationFilter}
+            assetFilter={assetFilter}
+            onAssetChange={setAssetFilter}
+          />
 
-        {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">Loading markets…</div>}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredMarkets.map((market) => <PredictionMarketCard key={market.id} market={market} />)}
+            </div>
+
+            {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">Loading markets…</div>}
+
+            {markets.length > 0 && filteredMarkets.length === 0 && (
+              <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">No markets match these filters.</div>
+            )}
+          </div>
+        </div>
 
         <p className="max-w-2xl text-xs text-muted-foreground">Orders are matched against real users' opposite-side orders — there is no market maker. Maker fee 0.015%, taker fee 0.045%.</p>
       </main>
     </AppShell>
+  );
+}
+
+// Left-rail filters — Duration (5 / 15 minutes / all) and Asset (BTC / ETH
+// / SOL / all), each single-select. Sticky so the filters stay in view
+// while scrolling a long market grid; stacks above the grid on mobile
+// instead of a side rail (lg:grid-cols-[220px_1fr] in the parent only
+// applies the two-column layout at that breakpoint).
+function PredictionFilters({
+  durationFilter, onDurationChange, assetFilter, onAssetChange,
+}: {
+  durationFilter: DurationFilter;
+  onDurationChange: (v: DurationFilter) => void;
+  assetFilter: AssetFilter;
+  onAssetChange: (v: AssetFilter) => void;
+}) {
+  return (
+    <aside className="glass rounded-xl p-4 space-y-5 lg:sticky lg:top-20">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <SlidersHorizontal className="h-4 w-4 text-primary" /> Filters
+      </div>
+
+      <div>
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Duration</div>
+        <div className="flex flex-col gap-1">
+          {DURATION_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => onDurationChange(f.value)}
+              className={cn(
+                "text-left text-sm rounded-lg px-3 py-1.5 transition-colors",
+                durationFilter === f.value
+                  ? "bg-primary/15 text-primary font-semibold border border-primary/30"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground border border-transparent"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Asset</div>
+        <div className="flex flex-col gap-1">
+          {ASSET_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => onAssetChange(f.value)}
+              className={cn(
+                "text-left text-sm rounded-lg px-3 py-1.5 transition-colors",
+                assetFilter === f.value
+                  ? "bg-primary/15 text-primary font-semibold border border-primary/30"
+                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground border border-transparent"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {(durationFilter !== "all" || assetFilter !== "all") && (
+        <button
+          type="button"
+          onClick={() => { onDurationChange("all"); onAssetChange("all"); }}
+          className="text-xs text-primary hover:underline"
+        >
+          Clear filters
+        </button>
+      )}
+    </aside>
   );
 }
