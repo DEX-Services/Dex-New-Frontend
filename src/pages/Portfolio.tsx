@@ -2,7 +2,7 @@ import { AppShell } from "@/components/AppShell";
 import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, TrendingUp, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers, ChevronRight } from "lucide-react";
+import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -122,7 +122,6 @@ const Portfolio = () => {
       });
   }, [walletState.balances, markets]);
 
-  const totalValue = positions.reduce((s, p) => s + p.value, 0) + spotHoldings.reduce((s, h) => s + h.value, 0);
   const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
 
   // Real per-area wallet breakdown (Phase 6 of
@@ -181,6 +180,11 @@ const Portfolio = () => {
             </Button>
             <Button onClick={() => openTransfer("withdraw")} variant="outline" className="flex-1 sm:flex-none glass h-9">
               <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" /> Withdraw
+            </Button>
+            <Button asChild variant="outline" className="flex-1 sm:flex-none glass h-9">
+              <Link to="/portfolio/transactions">
+                <History className="h-3.5 w-3.5 mr-1.5" /> Transaction History
+              </Link>
             </Button>
           </div>
         </div>
@@ -245,51 +249,6 @@ const Portfolio = () => {
           </div>
         </div>
 
-        {/* Open Positions (futures) */}
-        <div className="glass rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-            <h3 className="font-semibold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" /> Open Positions</h3>
-            <span className="text-xs text-muted-foreground">{positions.length} active</span>
-          </div>
-          {positions.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">No open futures positions.</div>
-          ) : (
-          <div className="overflow-x-auto scrollbar-none">
-            <table className="w-full text-sm min-w-[700px]">
-              <thead className="text-[11px] text-muted-foreground uppercase">
-                <tr className="border-b border-border/50">
-                  <th className="text-left px-4 py-2">Symbol</th>
-                  <th className="text-left">Side</th>
-                  <th className="text-right">Size</th>
-                  <th className="text-right">Entry</th>
-                  <th className="text-right">Mark</th>
-                  <th className="text-right">Value</th>
-                  <th className="text-right">Margin</th>
-                  <th className="text-right pr-4">PnL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map(p => (
-                  <tr key={p.symbol} className="border-b border-border/30 hover:bg-muted/20">
-                    <td className="px-4 py-3 font-semibold">{p.symbol} <span className="text-[10px] text-muted-foreground">{p.leverage}x</span></td>
-                    <td className={cn("font-semibold text-xs", p.side === "long" ? "text-buy" : "text-sell")}>{p.side.toUpperCase()}</td>
-                    <td className="text-right font-mono">{p.size}</td>
-                    <td className="text-right font-mono">{formatPrice(p.entry)}</td>
-                    <td className="text-right font-mono">{formatPrice(p.mark)}</td>
-                    <td className="text-right font-mono">${p.value.toFixed(2)}</td>
-                    <td className="text-right font-mono text-muted-foreground">${(p.value / p.leverage).toFixed(2)}</td>
-                    <td className={cn("text-right pr-4 font-mono font-bold", p.pnl >= 0 ? "text-buy" : "text-sell")}>
-                      {p.pnl >= 0 ? "+" : ""}${p.pnl.toFixed(2)}
-                      <div className="text-[10px] opacity-70">{p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          )}
-        </div>
-
         {/* Spot Holdings — moved here from the trade page's Positions panel
             "Holdings" tab, since a spot balance is account-wide, not tied to
             whichever symbol you happen to be trading. */}
@@ -330,11 +289,6 @@ const Portfolio = () => {
           )}
         </div>
 
-        {/* Transaction History moved to its own page (/portfolio/transactions) */}
-        <Link to="/portfolio/transactions" className="glass rounded-xl flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors">
-          <h3 className="font-semibold flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Transaction History</h3>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">View all <ChevronRight className="h-3.5 w-3.5" /></span>
-        </Link>
       </div>
       <TransferDialog open={transferOpen} onOpenChange={setTransferOpen} defaultMode={transferMode} />
     </AppShell>
