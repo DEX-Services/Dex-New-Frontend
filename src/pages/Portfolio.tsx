@@ -246,6 +246,12 @@ const Portfolio = () => {
     return Number(formatBI2XUSDAmount(raw));
   };
 
+  // Spot's own available (not order-locked) balance per asset, for the
+  // transfer dialog's "Available: X" shortcut — same walletState.balances
+  // source dbBalances above reads, just looked up by whatever asset the
+  // dialog's asset selector currently has picked rather than a fixed set.
+  const spotAmountFor = (asset: string) => walletState.balances.find((b) => b.asset === asset)?.available ?? null;
+
   useEffect(() => {
     if (!walletState.connected) return;
     wallet.refreshBalances().catch(() => {});
@@ -399,6 +405,7 @@ const Portfolio = () => {
         stakingBalance={stakingBalance}
         predictionBalance={predictionBalance}
         p2pAmountFor={p2pAmountFor}
+        spotAmountFor={spotAmountFor}
         onDone={() => {
           wallet.refreshBalances().catch(() => {});
         }}
@@ -605,7 +612,7 @@ async function runTransfer(from: TransferArea, to: TransferArea, asset: string, 
 }
 
 function WalletAreaTransferDialog({
-  open, onOpenChange, futuresBalance, stakingBalance, predictionBalance, p2pAmountFor, onDone,
+  open, onOpenChange, futuresBalance, stakingBalance, predictionBalance, p2pAmountFor, spotAmountFor, onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -613,6 +620,7 @@ function WalletAreaTransferDialog({
   stakingBalance?: { available: number; reserved: number; total: number };
   predictionBalance?: { available: number; reserved: number; total: number };
   p2pAmountFor: (asset: string) => number | null;
+  spotAmountFor: (asset: string) => number | null;
   onDone: () => void;
 }) {
   const [from, setFrom] = useState<TransferArea>("SPOT");
@@ -633,7 +641,7 @@ function WalletAreaTransferDialog({
   }, [availableAssets, asset]);
 
   const availableIn = (area: TransferArea, forAsset: string): number | null => {
-    if (area === "SPOT") return null; // Spot holds several assets at once — shown per-asset in the area cards, not duplicated here.
+    if (area === "SPOT") return spotAmountFor(forAsset);
     if (area === "FUTURES") return futuresBalance ? futuresBalance.available : null;
     if (area === "STAKING") return stakingBalance ? stakingBalance.available : null;
     if (area === "PREDICTION") return predictionBalance ? predictionBalance.available : null;
