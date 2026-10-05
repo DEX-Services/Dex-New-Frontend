@@ -51,6 +51,22 @@ const Portfolio = () => {
   // (distinct from []) means "not loaded yet / failed", same "unknown vs
   // genuinely zero" distinction areaBreakdown already uses for the
   // engine-backed areas.
+  //
+  // refreshP2PBalances is also called directly after a transfer involving
+  // P2P (see the WalletAreaTransferDialog's onDone below) — P2P isn't
+  // covered by wallet.refreshBalances() (that only re-syncs Spot and the
+  // engine-backed balancesByArea areas), so without this a completed
+  // Spot<->P2P transfer left the P2P area card showing its stale
+  // pre-transfer figure until a full page reload re-ran this effect.
+  const refreshP2PBalances = () => {
+    if (!walletState.connected) {
+      setP2pBalances(null);
+      return;
+    }
+    getP2PWallet()
+      .then((r) => setP2pBalances(r.balances ?? (r.balance ? [r.balance] : [])))
+      .catch(() => setP2pBalances(null));
+  };
   useEffect(() => {
     if (!walletState.connected) {
       setP2pBalances(null);
@@ -408,6 +424,7 @@ const Portfolio = () => {
         spotAmountFor={spotAmountFor}
         onDone={() => {
           wallet.refreshBalances().catch(() => {});
+          refreshP2PBalances();
         }}
       />
     </AppShell>
