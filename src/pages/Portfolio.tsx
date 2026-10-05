@@ -423,8 +423,28 @@ const Portfolio = () => {
         p2pAmountFor={p2pAmountFor}
         spotAmountFor={spotAmountFor}
         onDone={() => {
-          wallet.refreshBalances().catch(() => {});
-          refreshP2PBalances();
+          // One immediate refresh, then a few more a short beat apart.
+          // The transfer's own HTTP response only guarantees the
+          // ENGINE side (the in-memory Spot/Futures ledger) has already
+          // moved the funds — the Postgres mirror of the SPOT leg that
+          // this page's "Spot" card and spotAmountFor actually read from
+          // is written by a separate fire-and-forget goroutine
+          // (matching-engine's backendclient.Async, fired AFTER the
+          // transfer response is sent, not awaited by it — see
+          // cmd/engine/main.go's /internal/transfer handler). A single
+          // refresh right after the dialog closes can easily win that
+          // race and read the pre-transfer Spot figure, which is exactly
+          // what made a transfer look like it "duplicated" the amount
+          // into both areas until a later page reload caught up. Retried
+          // refreshes here cheaply paper over that race from the
+          // frontend without needing the transfer response to block on
+          // the mirror landing.
+          const refreshAll = () => {
+            wallet.refreshBalances().catch(() => {});
+            refreshP2PBalances();
+          };
+          refreshAll();
+          [800, 1800, 3200].forEach((delay) => setTimeout(refreshAll, delay));
         }}
       />
     </AppShell>
