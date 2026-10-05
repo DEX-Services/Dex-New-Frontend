@@ -20,6 +20,7 @@ const Index = lazy(() => import("./pages/Index.tsx"));
 const Markets = lazy(() => import("./pages/Markets.tsx"));
 const PnL = lazy(() => import("./pages/PnL.tsx"));
 const Portfolio = lazy(() => import("./pages/Portfolio.tsx"));
+const TransactionHistory = lazy(() => import("./pages/TransactionHistory.tsx"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard.tsx"));
 // const CopyTrade = lazy(() => import("./pages/CopyTrade.tsx")); // Copy Trading hidden
 const Settings = lazy(() => import("./pages/Settings.tsx"));
@@ -147,6 +148,7 @@ const App = () => (
           <Route path="/markets" element={<Markets />} />
           <Route path="/pnl" element={<PnL />} />
           <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/portfolio/transactions" element={<TransactionHistory />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           {/* <Route path="/copy" element={<CopyTrade />} /> Copy Trading hidden */}
           <Route path="/settings" element={<Settings />} />

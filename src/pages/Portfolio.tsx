@@ -1,7 +1,8 @@
 import { AppShell } from "@/components/AppShell";
+import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, TrendingUp, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Clock, CheckCircle2, XCircle, Layers } from "lucide-react";
+import { Wallet, TrendingUp, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -29,15 +30,6 @@ const ASSET_BREAKDOWN = [
   { asset: "SOL", value: 3762, pct: 15, color: "hsl(280 80% 65%)" },
   { asset: "USDT", value: 2006, pct: 7, color: "hsl(178 70% 50%)" },
   { asset: "Others", value: 988, pct: 3, color: "hsl(220 20% 45%)" },
-];
-
-const TRANSACTIONS = [
-  { id: "T001", type: "Deposit", asset: "USDT", amount: "+5,000", date: "2026-05-10", status: "completed", network: "TRC-20" },
-  { id: "T002", type: "Withdraw", asset: "USDT", amount: "-2,000", date: "2026-05-08", status: "completed", network: "ERC-20" },
-  { id: "T003", type: "Deposit", asset: "BTC", amount: "+0.05", date: "2026-05-06", status: "completed", network: "BTC" },
-  { id: "T004", type: "Withdraw", asset: "ETH", amount: "-0.8", date: "2026-05-04", status: "pending", network: "ERC-20" },
-  { id: "T005", type: "Deposit", asset: "SOL", amount: "+12", date: "2026-05-02", status: "completed", network: "SOL" },
-  { id: "T006", type: "Withdraw", asset: "USDT", amount: "-500", date: "2026-04-29", status: "failed", network: "TRC-20" },
 ];
 
 const Portfolio = () => {
@@ -338,52 +330,11 @@ const Portfolio = () => {
           )}
         </div>
 
-        {/* Transaction History */}
-        <div className="glass rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between">
-            <h3 className="font-semibold flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Transaction History</h3>
-            <div className="flex gap-1">
-              {["All", "Deposit", "Withdraw"].map((f, i) => (
-                <button key={f} className={cn("px-2 py-1 text-[10px] rounded", i === 0 ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40")}>{f}</button>
-              ))}
-            </div>
-          </div>
-          <div className="overflow-x-auto scrollbar-none">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead className="text-[11px] text-muted-foreground uppercase">
-                <tr className="border-b border-border/50">
-                  <th className="text-left px-4 py-2">Type</th>
-                  <th className="text-left">Asset</th>
-                  <th className="text-right">Amount</th>
-                  <th className="text-right">Network</th>
-                  <th className="text-right">Date</th>
-                  <th className="text-right pr-4">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {TRANSACTIONS.map(t => (
-                  <tr key={t.id} className="border-b border-border/30 hover:bg-muted/20">
-                    <td className="px-4 py-3">
-                      <span className={cn("flex items-center gap-1.5 font-medium text-xs", t.type === "Deposit" ? "text-buy" : "text-sell")}>
-                        {t.type === "Deposit" ? <ArrowDownToLine className="h-3 w-3" /> : <ArrowUpFromLine className="h-3 w-3" />}
-                        {t.type}
-                      </span>
-                    </td>
-                    <td className="font-mono font-semibold">{t.asset}</td>
-                    <td className={cn("text-right font-mono font-bold", t.type === "Deposit" ? "text-buy" : "text-sell")}>{t.amount}</td>
-                    <td className="text-right text-xs text-muted-foreground">{t.network}</td>
-                    <td className="text-right text-xs text-muted-foreground">{t.date}</td>
-                    <td className="text-right pr-4">
-                      {t.status === "completed" && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-buy bg-buy/10 border border-buy/20 rounded px-2 py-0.5"><CheckCircle2 className="h-2.5 w-2.5" /> Completed</span>}
-                      {t.status === "pending" && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-warning bg-warning/10 border border-warning/20 rounded px-2 py-0.5"><Clock className="h-2.5 w-2.5" /> Pending</span>}
-                      {t.status === "failed" && <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sell bg-sell/10 border border-sell/20 rounded px-2 py-0.5"><XCircle className="h-2.5 w-2.5" /> Failed</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Transaction History moved to its own page (/portfolio/transactions) */}
+        <Link to="/portfolio/transactions" className="glass rounded-xl flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors">
+          <h3 className="font-semibold flex items-center gap-2"><History className="h-4 w-4 text-primary" /> Transaction History</h3>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">View all <ChevronRight className="h-3.5 w-3.5" /></span>
+        </Link>
       </div>
       <TransferDialog open={transferOpen} onOpenChange={setTransferOpen} defaultMode={transferMode} />
     </AppShell>
