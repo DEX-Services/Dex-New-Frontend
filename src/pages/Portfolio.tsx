@@ -2,7 +2,7 @@ import { AppShell } from "@/components/AppShell";
 import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, BarChart3, Layers, Repeat, ArrowRight, type LucideIcon } from "lucide-react";
+import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, BarChart3, Layers, Repeat, ArrowRight, TrendingUp, Lock, Target, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -313,6 +313,8 @@ const Portfolio = () => {
           <AreaCard
             label="Spot"
             icon={Wallet}
+            iconClass="text-primary bg-primary/10"
+            barClass="bg-primary"
             rows={[
               { asset: "BI2X", value: formatTokenAmount(dbBalances.BI2X) },
               { asset: "BI2XUSD", value: formatTokenAmount(dbBalances.BI2XUSD) },
@@ -322,22 +324,30 @@ const Portfolio = () => {
           />
           <AreaCard
             label="Futures"
-            icon={Wallet}
+            icon={TrendingUp}
+            iconClass="text-buy bg-buy/10"
+            barClass="bg-buy"
             rows={[{ asset: "BI2XUSD", value: futuresBalance ? formatTokenAmount(futuresBalance.total) : null }]}
           />
           <AreaCard
             label="Staking"
-            icon={Wallet}
+            icon={Lock}
+            iconClass="text-amber-500 bg-amber-500/10"
+            barClass="bg-amber-500"
             rows={[{ asset: "BI2X", value: stakingBalance ? formatTokenAmount(stakingBalance.total) : null }]}
           />
           <AreaCard
             label="Prediction"
-            icon={Wallet}
+            icon={Target}
+            iconClass="text-violet-500 bg-violet-500/10"
+            barClass="bg-violet-500"
             rows={[{ asset: "BI2XUSD", value: predictionBalance ? formatTokenAmount(predictionBalance.total) : null }]}
           />
           <AreaCard
             label="P2P"
-            icon={Wallet}
+            icon={Users}
+            iconClass="text-cyan-500 bg-cyan-500/10"
+            barClass="bg-cyan-500"
             rows={[
               { asset: "BI2XUSD", value: p2pAmountFor("BI2XUSD") !== null ? formatTokenAmount(p2pAmountFor("BI2XUSD")!) : null },
               { asset: "USDC", value: p2pAmountFor("USDC") !== null ? formatTokenAmount(p2pAmountFor("USDC")!) : null },
@@ -468,22 +478,37 @@ function formatTokenAmount(value: number) {
 // why this replaced a single collapsed/summed number. A row's value is
 // null when that asset/area couldn't be loaded right now, shown as "—",
 // distinct from a loaded "0".
-function AreaCard({ label, icon: Icon, rows }: { label: string; icon: LucideIcon; rows: { asset: string; value: string | null }[] }) {
+function AreaCard({
+  label, icon: Icon, iconClass, barClass, rows,
+}: {
+  label: string;
+  icon: LucideIcon;
+  // Icon chip's text + background tint (e.g. "text-buy bg-buy/10") and the
+  // thin top accent bar's fill (e.g. "bg-buy") — one color pair per area so
+  // the five cards read as distinct at a glance instead of five identical
+  // gray boxes differing only in their label text.
+  iconClass: string;
+  barClass: string;
+  rows: { asset: string; value: string | null }[];
+}) {
   return (
-    <div className="glass rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
-        <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted/30">
-          <Icon className="h-3.5 w-3.5 text-primary" />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        {rows.map((r) => (
-          <div key={r.asset} className="flex items-baseline justify-between">
-            <span className="text-xs text-muted-foreground">{r.asset}</span>
-            <span className="text-sm font-bold font-mono">{r.value ?? "—"}</span>
+    <div className="group relative glass rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5">
+      <div className={cn("h-1 w-full", barClass)} />
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-3.5">
+          <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{label}</span>
+          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center transition-transform duration-200 group-hover:scale-110", iconClass)}>
+            <Icon className="h-4 w-4" />
           </div>
-        ))}
+        </div>
+        <div className="divide-y divide-border/40">
+          {rows.map((r) => (
+            <div key={r.asset} className="flex items-baseline justify-between py-1.5 first:pt-0 last:pb-0">
+              <span className="text-xs text-muted-foreground">{r.asset}</span>
+              <span className={cn("text-sm font-bold font-mono", r.value === null && "text-muted-foreground/50")}>{r.value ?? "—"}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
