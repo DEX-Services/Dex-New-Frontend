@@ -474,9 +474,24 @@ function MaximizedChartOverlay({
         <ChartGrid symbol={symbol} />
 
         {canTrade && (
-          <div className="absolute bottom-16 right-8 z-10 flex flex-col items-end gap-2">
+          <div className="absolute top-4 right-8 z-10 flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setOpenSide(openSide === "buy" ? null : "buy")}
+                className="bg-gradient-buy text-buy-foreground hover:shadow-glow-buy h-11 px-6 font-bold shadow-lg"
+              >
+                Buy
+              </Button>
+              <Button
+                onClick={() => setOpenSide(openSide === "sell" ? null : "sell")}
+                variant="destructive"
+                className="h-11 px-6 font-bold shadow-lg"
+              >
+                Sell
+              </Button>
+            </div>
             {openSide && (
-              <div className="glass-strong rounded-xl border border-border/50 shadow-xl w-[320px] max-h-[70vh] overflow-y-auto mb-1">
+              <div className="glass-strong rounded-xl border border-border/50 shadow-xl w-[320px] max-h-[70vh] overflow-y-auto">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Place Order</span>
                   <button onClick={() => setOpenSide(null)} className="text-muted-foreground hover:text-foreground">
@@ -494,21 +509,6 @@ function MaximizedChartOverlay({
                 />
               </div>
             )}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setOpenSide(openSide === "buy" ? null : "buy")}
-                className="bg-gradient-buy text-buy-foreground hover:shadow-glow-buy h-11 px-6 font-bold shadow-lg"
-              >
-                Buy
-              </Button>
-              <Button
-                onClick={() => setOpenSide(openSide === "sell" ? null : "sell")}
-                variant="destructive"
-                className="h-11 px-6 font-bold shadow-lg"
-              >
-                Sell
-              </Button>
-            </div>
           </div>
         )}
       </div>
