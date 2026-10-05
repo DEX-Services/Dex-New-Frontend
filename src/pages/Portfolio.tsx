@@ -179,16 +179,20 @@ const Portfolio = () => {
     return { winRate, avgTrade, closedCount: pnls.length };
   }, [realizedPnl]);
 
-  // Real asset breakdown: every priced holding across Spot (spotHoldings)
-  // and open Futures notional (positions), replacing the old hardcoded
+  // Real asset breakdown: every priced holding across Spot (every non-zero
+  // balance, INCLUDING BI2XUSD at 1:1 — unlike spotHoldings above, this
+  // view is meant to answer "what do I hold overall", so the cash balance
+  // belongs here even though it has no market to price against) and open
+  // Futures notional (positions), replacing the old hardcoded
   // ASSET_BREAKDOWN mock list. A futures position's "value" here is its
   // notional (mark * size), same figure the Open table used to show, not
-  // its margin — consistent with how spotHoldings values a spot holding at
-  // its full market value, not what was paid for it.
+  // its margin.
   const assetBreakdown = useMemo(() => {
     const bySymbol = new Map<string, number>();
-    for (const h of spotHoldings) {
-      if (h.value > 0) bySymbol.set(h.asset, (bySymbol.get(h.asset) ?? 0) + h.value);
+    for (const b of walletState.balances) {
+      if (b.amount <= 0) continue;
+      const value = b.asset === "BI2XUSD" ? b.amount : b.amount * (markets.find((mk) => mk.symbol === `${b.asset}-BI2XUSD`)?.price ?? 0);
+      if (value > 0) bySymbol.set(b.asset, (bySymbol.get(b.asset) ?? 0) + value);
     }
     for (const p of positions) {
       const base = p.symbol.split("-")[0] ?? p.symbol;
@@ -203,7 +207,7 @@ const Portfolio = () => {
         pct: total > 0 ? (value / total) * 100 : 0,
         color: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length],
       }));
-  }, [spotHoldings, positions]);
+  }, [walletState.balances, markets, positions]);
 
   // Per-area balances, each shown in its OWN section below — deliberately
   // NOT summed into one grand total: Spot alone holds several different
