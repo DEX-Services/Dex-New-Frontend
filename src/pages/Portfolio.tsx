@@ -2,12 +2,13 @@ import { AppShell } from "@/components/AppShell";
 import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, BarChart3, Layers, Repeat, type LucideIcon } from "lucide-react";
+import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, BarChart3, Layers, Repeat, ArrowRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import { TransferDialog } from "@/components/wallet/TransferDialog";
 import { wallet, useWallet } from "@/lib/useWallet";
@@ -37,6 +38,7 @@ const Portfolio = () => {
   const futuresTickers = useFuturesTickers();
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferMode, setTransferMode] = useState<"deposit" | "withdraw">("deposit");
+  const [walletTransferOpen, setWalletTransferOpen] = useState(false);
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
   const [realizedPnl, setRealizedPnl] = useState<RealizedPnlDTO[]>([]);
   const [p2pBalances, setP2pBalances] = useState<P2PWalletBalance[] | null>(null);
@@ -264,6 +266,9 @@ const Portfolio = () => {
             <Button onClick={() => openTransfer("withdraw")} variant="outline" className="flex-1 sm:flex-none glass h-9">
               <ArrowUpFromLine className="h-3.5 w-3.5 mr-1.5" /> Withdraw
             </Button>
+            <Button onClick={() => setWalletTransferOpen(true)} variant="outline" className="flex-1 sm:flex-none glass h-9">
+              <Repeat className="h-3.5 w-3.5 mr-1.5" /> Transfer
+            </Button>
             <Button asChild variant="outline" className="flex-1 sm:flex-none glass h-9">
               <Link to="/portfolio/transactions">
                 <History className="h-3.5 w-3.5 mr-1.5" /> Transaction History
@@ -318,16 +323,6 @@ const Portfolio = () => {
             ]}
           />
         </div>
-
-        <TransferSection
-          futuresBalance={futuresBalance}
-          stakingBalance={stakingBalance}
-          predictionBalance={predictionBalance}
-          p2pAmountFor={p2pAmountFor}
-          onDone={() => {
-            wallet.refreshBalances().catch(() => {});
-          }}
-        />
 
         <EquityChart points={equityPoints} pnl={totalPnl} winRate={tradeStats.winRate} avgTrade={tradeStats.avgTrade} />
 
@@ -397,6 +392,17 @@ const Portfolio = () => {
 
       </div>
       <TransferDialog open={transferOpen} onOpenChange={setTransferOpen} defaultMode={transferMode} />
+      <WalletAreaTransferDialog
+        open={walletTransferOpen}
+        onOpenChange={setWalletTransferOpen}
+        futuresBalance={futuresBalance}
+        stakingBalance={stakingBalance}
+        predictionBalance={predictionBalance}
+        p2pAmountFor={p2pAmountFor}
+        onDone={() => {
+          wallet.refreshBalances().catch(() => {});
+        }}
+      />
     </AppShell>
   );
 };
@@ -509,12 +515,12 @@ function EquityChart({ points, pnl, winRate, avgTrade }: { points: number[]; pnl
   );
 }
 
-// ─── Transfer section ───────────────────────────────────────────────────────
+// ─── Wallet-area transfer dialog ────────────────────────────────────────────
 // "Anything to anything" wallet-area transfer. There is no single backend
 // endpoint for this — each area's balance lives in a different store (Spot/
 // Futures inside the matching-engine's ledger; Staking/Prediction/P2P as
 // separate Postgres wallets with their own fund/unfund endpoints). This
-// component picks the right underlying call(s) for whichever pair the user
+// dialog picks the right underlying call(s) for whichever pair the user
 // selects:
 //   - SPOT <-> FUTURES: one direct call (POST /wallet/transfer).
 //   - SPOT <-> {STAKING, PREDICTION, P2P}: one fund or unfund call.
@@ -524,12 +530,15 @@ function EquityChart({ points, pnl, winRate, avgTrade }: { points: number[]; pnl
 //     transfer. If the second hop fails after the first succeeded, this
 //     rolls back by reversing the first hop so the user isn't left with
 //     funds stranded in Spot from a transfer that only half-completed.
-// BI2XUSD only: Futures/Staking/Prediction are BI2XUSD-only pools and the
-// Spot<->Futures engine transfer itself only moves BI2XUSD, so BI2XUSD is
-// the only asset that has a path through every area. P2P also holds USDC/
-// USDT, but those can only move directly to/from Spot (no engine or
-// staking/prediction concept of USDC/USDT), so non-BI2XUSD is restricted to
-// a P2P<->SPOT transfer here.
+//
+// Each area exposes only the assets it actually holds (TRANSFER_AREA_ASSETS
+// below) — Spot and P2P list three (BI2X/BI2XUSD/USDC/USDT, minus BI2X
+// which only exists in Spot; USDC/USDT in P2P), Futures/Staking/Prediction
+// are BI2XUSD-only pools and list just the one. Choosing an asset not held
+// by BOTH the From and To area only works when one side is Spot or P2P
+// (the two multi-asset areas) and the asset is USDC/USDT/BI2X — those can
+// only ever move Spot<->P2P or stay within Spot, since Futures/Staking/
+// Prediction have no concept of them at all.
 type TransferArea = "SPOT" | "FUTURES" | "STAKING" | "PREDICTION" | "P2P";
 const TRANSFER_AREAS: { value: TransferArea; label: string }[] = [
   { value: "SPOT", label: "Spot" },
@@ -538,41 +547,53 @@ const TRANSFER_AREAS: { value: TransferArea; label: string }[] = [
   { value: "PREDICTION", label: "Prediction" },
   { value: "P2P", label: "P2P" },
 ];
+const TRANSFER_AREA_ASSETS: Record<TransferArea, string[]> = {
+  SPOT: ["BI2X", "BI2XUSD", "USDC", "USDT"],
+  FUTURES: ["BI2XUSD"],
+  STAKING: ["BI2XUSD"],
+  PREDICTION: ["BI2XUSD"],
+  P2P: ["BI2XUSD", "USDC", "USDT"],
+};
 
-// Moves `amountRaw` OUT of `area` into Spot (the shared intermediate hop).
-async function moveToSpot(area: TransferArea, amountRaw: string) {
+// Moves `amountRaw` of `asset` OUT of `area` into Spot (the shared
+// intermediate hop). Only BI2XUSD can leave Futures/Staking/Prediction —
+// callers only ever reach those branches with asset==="BI2XUSD" (enforced
+// by the asset selector), and P2P's unfund call is asset-aware since P2P
+// itself holds all three assets.
+async function moveToSpot(area: TransferArea, asset: string, amountRaw: string) {
   if (area === "SPOT") return;
   if (area === "FUTURES") { await walletTransfer("FUTURES", "SPOT", amountRaw); return; }
   if (area === "STAKING") { await unfundStakingWallet(amountRaw); return; }
   if (area === "PREDICTION") { await unfundPredictionWallet(amountRaw); return; }
-  if (area === "P2P") { await unfundP2PWallet("BI2XUSD", amountRaw); return; }
+  if (area === "P2P") { await unfundP2PWallet(asset as "BI2XUSD" | "USDC" | "USDT", amountRaw); return; }
 }
 
-// Moves `amountRaw` OUT of Spot into `area` (the shared intermediate hop).
-async function moveFromSpot(area: TransferArea, amountRaw: string) {
+// Moves `amountRaw` of `asset` OUT of Spot into `area` (the shared
+// intermediate hop).
+async function moveFromSpot(area: TransferArea, asset: string, amountRaw: string) {
   if (area === "SPOT") return;
   if (area === "FUTURES") { await walletTransfer("SPOT", "FUTURES", amountRaw); return; }
   if (area === "STAKING") { await fundStakingWallet(amountRaw); return; }
   if (area === "PREDICTION") { await fundPredictionWallet(amountRaw); return; }
-  if (area === "P2P") { await fundP2PWallet("BI2XUSD", amountRaw); return; }
+  if (area === "P2P") { await fundP2PWallet(asset as "BI2XUSD" | "USDC" | "USDT", amountRaw); return; }
 }
 
-async function runTransfer(from: TransferArea, to: TransferArea, amountRaw: string) {
+async function runTransfer(from: TransferArea, to: TransferArea, asset: string, amountRaw: string) {
   if (from === to) throw new Error("Choose two different areas");
   // Direct one-hop paths: either leg touches Spot directly, or it's the
   // one non-Spot direct pair (Spot<->Futures is handled by the "either leg
   // is SPOT" cases below already, so this is really just those).
-  if (from === "SPOT") { await moveFromSpot(to, amountRaw); return; }
-  if (to === "SPOT") { await moveToSpot(from, amountRaw); return; }
+  if (from === "SPOT") { await moveFromSpot(to, asset, amountRaw); return; }
+  if (to === "SPOT") { await moveToSpot(from, asset, amountRaw); return; }
   // Neither leg is SPOT: route through it as an intermediate hop. If the
   // second hop fails, reverse the first so funds don't get stranded in
   // Spot from a transfer that only half-completed.
-  await moveToSpot(from, amountRaw);
+  await moveToSpot(from, asset, amountRaw);
   try {
-    await moveFromSpot(to, amountRaw);
+    await moveFromSpot(to, asset, amountRaw);
   } catch (e) {
     try {
-      await moveFromSpot(from, amountRaw);
+      await moveFromSpot(from, asset, amountRaw);
     } catch {
       throw new Error(
         `Transfer failed partway and the automatic rollback also failed — your funds are sitting in Spot. ` +
@@ -583,9 +604,11 @@ async function runTransfer(from: TransferArea, to: TransferArea, amountRaw: stri
   }
 }
 
-function TransferSection({
-  futuresBalance, stakingBalance, predictionBalance, p2pAmountFor, onDone,
+function WalletAreaTransferDialog({
+  open, onOpenChange, futuresBalance, stakingBalance, predictionBalance, p2pAmountFor, onDone,
 }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
   futuresBalance?: { available: number; reserved: number; total: number };
   stakingBalance?: { available: number; reserved: number; total: number };
   predictionBalance?: { available: number; reserved: number; total: number };
@@ -594,15 +617,27 @@ function TransferSection({
 }) {
   const [from, setFrom] = useState<TransferArea>("SPOT");
   const [to, setTo] = useState<TransferArea>("FUTURES");
+  const [asset, setAsset] = useState("BI2XUSD");
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const availableIn = (area: TransferArea): number | null => {
-    if (area === "SPOT") return null; // Spot holds several assets, not just BI2XUSD — no single "available" figure to show here.
+  // The asset picker only offers assets BOTH the From and To area actually
+  // hold — picking an asset either side doesn't have would just fail at
+  // submit time, so it's narrowed up front instead.
+  const availableAssets = useMemo(
+    () => TRANSFER_AREA_ASSETS[from].filter((a) => TRANSFER_AREA_ASSETS[to].includes(a)),
+    [from, to]
+  );
+  useEffect(() => {
+    if (!availableAssets.includes(asset)) setAsset(availableAssets[0] ?? "BI2XUSD");
+  }, [availableAssets, asset]);
+
+  const availableIn = (area: TransferArea, forAsset: string): number | null => {
+    if (area === "SPOT") return null; // Spot holds several assets at once — shown per-asset in the area cards, not duplicated here.
     if (area === "FUTURES") return futuresBalance ? futuresBalance.available : null;
     if (area === "STAKING") return stakingBalance ? stakingBalance.available : null;
     if (area === "PREDICTION") return predictionBalance ? predictionBalance.available : null;
-    if (area === "P2P") return p2pAmountFor("BI2XUSD");
+    if (area === "P2P") return p2pAmountFor(forAsset);
     return null;
   };
 
@@ -623,10 +658,11 @@ function TransferSection({
     }
     setSubmitting(true);
     try {
-      await runTransfer(from, to, amountRaw);
-      toast({ title: "Transfer complete", description: `${amount} BI2XUSD moved from ${from} to ${to}.` });
+      await runTransfer(from, to, asset, amountRaw);
+      toast({ title: "Transfer complete", description: `${amount} ${asset} moved from ${from} to ${to}.` });
       setAmount("");
       onDone();
+      onOpenChange(false);
     } catch (e) {
       toast({ title: "Transfer failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
     } finally {
@@ -634,57 +670,87 @@ function TransferSection({
     }
   };
 
-  const fromAvailable = availableIn(from);
+  const fromAvailable = availableIn(from, asset);
+  const fromLabel = TRANSFER_AREAS.find((a) => a.value === from)?.label;
+  const toLabel = TRANSFER_AREAS.find((a) => a.value === to)?.label;
 
   return (
-    <div className="glass rounded-xl p-4 sm:p-5">
-      <h3 className="font-semibold mb-4 flex items-center gap-2"><Repeat className="h-4 w-4 text-primary" /> Transfer Between Wallets</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-3 items-end">
-        <div>
-          <label className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1 block">From</label>
-          <Select value={from} onValueChange={(v) => setFrom(v as TransferArea)}>
-            <SelectTrigger className="glass h-10"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TRANSFER_AREAS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {fromAvailable !== null && (
-            <div className="text-[10px] text-muted-foreground mt-1">Available: {formatTokenAmount(fromAvailable)} BI2XUSD</div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="glass-strong border-glass-border max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Repeat className="h-4 w-4 text-primary" /> Transfer Between Wallets
+          </DialogTitle>
+          <DialogDescription>Move funds between your Spot, Futures, Staking, Prediction, and P2P wallets.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+            <div>
+              <label className="text-[10px] text-muted-foreground">From</label>
+              <Select value={from} onValueChange={(v) => setFrom(v as TransferArea)}>
+                <SelectTrigger className="h-9 bg-muted/30"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TRANSFER_AREAS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" variant="outline" size="icon" className="h-9 w-9 bg-muted/30" onClick={handleSwap} title="Swap">
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+            <div>
+              <label className="text-[10px] text-muted-foreground">To</label>
+              <Select value={to} onValueChange={(v) => setTo(v as TransferArea)}>
+                <SelectTrigger className="h-9 bg-muted/30"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TRANSFER_AREAS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted-foreground">Asset</label>
+            {/* Only lists assets both the From and To area actually hold —
+                Futures/Staking/Prediction only ever offer BI2XUSD here. */}
+            <Select value={asset} onValueChange={setAsset}>
+              <SelectTrigger className="h-9 bg-muted/30"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {availableAssets.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+              <span>Amount</span>
+              {fromAvailable !== null && (
+                <button type="button" className="text-primary hover:underline" onClick={() => setAmount(String(fromAvailable))}>
+                  Available: {formatTokenAmount(fromAvailable)} {asset}
+                </button>
+              )}
+            </div>
+            <Input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="h-10 font-mono bg-muted/30"
+              inputMode="decimal"
+            />
+          </div>
+
+          {from !== "SPOT" && to !== "SPOT" && (
+            <p className="text-[10px] text-muted-foreground">
+              {fromLabel} and {toLabel} don't have a direct path — this will route through Spot automatically as one transfer.
+            </p>
           )}
+
+          <Button onClick={handleSubmit} disabled={submitting || !amount || from === to} className="w-full h-10 font-bold">
+            {submitting ? "Transferring…" : "Confirm Transfer"}
+          </Button>
         </div>
-        <Button type="button" variant="outline" size="icon" className="glass h-10 w-10 justify-self-center" onClick={handleSwap} title="Swap">
-          <Repeat className="h-4 w-4" />
-        </Button>
-        <div>
-          <label className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1 block">To</label>
-          <Select value={to} onValueChange={(v) => setTo(v as TransferArea)}>
-            <SelectTrigger className="glass h-10"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {TRANSFER_AREAS.map((a) => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="mt-3 flex flex-col sm:flex-row gap-3">
-        <Input
-          type="text"
-          inputMode="decimal"
-          placeholder="Amount (BI2XUSD)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="glass h-10"
-        />
-        <Button onClick={handleSubmit} disabled={submitting || !amount} className="h-10 sm:w-40">
-          {submitting ? "Transferring…" : "Transfer"}
-        </Button>
-      </div>
-      {from !== "SPOT" && to !== "SPOT" && (
-        <p className="text-[10px] text-muted-foreground mt-2">
-          {TRANSFER_AREAS.find((a) => a.value === from)?.label} and {TRANSFER_AREAS.find((a) => a.value === to)?.label} don't have a direct path — this will route through Spot automatically as one transfer.
-        </p>
-      )}
-      <p className="text-[10px] text-muted-foreground mt-1">BI2XUSD only. P2P's USDC/USDT balances aren't transferable here — use P2P's own wallet page for those.</p>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
