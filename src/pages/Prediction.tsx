@@ -87,7 +87,23 @@ export default function Prediction() {
 
   return (
     <AppShell>
-      <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+      {/* True page-level left rail, pinned to the viewport's left edge below
+          the header (h-14) and spanning full remaining viewport height —
+          fixed/outside the centered max-w-7xl content column, not a
+          sidebar squeezed in next to the grid. Hidden below lg (stacks as
+          a horizontal filter bar at the top of the content column instead,
+          since a fixed full-height rail would eat too much of a narrow
+          viewport). */}
+      <aside className="hidden lg:block fixed left-0 top-14 bottom-0 w-60 overflow-y-auto border-r border-glass-border glass-strong z-20">
+        <PredictionFilters
+          durationFilter={durationFilter}
+          onDurationChange={setDurationFilter}
+          assetFilter={assetFilter}
+          onAssetChange={setAssetFilter}
+        />
+      </aside>
+
+      <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:pl-[15rem]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-3xl font-bold tracking-tight"><TrendingUp className="h-7 w-7 text-primary" />Prediction Markets</h1>
@@ -96,26 +112,27 @@ export default function Prediction() {
           <Button variant="outline" className="shrink-0 gap-2" onClick={() => navigate("/prediction/orders")}><ClipboardList className="h-4 w-4" />My Orders</Button>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr] lg:items-start">
+        {/* Mobile/tablet: same filters as a horizontal bar instead of the
+            fixed rail (hidden above via lg:block on the aside). */}
+        <div className="lg:hidden glass rounded-xl p-3">
           <PredictionFilters
             durationFilter={durationFilter}
             onDurationChange={setDurationFilter}
             assetFilter={assetFilter}
             onAssetChange={setAssetFilter}
+            horizontal
           />
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredMarkets.map((market) => <PredictionMarketCard key={market.id} market={market} />)}
-            </div>
-
-            {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">Loading markets…</div>}
-
-            {markets.length > 0 && filteredMarkets.length === 0 && (
-              <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">No markets match these filters.</div>
-            )}
-          </div>
         </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredMarkets.map((market) => <PredictionMarketCard key={market.id} market={market} />)}
+        </div>
+
+        {markets.length === 0 && <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">Loading markets…</div>}
+
+        {markets.length > 0 && filteredMarkets.length === 0 && (
+          <div className="glass rounded-xl p-10 text-center text-sm text-muted-foreground">No markets match these filters.</div>
+        )}
 
         <p className="max-w-2xl text-xs text-muted-foreground">Orders are matched against real users' opposite-side orders — there is no market maker. Maker fee 0.015%, taker fee 0.045%.</p>
       </main>
@@ -123,61 +140,54 @@ export default function Prediction() {
   );
 }
 
-// Left-rail filters — Duration (5 / 15 minutes / all) and Asset (BTC / ETH
-// / SOL / all), each single-select. Sticky so the filters stay in view
-// while scrolling a long market grid; stacks above the grid on mobile
-// instead of a side rail (lg:grid-cols-[220px_1fr] in the parent only
-// applies the two-column layout at that breakpoint).
+// Duration (5 / 15 minutes / all) and Asset (BTC / ETH / SOL / all) filters,
+// each single-select. Two layouts from the same component: a stacked list
+// for the fixed left rail (desktop) and a wrapped horizontal row for the
+// mobile/tablet bar above the grid (see the two call sites above) — same
+// state and button styling either way, just the container direction/wrap.
 function PredictionFilters({
-  durationFilter, onDurationChange, assetFilter, onAssetChange,
+  durationFilter, onDurationChange, assetFilter, onAssetChange, horizontal,
 }: {
   durationFilter: DurationFilter;
   onDurationChange: (v: DurationFilter) => void;
   assetFilter: AssetFilter;
   onAssetChange: (v: AssetFilter) => void;
+  horizontal?: boolean;
 }) {
-  return (
-    <aside className="glass rounded-xl p-4 space-y-5 lg:sticky lg:top-20">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <SlidersHorizontal className="h-4 w-4 text-primary" /> Filters
-      </div>
+  const groupClass = horizontal ? "flex flex-wrap gap-1.5" : "flex flex-col gap-1";
+  const btnClass = (active: boolean) =>
+    cn(
+      "text-sm rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap",
+      horizontal ? "text-center" : "text-left",
+      active
+        ? "bg-primary/15 text-primary font-semibold border border-primary/30"
+        : "text-muted-foreground hover:bg-muted/40 hover:text-foreground border border-transparent"
+    );
 
-      <div>
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Duration</div>
-        <div className="flex flex-col gap-1">
+  return (
+    <div className={cn(horizontal ? "space-y-3" : "p-4 space-y-5")}>
+      {!horizontal && (
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <SlidersHorizontal className="h-4 w-4 text-primary" /> Filters
+        </div>
+      )}
+
+      <div className={horizontal ? "flex flex-wrap items-center gap-3" : undefined}>
+        <div className={cn("text-[11px] font-semibold text-muted-foreground uppercase tracking-wider", horizontal ? "mr-1" : "mb-2")}>Duration</div>
+        <div className={groupClass}>
           {DURATION_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => onDurationChange(f.value)}
-              className={cn(
-                "text-left text-sm rounded-lg px-3 py-1.5 transition-colors",
-                durationFilter === f.value
-                  ? "bg-primary/15 text-primary font-semibold border border-primary/30"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground border border-transparent"
-              )}
-            >
+            <button key={f.value} type="button" onClick={() => onDurationChange(f.value)} className={btnClass(durationFilter === f.value)}>
               {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      <div>
-        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Asset</div>
-        <div className="flex flex-col gap-1">
+      <div className={horizontal ? "flex flex-wrap items-center gap-3" : undefined}>
+        <div className={cn("text-[11px] font-semibold text-muted-foreground uppercase tracking-wider", horizontal ? "mr-1" : "mb-2")}>Asset</div>
+        <div className={groupClass}>
           {ASSET_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => onAssetChange(f.value)}
-              className={cn(
-                "text-left text-sm rounded-lg px-3 py-1.5 transition-colors",
-                assetFilter === f.value
-                  ? "bg-primary/15 text-primary font-semibold border border-primary/30"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground border border-transparent"
-              )}
-            >
+            <button key={f.value} type="button" onClick={() => onAssetChange(f.value)} className={btnClass(assetFilter === f.value)}>
               {f.label}
             </button>
           ))}
@@ -193,6 +203,6 @@ function PredictionFilters({
           Clear filters
         </button>
       )}
-    </aside>
+    </div>
   );
 }
