@@ -2,7 +2,7 @@ import { AppShell } from "@/components/AppShell";
 import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers, type LucideIcon } from "lucide-react";
+import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, BarChart3, Layers, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -218,11 +218,21 @@ const Portfolio = () => {
   const dbBalances = useMemo(() => {
     const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
     return {
+      BI2X: amountFor("BI2X"),
       BI2XUSD: amountFor("BI2XUSD"),
       USDC: amountFor("USDC"),
       USDT: amountFor("USDT"),
     };
   }, [walletState.balances]);
+
+  // P2P's own three assets (BI2XUSD/USDT/USDC — see P2P_ASSETS), read by
+  // asset rather than collapsed into one totalRaw figure, same reasoning as
+  // Spot: these are not interchangeable 1:1, so each gets its own row.
+  const p2pAmountFor = (asset: string) => {
+    if (!p2pBalances) return null;
+    const raw = p2pBalances.find((b) => b.asset === asset)?.totalRaw ?? "0";
+    return Number(formatBI2XUSDAmount(raw));
+  };
 
   useEffect(() => {
     if (!walletState.connected) return;
@@ -253,31 +263,50 @@ const Portfolio = () => {
         </div>
 
         {/* Per-area balances — Spot/Futures/Staking/Prediction/P2P, each its
-            own funding pool with its own section, never summed into one
-            total (see the comment on futuresBalance above for why). A
-            section showing "—" means that area couldn't be loaded just now
-            (e.g. the engine briefly unreachable for Futures), not that it's
-            genuinely zero. */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-          <AreaCard label="Spot" sub="BI2XUSD tradable balance" value={formatTokenAmount(dbBalances.BI2XUSD)} icon={Wallet} />
-          <AreaCard label="Futures" sub="BI2XUSD margin balance" value={futuresBalance ? formatTokenAmount(futuresBalance.total) : null} icon={Wallet} />
-          <AreaCard label="Staking" sub="BI2XUSD staked + available" value={stakingBalance ? formatTokenAmount(stakingBalance.total) : null} icon={Wallet} />
-          <AreaCard label="Prediction" sub="BI2XUSD prediction balance" value={predictionBalance ? formatTokenAmount(predictionBalance.total) : null} icon={Wallet} />
+            own funding pool with its own card, each listing its OWN real
+            per-asset balances rather than one collapsed/summed number
+            (Spot and P2P each hold several non-interchangeable assets;
+            Futures/Staking/Prediction are BI2XUSD-only pools — see each
+            area's own backend schema). Never summed into a page-wide total
+            either (see futuresBalance's comment above for why). A row
+            showing "—" means that asset/area couldn't be loaded just now
+            (e.g. the engine briefly unreachable for Futures), not that
+            it's genuinely zero. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+          <AreaCard
+            label="Spot"
+            icon={Wallet}
+            rows={[
+              { asset: "BI2X", value: formatTokenAmount(dbBalances.BI2X) },
+              { asset: "BI2XUSD", value: formatTokenAmount(dbBalances.BI2XUSD) },
+              { asset: "USDC", value: formatTokenAmount(dbBalances.USDC) },
+              { asset: "USDT", value: formatTokenAmount(dbBalances.USDT) },
+            ]}
+          />
+          <AreaCard
+            label="Futures"
+            icon={Wallet}
+            rows={[{ asset: "BI2XUSD", value: futuresBalance ? formatTokenAmount(futuresBalance.total) : null }]}
+          />
+          <AreaCard
+            label="Staking"
+            icon={Wallet}
+            rows={[{ asset: "BI2XUSD", value: stakingBalance ? formatTokenAmount(stakingBalance.total) : null }]}
+          />
+          <AreaCard
+            label="Prediction"
+            icon={Wallet}
+            rows={[{ asset: "BI2XUSD", value: predictionBalance ? formatTokenAmount(predictionBalance.total) : null }]}
+          />
           <AreaCard
             label="P2P"
-            sub="BI2XUSD P2P wallet"
-            value={p2pBalances ? formatTokenAmount(Number(formatBI2XUSDAmount(p2pBalances.find((b) => b.asset === "BI2XUSD")?.totalRaw ?? "0"))) : null}
             icon={Wallet}
+            rows={[
+              { asset: "BI2XUSD", value: p2pAmountFor("BI2XUSD") !== null ? formatTokenAmount(p2pAmountFor("BI2XUSD")!) : null },
+              { asset: "USDC", value: p2pAmountFor("USDC") !== null ? formatTokenAmount(p2pAmountFor("USDC")!) : null },
+              { asset: "USDT", value: p2pAmountFor("USDT") !== null ? formatTokenAmount(p2pAmountFor("USDT")!) : null },
+            ]}
           />
-        </div>
-
-        {/* Spot also holds USDC/USDT separately (not combined with BI2XUSD
-            above — see the same "don't sum unlike assets" reasoning) since
-            a real on-chain deposit briefly lands in one of those before the
-            chain listener converts it to BI2XUSD (see useWallet.ts). */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Spot available balance" icon={DollarSign} />
-          <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Spot available balance" icon={DollarSign} />
         </div>
 
         <EquityChart points={equityPoints} pnl={totalPnl} winRate={tradeStats.winRate} avgTrade={tradeStats.avgTrade} />
@@ -363,33 +392,29 @@ function formatTokenAmount(value: number) {
 // "—"), distinct from a loaded "0" — see the comment on futuresBalance
 // above for why this distinction matters (an area genuinely at zero reads
 // differently from one this page simply couldn't fetch).
-function AreaCard({ label, sub, value, icon: Icon }: { label: string; sub: string; value: string | null; icon: LucideIcon }) {
+// rows: one line per asset this area actually holds (Spot/P2P list several
+// non-interchangeable assets; Futures/Staking/Prediction are BI2XUSD-only
+// pools and pass a single-item array) — see the call site's comment for
+// why this replaced a single collapsed/summed number. A row's value is
+// null when that asset/area couldn't be loaded right now, shown as "—",
+// distinct from a loaded "0".
+function AreaCard({ label, icon: Icon, rows }: { label: string; icon: LucideIcon; rows: { asset: string; value: string | null }[] }) {
   return (
     <div className="glass rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
         <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted/30">
           <Icon className="h-3.5 w-3.5 text-primary" />
         </div>
       </div>
-      <div className="text-xl font-bold font-mono">{value ?? "—"}</div>
-      <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, sub, icon: Icon, tone, highlight }: { label: string; value: string; sub?: string; icon: any; tone?: "buy" | "sell"; highlight?: boolean }) {
-  return (
-    <div className={cn("glass rounded-xl p-4 relative overflow-hidden", highlight && "border border-primary/30")}>
-      {highlight && <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />}
-      <div className="relative flex items-center justify-between mb-2">
-        <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
-        <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center", highlight ? "bg-primary/20" : "bg-muted/30")}>
-          <Icon className={cn("h-3.5 w-3.5", tone === "buy" ? "text-buy" : tone === "sell" ? "text-sell" : "text-primary")} />
-        </div>
+      <div className="space-y-1.5">
+        {rows.map((r) => (
+          <div key={r.asset} className="flex items-baseline justify-between">
+            <span className="text-xs text-muted-foreground">{r.asset}</span>
+            <span className="text-sm font-bold font-mono">{r.value ?? "—"}</span>
+          </div>
+        ))}
       </div>
-      <div className={cn("relative text-xl font-bold font-mono", tone === "buy" && "text-buy", tone === "sell" && "text-sell", highlight && "gradient-text")}>{value}</div>
-      {sub && <div className="relative text-[10px] text-muted-foreground mt-0.5">{sub}</div>}
     </div>
   );
 }
