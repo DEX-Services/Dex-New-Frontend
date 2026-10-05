@@ -2,7 +2,7 @@ import { AppShell } from "@/components/AppShell";
 import { Link } from "react-router-dom";
 import { useMarkets } from "@/lib/useMarkets";
 import { formatPrice } from "@/lib/mockData";
-import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers } from "lucide-react";
+import { Wallet, PieChart, ArrowDownToLine, ArrowUpFromLine, History, DollarSign, BarChart3, Layers, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMemo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { TransferDialog } from "@/components/wallet/TransferDialog";
 import { wallet, useWallet } from "@/lib/useWallet";
 import { useAccount } from "@/lib/account";
 import { getPositions, getPnlHistory, FuturesPositionDTO, RealizedPnlDTO } from "@/lib/apiClient";
+import { getP2PWallet, formatBI2XUSDAmount, type P2PWalletBalance } from "@/lib/p2pApi";
 import { frontendSymbolFor } from "@/lib/backendMarkets";
 import { resolveMarkPrice } from "@/components/trade/PositionsPanel";
 import { useFuturesTickers } from "@/lib/useFuturesTickers";
@@ -32,8 +33,27 @@ const Portfolio = () => {
   const [transferMode, setTransferMode] = useState<"deposit" | "withdraw">("deposit");
   const [futuresPositions, setFuturesPositions] = useState<FuturesPositionDTO[]>([]);
   const [realizedPnl, setRealizedPnl] = useState<RealizedPnlDTO[]>([]);
+  const [p2pBalances, setP2pBalances] = useState<P2PWalletBalance[] | null>(null);
 
   const openTransfer = (m: "deposit" | "withdraw") => { setTransferMode(m); setTransferOpen(true); };
+
+  // Real P2P wallet balance(s) — P2P is its own funding pool (same as
+  // Spot/Futures/Staking/Prediction, see areaBreakdown below), separate
+  // from the main wallet's balances, so it needs its own fetch. null
+  // (distinct from []) means "not loaded yet / failed", same "unknown vs
+  // genuinely zero" distinction areaBreakdown already uses for the
+  // engine-backed areas.
+  useEffect(() => {
+    if (!walletState.connected) {
+      setP2pBalances(null);
+      return;
+    }
+    let cancelled = false;
+    getP2PWallet()
+      .then((r) => { if (!cancelled) setP2pBalances(r.balances ?? (r.balance ? [r.balance] : [])); })
+      .catch(() => { if (!cancelled) setP2pBalances(null); });
+    return () => { cancelled = true; };
+  }, [walletState.connected]);
 
   // Real realized-PnL event log (same endpoint the dedicated PnL page uses)
   // — this is what the Equity Curve and Win Rate/Avg Trade stats below are
@@ -185,40 +205,22 @@ const Portfolio = () => {
       }));
   }, [spotHoldings, positions]);
 
-  // Real per-area wallet breakdown (Phase 6 of
-  // ~/.claude/plans/wallet-separation.md) — replaces the old fabricated
-  // FROZEN_AMOUNT bucket list. Spot's own total (holdings' locked/reserved
-  // across every asset, valued at 1:1 since these are all BI2XUSD-
-  // denominated raw figures from the wallet, not priced holdings) is
-  // included alongside Futures/Staking/Prediction so the card reads as one
-  // consistent "where is my money" view instead of mixing a priced-holdings
-  // figure with raw wallet totals.
-  const areaBreakdown = useMemo(() => {
-    const spotTotal = walletState.balances.reduce((sum, b) => sum + b.amount, 0);
-    const areas = walletState.balancesByArea;
-    return [
-      { area: "Spot", total: spotTotal, known: true },
-      { area: "Futures", total: areas.FUTURES?.total ?? 0, known: areas.FUTURES !== undefined },
-      { area: "Staking", total: areas.STAKING?.total ?? 0, known: areas.STAKING !== undefined },
-      { area: "Prediction", total: areas.PREDICTION?.total ?? 0, known: areas.PREDICTION !== undefined },
-    ];
-  }, [walletState.balances, walletState.balancesByArea]);
-  const totalAcrossAreas = areaBreakdown.reduce((sum, a) => sum + (a.known ? a.total : 0), 0);
+  // Per-area balances, each shown in its OWN section below — deliberately
+  // NOT summed into one grand total: Spot alone holds several different
+  // assets (BI2XUSD, USDC, USDT, BTC, ...) that aren't interchangeable 1:1,
+  // so "Spot + Futures + Staking + ..." was always an apples-to-oranges
+  // number that looked precise but meant nothing (per explicit product
+  // decision — no combined total anywhere on this page).
+  const futuresBalance = walletState.balancesByArea.FUTURES; // undefined = not loaded yet
+  const stakingBalance = walletState.balancesByArea.STAKING;
+  const predictionBalance = walletState.balancesByArea.PREDICTION;
 
   const dbBalances = useMemo(() => {
     const amountFor = (asset: string) => walletState.balances.find((balance) => balance.asset === asset)?.available ?? 0;
-    // BI2XUSD is the tradable balance every market actually settles in; USDC/
-    // USDT are shown too since a real deposit briefly exists in one of
-    // those before the chain listener converts it to BI2XUSD (see useWallet.ts).
-    const bi2xusd = amountFor("BI2XUSD");
-    const usdc = amountFor("USDC");
-    const usdt = amountFor("USDT");
-
     return {
-      totalFunds: bi2xusd + usdc + usdt,
-      BI2XUSD: bi2xusd,
-      USDC: usdc,
-      USDT: usdt,
+      BI2XUSD: amountFor("BI2XUSD"),
+      USDC: amountFor("USDC"),
+      USDT: amountFor("USDT"),
     };
   }, [walletState.balances]);
 
@@ -250,32 +252,32 @@ const Portfolio = () => {
           </div>
         </div>
 
-        {/* Key stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard label="Total Funds" value={formatTokenAmount(dbBalances.totalFunds)} sub="BI2XUSD + USDC + USDT" icon={DollarSign} highlight />
-          <StatCard label="BI2XUSD" value={formatTokenAmount(dbBalances.BI2XUSD)} sub="Tradable Balance" icon={Wallet} />
-          <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Available Balance" icon={Wallet} />
-          <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Available Balance" icon={Wallet} />
+        {/* Per-area balances — Spot/Futures/Staking/Prediction/P2P, each its
+            own funding pool with its own section, never summed into one
+            total (see the comment on futuresBalance above for why). A
+            section showing "—" means that area couldn't be loaded just now
+            (e.g. the engine briefly unreachable for Futures), not that it's
+            genuinely zero. */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+          <AreaCard label="Spot" sub="BI2XUSD tradable balance" value={formatTokenAmount(dbBalances.BI2XUSD)} icon={Wallet} />
+          <AreaCard label="Futures" sub="BI2XUSD margin balance" value={futuresBalance ? formatTokenAmount(futuresBalance.total) : null} icon={Wallet} />
+          <AreaCard label="Staking" sub="BI2XUSD staked + available" value={stakingBalance ? formatTokenAmount(stakingBalance.total) : null} icon={Wallet} />
+          <AreaCard label="Prediction" sub="BI2XUSD prediction balance" value={predictionBalance ? formatTokenAmount(predictionBalance.total) : null} icon={Wallet} />
+          <AreaCard
+            label="P2P"
+            sub="BI2XUSD P2P wallet"
+            value={p2pBalances ? formatTokenAmount(Number(formatBI2XUSDAmount(p2pBalances.find((b) => b.asset === "BI2XUSD")?.totalRaw ?? "0"))) : null}
+            icon={Wallet}
+          />
         </div>
 
-        {/* Per-area wallet breakdown — Spot/Futures/Staking/Prediction, each
-            its own funding pool (Phase 6 of
-            ~/.claude/plans/wallet-separation.md). An area showing "—"
-            means it couldn't be loaded just now (e.g. the engine briefly
-            unreachable for Futures), not that it's genuinely zero. */}
-        <div className="glass rounded-xl p-4 border border-primary/25">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Wallet Areas</h3>
-            <span className="text-xs text-muted-foreground">Total: <span className="font-mono text-foreground">{formatTokenAmount(totalAcrossAreas)}</span></span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {areaBreakdown.map((item) => (
-              <div key={item.area} className="glass rounded-lg p-2.5">
-                <div className="text-[10px] text-muted-foreground">{item.area}</div>
-                <div className="font-mono font-bold text-sm mt-0.5">{item.known ? formatTokenAmount(item.total) : "—"}</div>
-              </div>
-            ))}
-          </div>
+        {/* Spot also holds USDC/USDT separately (not combined with BI2XUSD
+            above — see the same "don't sum unlike assets" reasoning) since
+            a real on-chain deposit briefly lands in one of those before the
+            chain listener converts it to BI2XUSD (see useWallet.ts). */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <StatCard label="USDC" value={formatTokenAmount(dbBalances.USDC)} sub="Spot available balance" icon={DollarSign} />
+          <StatCard label="USDT" value={formatTokenAmount(dbBalances.USDT)} sub="Spot available balance" icon={DollarSign} />
         </div>
 
         <EquityChart points={equityPoints} pnl={totalPnl} winRate={tradeStats.winRate} avgTrade={tradeStats.avgTrade} />
@@ -355,6 +357,25 @@ function formatTokenAmount(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: value >= 1 ? 2 : 6,
   });
+}
+
+// value: null means "not loaded yet / unreachable right now" (shown as
+// "—"), distinct from a loaded "0" — see the comment on futuresBalance
+// above for why this distinction matters (an area genuinely at zero reads
+// differently from one this page simply couldn't fetch).
+function AreaCard({ label, sub, value, icon: Icon }: { label: string; sub: string; value: string | null; icon: LucideIcon }) {
+  return (
+    <div className="glass rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</span>
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted/30">
+          <Icon className="h-3.5 w-3.5 text-primary" />
+        </div>
+      </div>
+      <div className="text-xl font-bold font-mono">{value ?? "—"}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{sub}</div>
+    </div>
+  );
 }
 
 function StatCard({ label, value, sub, icon: Icon, tone, highlight }: { label: string; value: string; sub?: string; icon: any; tone?: "buy" | "sell"; highlight?: boolean }) {
