@@ -524,6 +524,12 @@ const transferIdempotencyKey = () =>
 export type WalletTransferResult = { transfer: unknown };
 
 // Direct Spot<->Futures transfer, BI2XUSD only, via the engine's own ledger.
+// `amount` is a human-decimal string (e.g. "71" or "71.5"), NOT raw units —
+// unlike every fund/unfund wallet-area endpoint below, which take
+// amountRaw. The engine's /internal/transfer parses this with Go's
+// fixedpoint.FromString, not as a raw integer, so passing a raw-unit
+// string here (e.g. from parseBI2XUSDAmount) would be read as an amount
+// 1,000,000x too large.
 export function walletTransfer(fromMarket: "SPOT" | "FUTURES", toMarket: "SPOT" | "FUTURES", amount: string) {
   return tradeReq<WalletTransferResult>("/wallet/transfer", {
     method: "POST",

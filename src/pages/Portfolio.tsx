@@ -572,7 +572,15 @@ const TRANSFER_AREA_ASSETS: Record<TransferArea, string[]> = {
 // three assets.
 async function moveToSpot(area: TransferArea, asset: string, amountRaw: string) {
   if (area === "SPOT") return;
-  if (area === "FUTURES") { await walletTransfer("FUTURES", "SPOT", amountRaw); return; }
+  // walletTransfer (POST /wallet/transfer) is the one call here that takes
+  // a human-decimal amount, not raw units — the engine's /internal/transfer
+  // parses it with fixedpoint.FromString, not as a raw integer string like
+  // every fund/unfund endpoint below expects. Converting here, right at
+  // the call site, keeps every other function in this file working in raw
+  // units throughout (matching what parseBI2XUSDAmount produced and what
+  // the "Available" shortcut displays) without a second amount-unit
+  // convention leaking any further than this one engine call needs it to.
+  if (area === "FUTURES") { await walletTransfer("FUTURES", "SPOT", formatBI2XUSDAmount(amountRaw)); return; }
   if (area === "STAKING") { await unfundStakingWallet(amountRaw); return; }
   if (area === "PREDICTION") { await unfundPredictionWallet(amountRaw); return; }
   if (area === "P2P") { await unfundP2PWallet(asset as "BI2XUSD" | "USDC" | "USDT", amountRaw); return; }
@@ -582,7 +590,7 @@ async function moveToSpot(area: TransferArea, asset: string, amountRaw: string) 
 // intermediate hop).
 async function moveFromSpot(area: TransferArea, asset: string, amountRaw: string) {
   if (area === "SPOT") return;
-  if (area === "FUTURES") { await walletTransfer("SPOT", "FUTURES", amountRaw); return; }
+  if (area === "FUTURES") { await walletTransfer("SPOT", "FUTURES", formatBI2XUSDAmount(amountRaw)); return; }
   if (area === "STAKING") { await fundStakingWallet(amountRaw); return; }
   if (area === "PREDICTION") { await fundPredictionWallet(amountRaw); return; }
   if (area === "P2P") { await fundP2PWallet(asset as "BI2XUSD" | "USDC" | "USDT", amountRaw); return; }
