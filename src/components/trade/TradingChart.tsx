@@ -474,7 +474,7 @@ function MaximizedChartOverlay({
         <ChartGrid symbol={symbol} />
 
         {canTrade && (
-          <div className="absolute bottom-6 right-6 z-10 flex flex-col items-end gap-2">
+          <div className="absolute bottom-16 right-8 z-10 flex flex-col items-end gap-2">
             {openSide && (
               <div className="glass-strong rounded-xl border border-border/50 shadow-xl w-[320px] max-h-[70vh] overflow-y-auto mb-1">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
