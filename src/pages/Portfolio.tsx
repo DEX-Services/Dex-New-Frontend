@@ -312,7 +312,7 @@ const Portfolio = () => {
           <AreaCard
             label="Staking"
             icon={Wallet}
-            rows={[{ asset: "BI2XUSD", value: stakingBalance ? formatTokenAmount(stakingBalance.total) : null }]}
+            rows={[{ asset: "BI2X", value: stakingBalance ? formatTokenAmount(stakingBalance.total) : null }]}
           />
           <AreaCard
             label="Prediction"
@@ -539,13 +539,15 @@ function EquityChart({ points, pnl, winRate, avgTrade }: { points: number[]; pnl
 //     funds stranded in Spot from a transfer that only half-completed.
 //
 // Each area exposes only the assets it actually holds (TRANSFER_AREA_ASSETS
-// below) — Spot and P2P list three (BI2X/BI2XUSD/USDC/USDT, minus BI2X
-// which only exists in Spot; USDC/USDT in P2P), Futures/Staking/Prediction
-// are BI2XUSD-only pools and list just the one. Choosing an asset not held
-// by BOTH the From and To area only works when one side is Spot or P2P
-// (the two multi-asset areas) and the asset is USDC/USDT/BI2X — those can
-// only ever move Spot<->P2P or stay within Spot, since Futures/Staking/
-// Prediction have no concept of them at all.
+// below) — Spot and P2P list several (BI2X/BI2XUSD/USDC/USDT, minus BI2X
+// which only exists in Spot; USDC/USDT in P2P). Futures and Prediction are
+// BI2XUSD-only pools; Staking is BI2X-only (it stakes BI2X itself, not a
+// cash balance — see FundStakingWalletAsset's debitBalanceTx call on the
+// backend). Choosing an asset not held by BOTH the From and To area only
+// works when one side is Spot or P2P (the two multi-asset areas) — those
+// can only ever move Spot<->P2P or stay within Spot, since Futures/
+// Prediction have no concept of BI2X/USDC/USDT and Staking has no concept
+// of BI2XUSD/USDC/USDT at all.
 type TransferArea = "SPOT" | "FUTURES" | "STAKING" | "PREDICTION" | "P2P";
 const TRANSFER_AREAS: { value: TransferArea; label: string }[] = [
   { value: "SPOT", label: "Spot" },
@@ -557,16 +559,17 @@ const TRANSFER_AREAS: { value: TransferArea; label: string }[] = [
 const TRANSFER_AREA_ASSETS: Record<TransferArea, string[]> = {
   SPOT: ["BI2X", "BI2XUSD", "USDC", "USDT"],
   FUTURES: ["BI2XUSD"],
-  STAKING: ["BI2XUSD"],
+  STAKING: ["BI2X"],
   PREDICTION: ["BI2XUSD"],
   P2P: ["BI2XUSD", "USDC", "USDT"],
 };
 
 // Moves `amountRaw` of `asset` OUT of `area` into Spot (the shared
-// intermediate hop). Only BI2XUSD can leave Futures/Staking/Prediction —
-// callers only ever reach those branches with asset==="BI2XUSD" (enforced
-// by the asset selector), and P2P's unfund call is asset-aware since P2P
-// itself holds all three assets.
+// intermediate hop). Futures/Prediction only ever reach this with
+// asset==="BI2XUSD" and Staking only with asset==="BI2X" (enforced by the
+// asset selector, which only ever offers the one asset each of those pools
+// holds); P2P's unfund call is asset-aware since P2P itself holds all
+// three assets.
 async function moveToSpot(area: TransferArea, asset: string, amountRaw: string) {
   if (area === "SPOT") return;
   if (area === "FUTURES") { await walletTransfer("FUTURES", "SPOT", amountRaw); return; }

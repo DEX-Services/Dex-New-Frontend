@@ -180,13 +180,17 @@ async function syncBalancesWithBackend() {
 }
 
 // syncBalancesByAreaWithBackend fetches the non-Spot areas (Futures/
-// Staking/Prediction) in one call — Phase 6. Each area's raw-unit strings
-// decode with BI2XUSD's own 6-decimal scale (ASSET_DECIMALS.BI2XUSD), since
-// all three are single-asset BI2XUSD pools (see their own schema doc
-// comments on the backend). A missing key in the response (that area
-// couldn't be loaded server-side) is left absent here too, rather than
-// defaulted to zero, preserving the "unknown vs. zero" distinction for
-// consumers.
+// Staking/Prediction) in one call — Phase 6. Each area is a single-asset
+// pool (Futures/Prediction: BI2XUSD; Staking: BI2X — it stakes BI2X itself,
+// not a cash balance), but every supported asset shares the same 6-decimal
+// raw-unit scale (see ASSET_DECIMALS above), so reusing
+// ASSET_DECIMALS.BI2XUSD here decodes all three correctly regardless of
+// which asset a given area actually holds — callers just need to know
+// which asset a given area's figure is denominated in when labeling it
+// (see e.g. Portfolio.tsx's AreaCard rows). A missing key in the response
+// (that area couldn't be loaded server-side) is left absent here too,
+// rather than defaulted to zero, preserving the "unknown vs. zero"
+// distinction for consumers.
 async function syncBalancesByAreaWithBackend() {
   const response = await getBalancesByArea();
   const balancesByArea: WalletState["balancesByArea"] = {};
