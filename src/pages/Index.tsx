@@ -1103,7 +1103,14 @@ const Index = () => {
             onSelectOption={setSelectedOption}
           />
         ) : (
-          <TradingChart symbol={symbol} price={price} />
+          <TradingChart
+            symbol={symbol}
+            price={price}
+            mode={tradeMode}
+            onModeChange={handleTradeModeChange}
+            selectedOption={selectedOption}
+            orders={orders}
+          />
         );
       case "positions":
         return <PositionsPanel markets={markets} account={account} orders={orders} />;
@@ -1237,7 +1244,14 @@ const Index = () => {
                       onSelectOption={setSelectedOption}
                     />
                   ) : (
-                    <TradingChart symbol={symbol} price={price} />
+                    <TradingChart
+                      symbol={symbol}
+                      price={price}
+                      mode={tradeMode}
+                      onModeChange={handleTradeModeChange}
+                      selectedOption={selectedOption}
+                      orders={orders}
+                    />
                   )}
                 </div>
               )}

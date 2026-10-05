@@ -16,7 +16,7 @@ import { useWallet } from "@/lib/useWallet";
 import { useMarketMetadata } from "@/lib/useMarketMetadata";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-type Side = "buy" | "sell";
+export type Side = "buy" | "sell";
 type OrderType = "market" | "limit";
 export type MarketMode = "spot" | "futures" | "options";
 type MarginMode = "isolated" | "cross";
@@ -36,6 +36,7 @@ export function TradePanel({
   mode: controlledMode,
   onModeChange,
   orders,
+  initialSide,
 }: {
   symbol: string;
   price: number;
@@ -47,6 +48,12 @@ export function TradePanel({
   mode?: MarketMode;
   onModeChange?: (mode: MarketMode) => void;
   orders: ReturnType<typeof useOrders>;
+  // Preselects the Buy/Sell toggle on first render — used by the chart's
+  // floating Buy/Sell button (TradingChart.tsx) so tapping "Sell" there
+  // opens this same panel already on the sell side instead of always
+  // defaulting to buy. Uncontrolled after mount (the user can still freely
+  // switch sides); only read once via useState's initializer.
+  initialSide?: Side;
 }) {
   const baseAsset = symbol.split("-")[0] || "BTC";
   const backendMarket = backendMarketFor(symbol);
@@ -60,7 +67,7 @@ export function TradePanel({
   const [uncontrolledMode, setUncontrolledMode] = useState<MarketMode>("spot");
   const mode = controlledMode ?? uncontrolledMode;
   const setMode = setUncontrolledMode;
-  const [side, setSide] = useState<Side>("buy");
+  const [side, setSide] = useState<Side>(initialSide ?? "buy");
   const isSpotSell = mode === "spot" && side === "sell";
   const isSpotBuy = mode === "spot" && side === "buy";
   const isOptions = mode === "options";
