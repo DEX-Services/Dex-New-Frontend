@@ -172,54 +172,44 @@ export default function Profile() {
   return (
     <AppShell>
       <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
-        {/* Hero header — gradient banner + avatar overlapping it, same
-            "banner behind a raised avatar" pattern as most profile pages,
-            instead of a flat bordered box. */}
-        <div className="glass-strong rounded-2xl border border-border/40">
-          <div className="h-20 sm:h-24 bg-gradient-primary relative rounded-t-2xl overflow-hidden">
-            <div className="absolute inset-0 bg-black/10" />
+        {/* Header — flat glass card, no banner. (A gradient banner with the
+            avatar overlapping it kept clipping the avatar regardless of how
+            the overlap was built — a plain non-overlapping layout avoids
+            that whole class of problem.) */}
+        <div className="glass-strong rounded-2xl border border-border/40 p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-gradient-primary flex items-center justify-center text-xl sm:text-2xl font-bold text-primary-foreground shadow-glow-primary shrink-0">
+              {avatarInitials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
+              {p2pProfile?.username && w.connected && (
+                <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                  <WalletCards className="h-3.5 w-3.5 shrink-0" /> {shortAddress(w.address)}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={openEditUsername} disabled={!w.connected}>
+                <Edit className="h-3.5 w-3.5 mr-1.5" /> {p2pProfile?.username ? "Edit profile" : "Set username"}
+              </Button>
+              <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={() => setPaymentOpen(true)} disabled={!w.connected}>
+                <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payment Methods
+              </Button>
+            </div>
           </div>
-          <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-            {/* Avatar is pulled onto the banner via a fixed negative
-                margin-top applied to this wrapper alone (not the row it's
-                part of) — padding-top on the row below compensates so the
-                row's own content (name/buttons) doesn't ride up with it. */}
-            <div className="-mt-10 sm:-mt-12 mb-3 inline-block">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-primary flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary-foreground shadow-glow-primary ring-4 ring-background">
-                {avatarInitials}
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
-                {p2pProfile?.username && w.connected && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                    <WalletCards className="h-3.5 w-3.5 shrink-0" /> {shortAddress(w.address)}
-                  </div>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={openEditUsername} disabled={!w.connected}>
-                  <Edit className="h-3.5 w-3.5 mr-1.5" /> {p2pProfile?.username ? "Edit profile" : "Set username"}
-                </Button>
-                <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={() => setPaymentOpen(true)} disabled={!w.connected}>
-                  <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payment Methods
-                </Button>
-              </div>
-            </div>
-            {memberSince && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-primary/15 text-primary border border-primary/30">
-                  <Calendar className="h-3 w-3" /> Member since {memberSince}
+          {memberSince && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-primary/15 text-primary border border-primary/30">
+                <Calendar className="h-3 w-3" /> Member since {memberSince}
+              </span>
+              {user?.walletType && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted/40 text-muted-foreground border border-border/50">
+                  <WalletCards className="h-3 w-3" /> {user.walletType}
                 </span>
-                {user?.walletType && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted/40 text-muted-foreground border border-border/50">
-                    <WalletCards className="h-3 w-3" /> {user.walletType}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Account — three small stat tiles instead of a cramped Row list,
