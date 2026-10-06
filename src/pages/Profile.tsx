@@ -9,7 +9,8 @@ import {
   getP2PProfile, establishP2PUsername, getP2PPaymentAccounts, saveP2PPaymentAccount,
   P2P_PAYMENT_METHODS, type P2PPaymentMethod, type P2PPaymentAccount, type P2PProfile,
 } from "@/lib/p2pApi";
-import { Calendar, Edit, FileDown, CreditCard, Smartphone, Plus, WalletCards, Landmark, ShieldCheck } from "lucide-react";
+import { Calendar, Edit, FileDown, CreditCard, Smartphone, Plus, WalletCards, Landmark, ShieldCheck, User, Wallet, Fingerprint } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type ReportRange = "7D" | "30D" | "90D" | "1Y";
@@ -170,56 +171,83 @@ export default function Profile() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
-        <div className="glass-strong rounded-2xl p-6 border border-primary/20 flex flex-col md:flex-row gap-5 items-center md:items-start">
-          <div className="h-20 w-20 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold text-primary-foreground shadow-glow-primary">
-            {avatarInitials}
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
+        {/* Hero header — gradient banner + avatar overlapping it, same
+            "banner behind a raised avatar" pattern as most profile pages,
+            instead of a flat bordered box. */}
+        <div className="glass-strong rounded-2xl overflow-hidden border border-border/40">
+          <div className="h-24 sm:h-28 bg-gradient-primary relative">
+            <div className="absolute inset-0 bg-black/10" />
           </div>
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl font-bold">{displayName}</h1>
-            {p2pProfile?.username && w.connected && (
-              <div className="text-sm text-muted-foreground flex items-center gap-2 justify-center md:justify-start mt-1">
-                <WalletCards className="h-3 w-3" /> {shortAddress(w.address)}
+          <div className="px-5 sm:px-6 pb-5 sm:pb-6">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10 sm:-mt-12">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-primary flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary-foreground shadow-glow-primary ring-4 ring-background shrink-0">
+                {avatarInitials}
               </div>
-            )}
+              <div className="flex-1 min-w-0 pb-1">
+                <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
+                {p2pProfile?.username && w.connected && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                    <WalletCards className="h-3.5 w-3.5 shrink-0" /> {shortAddress(w.address)}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 sm:pb-1">
+                <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={openEditUsername} disabled={!w.connected}>
+                  <Edit className="h-3.5 w-3.5 mr-1.5" /> {p2pProfile?.username ? "Edit profile" : "Set username"}
+                </Button>
+                <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={() => setPaymentOpen(true)} disabled={!w.connected}>
+                  <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payment Methods
+                </Button>
+              </div>
+            </div>
             {memberSince && (
-              <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] bg-primary/15 text-primary border border-primary/30">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-primary/15 text-primary border border-primary/30">
                   <Calendar className="h-3 w-3" /> Member since {memberSince}
                 </span>
+                {user?.walletType && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted/40 text-muted-foreground border border-border/50">
+                    <WalletCards className="h-3 w-3" /> {user.walletType}
+                  </span>
+                )}
               </div>
             )}
-          </div>
-          <div className="flex w-full flex-col gap-3 md:w-auto">
-            <Button variant="outline" className="glass w-full md:w-auto" onClick={openEditUsername} disabled={!w.connected}>
-              <Edit className="h-3.5 w-3.5 mr-1.5" /> {p2pProfile?.username ? "Edit profile" : "Set username"}
-            </Button>
-            <Button variant="outline" className="glass w-full md:w-auto" onClick={() => setPaymentOpen(true)} disabled={!w.connected}>
-              <CreditCard className="h-3.5 w-3.5 mr-1.5" /> Payment Methods
-            </Button>
           </div>
         </div>
 
-        <div className="glass rounded-xl p-5 max-w-md">
-          <h3 className="font-bold mb-3">Account</h3>
-          <Row k="P2P Username" v={p2pProfile?.username || "Not set"} />
-          <Row k="Wallet" v={w.connected ? shortAddress(w.address) : "Not connected"} />
-          <Row k="Wallet Type" v={user?.walletType || "—"} />
+        {/* Account — three small stat tiles instead of a cramped Row list,
+            each with its own icon chip (same AreaCard-style pattern used on
+            Portfolio.tsx). */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatTile icon={User} label="P2P Username" value={p2pProfile?.username || "Not set"} accentClass="text-primary bg-primary/10" />
+          <StatTile icon={Wallet} label="Wallet" value={w.connected ? shortAddress(w.address) : "Not connected"} accentClass="text-buy bg-buy/10" />
+          <StatTile icon={Fingerprint} label="Wallet Type" value={user?.walletType || "—"} accentClass="text-violet-500 bg-violet-500/10" />
         </div>
 
         <div className="glass rounded-xl p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <h3 className="font-bold">Payment Methods</h3>
-              <p className="text-xs text-muted-foreground mt-1">Manage local payment options for P2P trades.</p>
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+                <CreditCard className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm">Payment Methods</h3>
+                <p className="text-xs text-muted-foreground">Manage local payment options for P2P trades.</p>
+              </div>
             </div>
+            {paymentAccounts && paymentAccounts.length > 0 && (
+              <Button size="sm" variant="outline" className="glass shrink-0" onClick={openAddPayment}>
+                <Plus className="h-3.5 w-3.5 mr-1" /> Add
+              </Button>
+            )}
           </div>
           {!w.connected ? (
-            <div className="text-center text-xs text-muted-foreground py-6">Connect your wallet to manage payment methods.</div>
+            <EmptyState icon={WalletCards} text="Connect your wallet to manage payment methods." />
           ) : paymentAccounts === null ? (
-            <div className="text-center text-xs text-muted-foreground py-6">Loading…</div>
+            <EmptyState icon={CreditCard} text="Loading…" />
           ) : paymentAccounts.length === 0 ? (
-            <div className="text-center text-xs text-muted-foreground py-6">No payment methods saved yet.</div>
+            <EmptyState icon={CreditCard} text="No payment methods saved yet." action={{ label: "Add Payment Method", onClick: openAddPayment }} />
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
               {paymentAccounts.map((account) => (
@@ -230,12 +258,17 @@ export default function Profile() {
         </div>
 
         <div className="glass-strong rounded-xl p-5 border border-primary/20">
-          <h3 className="font-bold mb-4">Generate Report</h3>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 text-primary">
+              <FileDown className="h-4 w-4" />
+            </div>
+            <h3 className="font-bold text-sm">Generate Report</h3>
+          </div>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-3">
             <p className="text-sm text-muted-foreground flex-1">
               Choose report type and timeframe before downloading.
             </p>
-            <Button onClick={() => setReportOpen(true)} className="sm:ml-auto bg-gradient-primary text-primary-foreground">
+            <Button onClick={() => setReportOpen(true)} className="sm:ml-auto bg-gradient-primary text-primary-foreground w-full sm:w-auto">
               <FileDown className="h-3.5 w-3.5 mr-1.5" /> Generate Report
             </Button>
           </div>
@@ -453,14 +486,56 @@ export default function Profile() {
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+function StatTile({
+  icon: Icon, label, value, accentClass,
+}: {
+  icon: typeof User;
+  label: string;
+  value: string;
+  accentClass: string;
+}) {
   return (
-    <div className="flex justify-between text-sm py-2 border-b border-border/30 last:border-0">
-      <span className="text-muted-foreground">{k}</span>
-      <span className="font-medium">{v}</span>
+    <div className="glass rounded-xl p-4 flex items-center gap-3">
+      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", accentClass)}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+        <div className="font-semibold text-sm truncate">{value}</div>
+      </div>
     </div>
   );
 }
+
+function EmptyState({
+  icon: Icon, text, action,
+}: {
+  icon: typeof User;
+  text: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="text-center py-8">
+      <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-muted/40 text-muted-foreground">
+        <Icon className="h-5 w-5" />
+      </div>
+      <p className="text-xs text-muted-foreground">{text}</p>
+      {action && (
+        <Button size="sm" variant="outline" className="glass mt-3" onClick={action.onClick}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> {action.label}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+const PAYMENT_METHOD_STYLE: Record<string, string> = {
+  UPI: "text-cyan-500 bg-cyan-500/10",
+  "Bank Transfer": "text-primary bg-primary/10",
+  NEFT: "text-amber-500 bg-amber-500/10",
+  IMPS: "text-buy bg-buy/10",
+  MPESN: "text-violet-500 bg-violet-500/10",
+};
 
 function PaymentMethodCard({
   account,
@@ -470,11 +545,12 @@ function PaymentMethodCard({
   detailed?: boolean;
 }) {
   const Icon = account.method === "UPI" ? Smartphone : Landmark;
+  const accentClass = PAYMENT_METHOD_STYLE[account.method] ?? "text-primary bg-primary/10";
 
   return (
     <div className="relative rounded-xl border border-border/50 bg-muted/20 p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", accentClass)}>
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -486,7 +562,7 @@ function PaymentMethodCard({
           </div>
           <div className="mt-0.5 truncate text-xs text-muted-foreground">{account.accountIdentifier}</div>
           {detailed && (
-            <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2 pt-3 border-t border-border/30">
               <span>Holder: <b className="text-foreground">{account.accountName}</b></span>
               {account.bankName && <span>Bank: <b className="text-foreground">{account.bankName}</b></span>}
               {account.ifscCode && <span>IFSC: <b className="text-foreground">{account.ifscCode}</b></span>}
