@@ -176,15 +176,21 @@ export default function Profile() {
             "banner behind a raised avatar" pattern as most profile pages,
             instead of a flat bordered box. */}
         <div className="glass-strong rounded-2xl border border-border/40">
-          <div className="h-24 sm:h-28 bg-gradient-primary relative rounded-t-2xl overflow-hidden">
+          <div className="h-20 sm:h-24 bg-gradient-primary relative rounded-t-2xl overflow-hidden">
             <div className="absolute inset-0 bg-black/10" />
           </div>
           <div className="px-5 sm:px-6 pb-5 sm:pb-6">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10 sm:-mt-12">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-primary flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary-foreground shadow-glow-primary ring-4 ring-background shrink-0">
+            {/* Avatar is pulled onto the banner via a fixed negative
+                margin-top applied to this wrapper alone (not the row it's
+                part of) — padding-top on the row below compensates so the
+                row's own content (name/buttons) doesn't ride up with it. */}
+            <div className="-mt-10 sm:-mt-12 mb-3 inline-block">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-gradient-primary flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary-foreground shadow-glow-primary ring-4 ring-background">
                 {avatarInitials}
               </div>
-              <div className="flex-1 min-w-0 pb-1">
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex-1 min-w-0">
                 <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
                 {p2pProfile?.username && w.connected && (
                   <div className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
@@ -192,7 +198,7 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-2 sm:pb-1">
+              <div className="flex gap-2">
                 <Button variant="outline" className="glass flex-1 sm:flex-none" onClick={openEditUsername} disabled={!w.connected}>
                   <Edit className="h-3.5 w-3.5 mr-1.5" /> {p2pProfile?.username ? "Edit profile" : "Set username"}
                 </Button>
