@@ -175,8 +175,8 @@ export default function Profile() {
         {/* Hero header — gradient banner + avatar overlapping it, same
             "banner behind a raised avatar" pattern as most profile pages,
             instead of a flat bordered box. */}
-        <div className="glass-strong rounded-2xl overflow-hidden border border-border/40">
-          <div className="h-24 sm:h-28 bg-gradient-primary relative">
+        <div className="glass-strong rounded-2xl border border-border/40">
+          <div className="h-24 sm:h-28 bg-gradient-primary relative rounded-t-2xl overflow-hidden">
             <div className="absolute inset-0 bg-black/10" />
           </div>
           <div className="px-5 sm:px-6 pb-5 sm:pb-6">
