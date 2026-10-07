@@ -2,8 +2,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Coins, Loader2, Lock, TrendingUp, Unlock } from "lucide-react";
-import { wallet } from "@/lib/useWallet";
+import { Coins, LogIn, Loader2, Lock, TrendingUp, Unlock } from "lucide-react";
+import { wallet, useWallet } from "@/lib/useWallet";
 import { getStakingHistory, getStakingPositions, getStakingWallet, redeemStake, stakeBI2X, type StakingEvent, type StakingPosition } from "@/lib/apiClient";
 import { estimateAccruedInterest, estimateCurrentValue, rawToHuman } from "@/lib/stakingMath";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ function formatBI2X(n: number): string {
 }
 
 export default function Staking() {
+  const w = useWallet();
   const [positions, setPositions] = useState<StakingPosition[]>([]);
   const [events, setEvents] = useState<StakingEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +56,13 @@ export default function Staking() {
 
   useEffect(() => {
     document.title = "BI2X Staking | BitDx";
+    if (!w.connected) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     load().finally(() => setLoading(false));
-  }, []);
+  }, [w.connected]);
 
   useEffect(() => {
     if (!positions.some((p) => p.status === "active")) return;
@@ -138,6 +144,13 @@ export default function Staking() {
           </p>
         </div>
 
+        {!w.connected ? (
+          <div className="glass rounded-xl p-10 text-center">
+            <LogIn className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">Connect your wallet to see your staking positions.</p>
+          </div>
+        ) : (
+        <>
         {error && <div className="rounded-lg border border-sell/30 bg-sell/10 px-3 py-2 text-sm text-sell">{error}</div>}
 
         <div className="grid sm:grid-cols-3 gap-3">
@@ -286,6 +299,8 @@ export default function Staking() {
               </table>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </AppShell>
