@@ -3,10 +3,7 @@ import {
   BookOpen,
   Bot,
   ChevronDown,
-  CircleCheck,
   CircleHelp,
-  Clock3,
-  Mail,
   Search,
   ShieldCheck,
   Wallet,
@@ -83,7 +80,7 @@ export default function Support() {
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-6">
           <div className="space-y-6">
             <section>
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -134,25 +131,6 @@ export default function Support() {
               {visibleFaqs.length === 0 && (
                 <div className="p-6 text-center text-sm text-muted-foreground">No FAQs match your search.</div>
               )}
-            </section>
-          </div>
-
-          <div className="space-y-4">
-            <section className="glass rounded-xl p-5">
-              <div className="mb-4 flex items-center gap-2">
-                <CircleCheck className="h-5 w-5 text-buy" />
-                <h3 className="font-bold">All systems operational</h3>
-              </div>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground"><Clock3 className="h-4 w-4" /> Average response</span>
-                  <span className="font-semibold">Under 2 hours</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-muted-foreground"><Mail className="h-4 w-4" /> Email</span>
-                  <span className="font-semibold">support@bitdx.ai</span>
-                </div>
-              </div>
             </section>
           </div>
         </div>
