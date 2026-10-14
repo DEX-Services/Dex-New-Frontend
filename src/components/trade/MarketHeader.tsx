@@ -1,16 +1,14 @@
-import { useState } from "react";
 import { useMarket } from "@/lib/useMarkets";
 import { formatCompact, formatPrice } from "@/lib/mockData";
 import { useIndexPrice } from "@/lib/useIndexPrice";
 import { useLivePrice } from "@/lib/useLivePrice";
 import { useTicker } from "@/lib/useTicker";
 import { backendMarketFor } from "@/lib/backendMarkets";
-import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw, Repeat } from "lucide-react";
+import { TrendingUp, TrendingDown, Bot, Sparkles, Calculator, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { SwapDialog } from "./SwapDialog";
 
 export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onResetLayout }: {
   symbol: string;
@@ -26,7 +24,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   const livePrice = useLivePrice(symbol);
   const backendMarket = backendMarketFor(symbol);
   const ticker = useTicker(backendMarket?.symbol, backendMarket?.market);
-  const [swapOpen, setSwapOpen] = useState(false);
   if (!market) return null;
 
   const executable = !!backendMarket;
@@ -111,16 +108,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setSwapOpen(true)}
-          className={"h-8 text-xs glass border-primary/30 text-primary hover:bg-primary/10 hover:text-primary"}
-          title="Swap tokens"
-        >
-          <Repeat className="h-3.5 w-3.5 mr-1.5" />
-          Swap
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
           disabled
           className="h-8 text-xs glass border-border/40 text-muted-foreground opacity-60 cursor-not-allowed"
           title="AI Agent (coming soon)"
@@ -171,7 +158,6 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
           </Button>
         )}
       </div>
-      <SwapDialog open={swapOpen} onOpenChange={setSwapOpen} />
     </div>
   );
 }
