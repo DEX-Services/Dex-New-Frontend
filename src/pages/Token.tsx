@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
-  Zap, TrendingUp, Users, ExternalLink, Copy,
+  TrendingUp, Users, ExternalLink, Copy,
   Flame, BarChart3, Clock, Activity,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend,
 } from "recharts";
+import { TokenLogo } from "@/components/trade/TokenLogo";
 import { cn } from "@/lib/utils";
 import { getBI2XPrice } from "@/lib/feesApi";
 
@@ -141,9 +142,7 @@ export default function Token() {
         ══════════════════════════════════════════════ */}
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-7 w-7 rounded-lg bg-gradient-primary flex items-center justify-center shadow-glow-primary">
-              <Zap className="h-3.5 w-3.5 text-primary-foreground" strokeWidth={2.5} />
-            </div>
+            <TokenLogo symbol="BI2X" className="h-7 w-7" />
             <h2 className="text-lg font-bold">BI2X Token</h2>
           </div>
 
@@ -153,9 +152,7 @@ export default function Token() {
             {/* Price card */}
             <div className="glass rounded-2xl p-5 border border-primary/20">
               <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow-primary">
-                  <Zap className="h-5 w-5 text-primary-foreground" strokeWidth={2.5} />
-                </div>
+                <TokenLogo symbol="BI2X" className="h-10 w-10" />
                 <div>
                   <div className="font-bold text-lg leading-none">BI2X Token</div>
                   <div className="flex items-center gap-2 mt-0.5">
