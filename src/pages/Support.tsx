@@ -20,26 +20,115 @@ const TOPICS = [
 ] as const;
 
 const FAQS = [
+  // Account & Security
   {
+    topic: "Account & Security",
+    question: "How do I secure my account?",
+    answer: "Enable two-factor authentication, use a hardware wallet when available, and maintain a withdrawal-address whitelist. Never share your wallet seed phrase or private keys with anyone.",
+  },
+  {
+    topic: "Account & Security",
+    question: "How do I sign in to BitDx?",
+    answer: "Connect your wallet (for example MetaMask) from the top-right of the app and approve the signature request. The signature only proves wallet ownership; it does not move any funds or cost gas.",
+  },
+  {
+    topic: "Account & Security",
+    question: "What should I do if I suspect unauthorized access?",
+    answer: "Disconnect your wallet from BitDx, revoke any suspicious token approvals from your wallet, and move your funds to a new wallet if your keys may be exposed. Then contact support with the time and details of what you noticed.",
+  },
+  {
+    topic: "Account & Security",
+    question: "Will BitDx ever ask for my seed phrase or password?",
+    answer: "No. BitDx staff and support will never ask for your seed phrase, private keys, or wallet password. Treat any message asking for them as a scam.",
+  },
+  // Wallet & Payments
+  {
+    topic: "Wallet & Payments",
     question: "How long do withdrawals take?",
     answer: "Most withdrawals are reviewed immediately. Network confirmation time depends on the selected blockchain and current congestion.",
   },
   {
+    topic: "Wallet & Payments",
+    question: "How do I deposit funds?",
+    answer: "Open Portfolio, choose Deposit, select the asset and network, and send funds to the address shown. Always match the network exactly; funds sent on the wrong network may be lost.",
+  },
+  {
+    topic: "Wallet & Payments",
+    question: "What is BI2XUSD and how do I get it?",
+    answer: "BI2XUSD is the platform stablecoin pegged to $1 and used as the quote currency for trading. You can obtain it by swapping USDT or USDC using the Swap button in the top bar.",
+  },
+  {
+    topic: "Wallet & Payments",
+    question: "Are there fees for swaps and withdrawals?",
+    answer: "Swaps between BI2XUSD and USDT/USDC and withdrawals can carry a small fee plus network costs. The exact amount is shown in the confirmation step before you approve anything.",
+  },
+  {
+    topic: "Wallet & Payments",
+    question: "My deposit hasn't arrived yet. What should I do?",
+    answer: "Deposits are credited after the required network confirmations, which can take longer during congestion. If it still hasn't appeared after that, check the transaction hash on a block explorer to confirm the network and address, then contact support with the hash.",
+  },
+  // Trading Help
+  {
+    topic: "Trading Help",
     question: "Where can I review my open orders?",
     answer: "Open orders appear in the lower trading panel. P2P orders also have a dedicated order page.",
   },
   {
-    question: "How do I secure my account?",
-    answer: "Enable two-factor authentication, use a hardware wallet when available, and maintain a withdrawal-address whitelist.",
+    topic: "Trading Help",
+    question: "What is the difference between Market and Limit orders?",
+    answer: "A Market order fills immediately at the best available price. A Limit order only fills at your chosen price or better, and stays open in the order book until it fills or you cancel it.",
   },
   {
+    topic: "Trading Help",
+    question: "Why is the Spot tab disabled for some assets?",
+    answer: "Spot trading is only available for markets that have a live spot order book. Other assets are traded through Futures. Select a Spot-enabled market to use the Spot tab.",
+  },
+  {
+    topic: "Trading Help",
+    question: "How does leverage and liquidation work?",
+    answer: "Leverage lets you open a larger position with less margin, but it magnifies losses as well as gains. If your margin can no longer cover losses, the position is liquidated. Use stop-loss orders and the Calculator to size positions and see your liquidation price before trading.",
+  },
+  {
+    topic: "Trading Help",
+    question: "How do I set Take Profit and Stop Loss?",
+    answer: "In the order panel, expand the optional TP/SL section and enter your trigger prices before placing the order. They close the position automatically when the market reaches those levels.",
+  },
+  {
+    topic: "Trading Help",
     question: "Can support modify or place trades?",
     answer: "No. Support can investigate platform issues, but it cannot place, cancel, or modify trades on your behalf.",
+  },
+  // Bots & AI Agent
+  {
+    topic: "Bots & AI Agent",
+    question: "How do I create a trading bot?",
+    answer: "Click Bot in the trade header or open Trading Bots from the menu, choose a strategy, set your market, investment amount and parameters, then start it. You can pause or stop a bot at any time.",
+  },
+  {
+    topic: "Bots & AI Agent",
+    question: "Where can I see what my bots are doing?",
+    answer: "Bot orders and activity appear under the Bot / AI Agent tab in the trading panel, and in the Trading Bots page. Filled bot trades also show up in your trade history.",
+  },
+  {
+    topic: "Bots & AI Agent",
+    question: "What happens to my open positions if I stop a bot?",
+    answer: "Stopping a bot prevents it from placing new orders. Review your open orders and positions afterwards and close or cancel anything you no longer want.",
+  },
+  {
+    topic: "Bots & AI Agent",
+    question: "When will the AI Agent be available?",
+    answer: "The AI Agent is coming soon. Until then, you can automate your trading with the available bot strategies.",
+  },
+  {
+    topic: "Bots & AI Agent",
+    question: "Are bots guaranteed to be profitable?",
+    answer: "No. Bots execute a strategy automatically and can lose money in unfavorable markets. Start with a small amount, review the parameters carefully, and monitor performance.",
   },
 ] as const;
 
 export default function Support() {
   const [query, setQuery] = useState("");
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -49,9 +138,10 @@ export default function Support() {
     || topic.description.toLowerCase().includes(normalizedQuery)
   ));
   const visibleFaqs = FAQS.map((faq, index) => ({ ...faq, index })).filter((faq) => (
-    !normalizedQuery
+    (!activeTopic || faq.topic === activeTopic)
+    && (!normalizedQuery
     || faq.question.toLowerCase().includes(normalizedQuery)
-    || faq.answer.toLowerCase().includes(normalizedQuery)
+    || faq.answer.toLowerCase().includes(normalizedQuery))
   ));
 
   return (
@@ -92,8 +182,12 @@ export default function Support() {
                   <button
                     key={topic.title}
                     type="button"
-                    onClick={() => setQuery(topic.title)}
-                    className="glass rounded-xl p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => {
+                      setActiveTopic((current) => current === topic.title ? null : topic.title);
+                      setOpenFaq(null);
+                    }}
+                    aria-pressed={activeTopic === topic.title}
+                    className={cn("glass rounded-xl p-4 text-left transition-all hover:border-primary/40 hover:bg-primary/5", activeTopic === topic.title && "border-primary/60 bg-primary/10")}
                   >
                     <topic.icon className="mb-4 h-5 w-5 text-primary" />
                     <div className="font-bold">{topic.title}</div>
@@ -110,7 +204,7 @@ export default function Support() {
 
             <section className="glass overflow-hidden rounded-xl">
               <div className="border-b border-border/50 px-5 py-4">
-                <h2 className="text-xl font-bold">Frequently Asked Questions</h2>
+                <h2 className="text-xl font-bold">Frequently Asked Questions{activeTopic ? ` · ${activeTopic}` : ""}</h2>
               </div>
               {visibleFaqs.map((faq) => (
                 <div key={faq.question} className="border-b border-border/40 last:border-b-0">
