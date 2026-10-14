@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils";
 
 // Logos are fetched once, stored as data URLs in localStorage, and reused on
 // every later load so refreshes never hit the network. BI2X ships bundled.
-const LOCAL_LOGOS: Record<string, string> = { BI2X: "/Bi2X_Logo.png", BI2XUSD: "/Bi2X_Logo.png" };
+const LOCAL_LOGOS: Record<string, string> = { BI2X: "/Bi2X_Logo.png", BI2XUSD: "/Bi2X_Logo.png", TAO: "/Tao_Logo.png" };
+// Dark-on-transparent marks need a light disc to stay visible on the dark theme.
+const LIGHT_BG = new Set(["TAO"]);
 const CDN = (sym: string) =>
   `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${sym.toLowerCase()}.png`;
 const KEY = (sym: string) => `tokenLogo:v1:${sym.toUpperCase()}`;
@@ -53,7 +55,7 @@ export function TokenLogo({ symbol, className }: { symbol: string; className?: s
   }, [sym]);
 
   if (src && src !== MISSING) {
-    return <img src={src} alt={sym} className={cn("h-9 w-9 rounded-full object-cover", className)} />;
+    return <img src={src} alt={sym} className={cn("h-9 w-9 rounded-full object-cover", LIGHT_BG.has(sym) && "bg-white p-1.5", className)} />;
   }
   return (
     <div className={cn("h-9 w-9 rounded-full bg-gradient-primary flex items-center justify-center font-bold text-xs text-primary-foreground shadow-glow-primary", className)}>
