@@ -7,18 +7,12 @@ import {
   CircleHelp,
   Clock3,
   Mail,
-  MessageSquare,
   Search,
-  Send,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { AppShell } from "@/components/AppShell";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const TOPICS = [
@@ -49,8 +43,6 @@ const FAQS = [
 
 export default function Support() {
   const [query, setQuery] = useState("");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -65,19 +57,6 @@ export default function Support() {
     || faq.answer.toLowerCase().includes(normalizedQuery)
   ));
 
-  const submitRequest = () => {
-    if (!subject.trim() || !message.trim()) {
-      toast.error("Add a subject and describe the issue");
-      return;
-    }
-
-    toast.success("Support request submitted", {
-      description: "A support specialist will reply to trader@bitdx.ai.",
-    });
-    setSubject("");
-    setMessage("");
-  };
-
   return (
     <AppShell>
       <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
@@ -90,7 +69,7 @@ export default function Support() {
             </div>
             <h1 className="text-3xl font-black tracking-tight sm:text-4xl">How can we help?</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Search common questions or send our support team a detailed request.
+              Search common questions and browse help topics.
             </p>
             <div className="mt-6 flex h-12 items-center rounded-xl border border-border bg-background/60 px-4 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/15">
               <Search className="mr-3 h-4 w-4 text-muted-foreground" />
@@ -159,42 +138,6 @@ export default function Support() {
           </div>
 
           <div className="space-y-4">
-            <section className="glass-strong rounded-2xl border border-primary/20 p-5">
-              <div className="mb-5 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-bold">Contact Support</h2>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Include order IDs or transaction hashes when relevant.</p>
-                </div>
-                <MessageSquare className="h-5 w-5 text-primary" />
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="support-subject" className="mb-1.5 block text-xs font-semibold text-muted-foreground">Subject</label>
-                  <Input
-                    id="support-subject"
-                    value={subject}
-                    onChange={(event) => setSubject(event.target.value)}
-                    placeholder="What do you need help with?"
-                    className="bg-background/50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="support-message" className="mb-1.5 block text-xs font-semibold text-muted-foreground">Message</label>
-                  <Textarea
-                    id="support-message"
-                    value={message}
-                    onChange={(event) => setMessage(event.target.value)}
-                    placeholder="Describe the issue and the steps that led to it..."
-                    className="min-h-36 resize-none bg-background/50"
-                  />
-                </div>
-                <Button onClick={submitRequest} className="h-11 w-full bg-gradient-primary font-bold text-primary-foreground">
-                  <Send className="mr-2 h-4 w-4" />
-                  Submit Request
-                </Button>
-              </div>
-            </section>
-
             <section className="glass rounded-xl p-5">
               <div className="mb-4 flex items-center gap-2">
                 <CircleCheck className="h-5 w-5 text-buy" />
