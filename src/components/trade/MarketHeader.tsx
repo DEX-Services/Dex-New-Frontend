@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { TokenLogo } from "./TokenLogo";
 
 export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onResetLayout }: {
   symbol: string;
@@ -65,9 +66,7 @@ export function MarketHeader({ symbol, calculatorOpen, onToggleCalculator, onRes
   return (
     <div className="glass rounded-xl px-4 py-2.5 flex items-center gap-6 overflow-x-auto">
       <div className="flex items-center gap-2 min-w-fit">
-        <div className="h-9 w-9 rounded-full bg-gradient-primary flex items-center justify-center font-bold text-xs text-primary-foreground shadow-glow-primary">
-          {market.base.slice(0, 3)}
-        </div>
+        <TokenLogo symbol={market.base} />
         <div>
           <div className="font-bold text-sm flex items-center gap-1.5">
             {market.symbol}
